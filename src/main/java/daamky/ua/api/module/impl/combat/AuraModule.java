@@ -17,11 +17,9 @@ import net.minecraft.util.Pair;
 import net.minecraft.util.PlayerInput;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
-// ДОБАВЛЕНЫ ИМПОРТЫ ДЛЯ РЕЙКАСТА
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.world.RaycastContext;
-// ---
 import daamky.ua.api.module.impl.combat.aura.rotations.SpookyTimeAngle;
 import daamky.ua.api.module.impl.combat.aura.rotations.SpookyTime2Angle;
 import net.minecraft.util.math.Vec3d;
@@ -104,7 +102,6 @@ public class AuraModule extends Module {
    private final MultiPoint pointFinder = new MultiPoint();
    private final StrikerConstructor attackPerpetrator = new StrikerConstructor();
 
-   // ─────── ПРЕСЕТЫ (кнопка загрузки конфига) ───────
    public final ModeSetting presetSelector = this.register(
       new ModeSetting(
          "Preset", "Ready-made Aura configs", "Not Selected",
@@ -114,7 +111,6 @@ public class AuraModule extends Module {
    public final ButtonSetting applyPresetButton = this.register(
       new ButtonSetting("Load Config", "Applies the selected preset to Aura only", this::applySelectedPreset)
    );
-   // ───────────────────────────────────────────────
 
    public final ModeSetting mode = this.register(
       new ModeSetting(
@@ -771,8 +767,7 @@ public class AuraModule extends Module {
             );
          Vec3d computedPoint = (Vec3d)point.getLeft();
          Box box = this.adjustAttackBox((Box)point.getRight());
-         
-         // ИЗМЕНЕННЫЙ БЛОК ДЛЯ ПОЛЕТА НА ЭЛИТРЕ
+
          if (client.player.isGliding()) {
             float leadTicks = 0.0F;
             ElytraTarget elytraTarget = ElytraTarget.getInstance();
@@ -788,34 +783,33 @@ public class AuraModule extends Module {
             double nx = horizontal == 0.0d ? 0.0d : dx / horizontal;
             double nz = horizontal == 0.0d ? 0.0d : dz / horizontal;
 
-            double distanceToGround = 2.0; // Default fallback
+            double distanceToGround = 2.0;
             BlockHitResult raycast = client.world.raycast(new RaycastContext(
-                client.player.getPos(), client.player.getPos().subtract(0, 2, 0), 
-                RaycastContext.ShapeType.COLLIDER, 
+                client.player.getEntityPos(), client.player.getEntityPos().subtract(0, 2, 0),
+                RaycastContext.ShapeType.COLLIDER,
                 RaycastContext.FluidHandling.NONE, client.player
             ));
             if (raycast.getType() != HitResult.Type.MISS) {
-                distanceToGround = client.player.getPos().y - raycast.getPos().y;
+                distanceToGround = client.player.getEntityPos().y - raycast.getPos().y;
             }
             double lift = Math.max(0.0d, 3.0d - distanceToGround);
 
             Vec3d targetVelocity = target.getVelocity();
             Vec3d predictedTargetPos = target.getEntityPos().add(targetVelocity.multiply((double)leadTicks));
-            
+
             double forwardOffset = leadTicks > 0 ? leadTicks : 4.0d;
-            
+
             computedPoint = new Vec3d(predictedTargetPos.x + (nx * forwardOffset), predictedTargetPos.y + lift, predictedTargetPos.z + (nz * forwardOffset));
-            
+
             box = this.adjustAttackBox(new Box(
                 predictedTargetPos.x - (double)target.getWidth() / 2.0,
                 predictedTargetPos.y,
                 predictedTargetPos.z - (double)target.getWidth() / 2.0,
                 predictedTargetPos.x + (double)target.getWidth() / 2.0,
-                predictedTargetPos.y + (double)target.getHeight(),
+                predictedTargetPos.y + target.getHeight(),
                 predictedTargetPos.z + (double)target.getWidth() / 2.0
             ));
          }
-         // КОНЕЦ ИЗМЕНЕННОГО БЛОКА
 
          Angle angle = MathAngle.fromVec3d(computedPoint.subtract(client.player.getEyePos()));
          return new StrikerConstructor.AttackPerpetratorConfigurable(
@@ -826,7 +820,7 @@ public class AuraModule extends Module {
             this.mode,
             box,
             computedPoint,
-            this.onlyCriticals.getValue(),
+            this.onlyCriticals.getValue() && !client.player.isGliding(),
             this.isSyncWithTpsEnabled(),
             false
          );
