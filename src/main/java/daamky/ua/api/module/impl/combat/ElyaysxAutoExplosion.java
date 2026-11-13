@@ -214,7 +214,7 @@ public final class ElyaysxAutoExplosion extends Module {
             if (!(entity instanceof EndCrystalEntity crystal)) {
                 continue;
             }
-            if (!this.crystalSearchBounds.contains(crystal.getPos())) {
+            if (!this.crystalSearchBounds.contains(crystal.getX(), crystal.getY(), crystal.getZ())) {
                 continue;
             }
 
