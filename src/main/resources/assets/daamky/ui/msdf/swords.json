@@ -1,0 +1,38 @@
+{
+  "atlas": {
+    "type": "msdf",
+    "distanceRange": 36.0,
+    "distanceRangeMiddle": 0,
+    "size": 512.0,
+    "width": 512.0,
+    "height": 512.0,
+    "yOrigin": "bottom"
+  },
+  "metrics": {
+    "emSize": 1,
+    "lineHeight": 1,
+    "ascender": 1,
+    "descender": 0,
+    "underlineY": 0,
+    "underlineThickness": 0
+  },
+  "glyphs": [
+    {
+      "unicode": 115,
+      "advance": 1.0,
+      "planeBounds": {
+        "left": 0.0,
+        "bottom": -0.05,
+        "right": 1.0,
+        "top": 0.95
+      },
+      "atlasBounds": {
+        "left": 0.5,
+        "bottom": 0.5,
+        "right": 511.5,
+        "top": 511.5
+      }
+    }
+  ],
+  "kerning": []
+}

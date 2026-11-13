@@ -1,0 +1,33 @@
+package daamky.ua.api.settings.impl;
+
+import com.google.gson.JsonElement;
+import com.google.gson.JsonPrimitive;
+import daamky.ua.api.settings.Setting;
+import daamky.ua.api.settings.SettingType;
+
+public class StringSetting extends Setting<String> {
+   private final int maxLength;
+
+   public StringSetting(String name, String description, String defaultValue, int maxLength) {
+      super(name, description, defaultValue, SettingType.STRING);
+      this.maxLength = Math.max(1, maxLength);
+      this.setValue(defaultValue);
+   }
+
+   @Override
+   public JsonElement toJson() {
+      return new JsonPrimitive(this.getValue());
+   }
+
+   @Override
+   public void fromJson(JsonElement element) {
+      if (element != null && element.isJsonPrimitive()) {
+         this.setValue(element.getAsString());
+      }
+   }
+
+   protected String normalize(String value) {
+      String safeValue = value == null ? "" : value;
+      return safeValue.length() > this.maxLength ? safeValue.substring(0, this.maxLength) : safeValue;
+   }
+}

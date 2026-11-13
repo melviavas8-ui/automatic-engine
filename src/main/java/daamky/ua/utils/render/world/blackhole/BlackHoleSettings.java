@@ -1,0 +1,35 @@
+package daamky.ua.utils.render.world.blackhole;
+
+public record BlackHoleSettings(
+   float directionX,
+   float directionY,
+   float directionZ,
+   float cameraDistance,
+   float hotRed,
+   float hotGreen,
+   float hotBlue,
+   float innerRadius,
+   float coldRed,
+   float coldGreen,
+   float coldBlue,
+   float outerRadius,
+   float haloRed,
+   float haloGreen,
+   float haloBlue,
+   float haloStrength,
+   float spaceRed,
+   float spaceGreen,
+   float spaceBlue,
+   float stars,
+   float spinSpeed,
+   float turbulence,
+   float inclination,
+   float opacity,
+   float steps,
+   float brightness,
+   float doppler,
+   float diskSoftness,
+   float lensing,
+   float exposure
+) {
+}

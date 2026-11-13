@@ -1,0 +1,174 @@
+{
+  "kolokolnia_kill": {
+    "sounds": [
+      "daamky:other/kill_effect/kolokolnia_kill"
+    ]
+  },
+  "moan1": {
+    "sounds": [
+      "daamky:hit_sounds/moan1"
+    ]
+  },
+  "moan2": {
+    "sounds": [
+      "daamky:hit_sounds/moan2"
+    ]
+  },
+  "moan3": {
+    "sounds": [
+      "daamky:hit_sounds/moan3"
+    ]
+  },
+  "moan4": {
+    "sounds": [
+      "daamky:hit_sounds/moan4"
+    ]
+  },
+  "module_disable": {
+    "sounds": [
+      "daamky:module_sounds/off"
+    ]
+  },
+  "module_enable": {
+    "sounds": [
+      "daamky:module_sounds/on"
+    ]
+  },
+  "off": {
+    "sounds": [
+      "daamky:module_sounds/off2"
+    ]
+  },
+  "on": {
+    "sounds": [
+      "daamky:module_sounds/on2"
+    ]
+  },
+  "crime": {
+    "sounds": [
+      "daamky:hit_sounds/crime"
+    ]
+  },
+  "frag_effect_echo_main": {
+    "sounds": [
+      "daamky:charmsfxpack/echocharmmain"
+    ]
+  },
+  "frag_effect_knock_main": {
+    "sounds": [
+      "daamky:charmsfxpack/knockcharmmain"
+    ]
+  },
+  "frag_effect_pulse": {
+    "sounds": [
+      "daamky:charmsfxpack/pulsecharmdistant0",
+      "daamky:charmsfxpack/pulsecharmdistant1",
+      "daamky:charmsfxpack/pulsecharmdistant2",
+      "daamky:charmsfxpack/pulsecharmdistant3",
+      "daamky:charmsfxpack/pulsecharmdistant4"
+    ]
+  },
+  "frag_effect_sparks_collision": {
+    "sounds": [
+      "daamky:charmsfxpack/sparkscollisionneared"
+    ]
+  },
+  "metallic": {
+    "sounds": [
+      "daamky:hit_sounds/metallic"
+    ]
+  },
+  "welcome": {
+    "sounds": [
+      "daamky:other/notification/notif"
+    ]
+  },
+  "module_enable_type2": {
+    "sounds": [
+      "daamky:module_sounds/on1"
+    ]
+  },
+  "module_disable_type2": {
+    "sounds": [
+      "daamky:module_sounds/off1"
+    ]
+  },
+  "mine": {
+    "sounds": [
+      "daamky:other/auto_mine/mine"
+    ]
+  },
+  "accountswitch": {
+    "sounds": [
+      "daamky:alt_manager/accountswitch"
+    ]
+  },
+  "searchtyping": {
+    "sounds": [
+      "daamky:clickgui/searchtyping"
+    ]
+  },
+  "slider": {
+    "sounds": [
+      "daamky:clickgui/slider"
+    ]
+  },
+  "switchcategory": {
+    "sounds": [
+      "daamky:clickgui/switchcategory"
+    ]
+  },
+  "no-settings": {
+    "sounds": [
+      "daamky:clickgui/no-settings"
+    ]
+  },
+  "buttonclick": {
+    "sounds": [
+      "daamky:clickgui/buttonclick"
+    ]
+  },
+  "menu_open": {
+    "sounds": [
+      "daamky:clickgui/settings-open"
+    ]
+  },
+  "menu_close": {
+    "sounds": [
+      "daamky:clickgui/settings-close"
+    ]
+  },
+  "unknowncommand": {
+    "sounds": [
+      "daamky:commands/unknowncommand"
+    ]
+  },
+  "entity.ribbit.ambient": {
+    "sounds": [
+      "daamky:entity/ribbit_ambient1",
+      "daamky:entity/ribbit_ambient2",
+      "daamky:entity/ribbit_ambient3",
+      "daamky:entity/ribbit_ambient4",
+      "daamky:entity/ribbit_ambient5"
+    ]
+  },
+  "entity.ribbit.step": {
+    "sounds": [
+      "daamky:entity/ribbit_step1",
+      "daamky:entity/ribbit_step2"
+    ]
+  },
+  "entity.ribbit.hurt": {
+    "sounds": [
+      "daamky:entity/ribbit_hurt1",
+      "daamky:entity/ribbit_hurt2",
+      "daamky:entity/ribbit_hurt3"
+    ]
+  },
+  "entity.ribbit.death": {
+    "sounds": [
+      "daamky:entity/ribbit_death1",
+      "daamky:entity/ribbit_death2"
+    ]
+  }
+}

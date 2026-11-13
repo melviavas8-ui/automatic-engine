@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "daamky",
+  "version": "1.0.0",
+  "name": "daamky",
+  "description": "Cheat client for Fabric 1.21.11",
+  "authors": [
+    "Me!"
+  ],
+  "contact": {
+    "homepage": "https://fabricmc.net/",
+    "sources": "https://github.com/FabricMC/fabric-example-mod"
+  },
+  "license": "CC0-1.0",
+  "icon": "assets/daamky/ui/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "main": [
+      "daamky.ua.Engine"
+    ],
+    "client": [
+      "daamky.ua.Engine"
+    ]
+  },
+  "accessWidener": "daamky-tech.accesswidener",
+  "mixins": [
+    "mixins.json"
+  ],
+  "depends": {
+    "fabricloader": "\u003e\u003d0.19.2",
+    "minecraft": "1.21.11",
+    "java": "\u003e\u003d21",
+    "fabric-api": "*"
+  },
+  "jars": [
+    {
+      "file": "META-INF/jars/jna-5.14.0.jar"
+    },
+    {
+      "file": "META-INF/jars/jna-platform-5.14.0.jar"
+    },
+    {
+      "file": "META-INF/jars/media-player-info-0.1.0.jar"
+    },
+    {
+      "file": "META-INF/jars/netty-codec-socks-4.2.7.Final.jar"
+    },
+    {
+      "file": "META-INF/jars/netty-handler-proxy-4.2.7.Final.jar"
+    }
+  ]
+}

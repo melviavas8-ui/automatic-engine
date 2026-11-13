@@ -1,0 +1,87 @@
+plugins {
+    id 'fabric-loom' version '1.16.3'
+    id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    compileOnly fileTree(dir: 'src/main/resources/META-INF/jars', include: ['*.jar'])
+    runtimeOnly fileTree(dir: 'src/main/resources/META-INF/jars', include: ['*.jar'])
+}
+
+loom {
+    accessWidenerPath = file("src/main/resources/daamky-tech.accesswidener")
+}
+
+processResources {
+    inputs.property "version", project.version
+
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 21
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+jar {
+    from("LICENSE_daamky-Tech") {
+        rename { "${it}_${project.base.archivesName.get()}"}
+    }
+}
+
+
+
+dependencies {
+    compileOnly 'org.projectlombok:lombok:1.18.34'
+    annotationProcessor 'org.projectlombok:lombok:1.18.34'
+}
+
+
+// Generate the MSDF font atlases used by the migrated ClickGUI and HUD.
+def daamkyFontsDir = file('fonts')
+def daamkyBakedRoot = layout.buildDirectory.dir('generated/daamky-baked').get().asFile
+def daamkyBakedOut = new File(daamkyBakedRoot, "assets/daamky/fonts")
+def daamkyJavaExe = new File(System.getProperty('java.home'), System.getProperty('os.name').toLowerCase().contains('win') ? 'bin/java.exe' : 'bin/java')
+
+tasks.register('bakeDaamkyFonts', Exec) {
+    inputs.dir(daamkyFontsDir)
+    inputs.file('tools/MsdfBaker.java')
+    outputs.dir(daamkyBakedOut)
+    commandLine daamkyJavaExe.absolutePath, '-Djava.awt.headless=true',
+            'tools/MsdfBaker.java', daamkyFontsDir.absolutePath, daamkyBakedOut.absolutePath
+}
+
+sourceSets.main.resources.srcDir(daamkyBakedRoot)
+tasks.named('processResources') {
+    dependsOn(tasks.named('bakeDaamkyFonts'))
+}
+
+
+// The generated MSDF atlases are also visible to the main resource source set.
+// Make their producer explicit for sourcesJar under Gradle 9.5+ validation.
+tasks.named('sourcesJar') {
+    dependsOn(tasks.named('bakeDaamkyFonts'))
+}
