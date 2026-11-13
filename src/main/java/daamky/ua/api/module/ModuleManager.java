@@ -42,6 +42,7 @@ import daamky.ua.api.module.impl.misc.AutoDuel;
 import daamky.ua.api.module.impl.misc.AutoEvent;
 import daamky.ua.api.module.impl.misc.AutoLeave;
 import daamky.ua.api.module.impl.misc.AutoLes;
+import daamky.ua.api.module.impl.combat.AutoExplosion;
 import daamky.ua.api.module.impl.misc.AutoMine;
 import daamky.ua.api.module.impl.misc.AutoTpAccept;
 import daamky.ua.api.module.impl.misc.ClientSounds;
@@ -250,6 +251,7 @@ public final class ModuleManager {
          this.register(new AuraModule());
          this.register(new BackTracks());
          this.register(new AutoCrystal());
+         this.register(new AutoExplosion());
          this.register(new AutoGApple());
          this.register(new AutoSwap());
          this.register(new Criticals());

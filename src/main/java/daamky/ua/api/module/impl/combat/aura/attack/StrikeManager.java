@@ -132,8 +132,7 @@ public class StrikeManager implements IMinecraft {
 
          PlayerSimulation simulated = PlayerSimulation.simulateLocalPlayer(0);
          boolean wallSprintBypass = sprint && this.shouldBypassSprintGateInTightSpace(config, simulated);
-         // ИСПРАВЛЕНИЕ 1: Разрешаем спринт при полете на элитре
-         boolean effectiveSprint = sprint && !wallSprintBypass && !mc.player.isGliding();
+         boolean effectiveSprint = sprint && !wallSprintBypass;
          boolean canAttackNow = this.canAttack(config, 0);
          if (raytrace && canAttackNow && !effectiveSprint) {
             if (config.isShouldUnPressShield() && this.waitingForPostReleaseTick) {
@@ -373,8 +372,7 @@ public class StrikeManager implements IMinecraft {
    }
 
    private boolean shouldBypassCriticalChecks(PlayerSimulation simulated) {
-      // ИСПРАВЛЕНИЕ 2: Разрешаем игнорировать проверки критов при полете
-      return this.hasMovementRestrictions(simulated) || simulated.isFallFlying || mc.player.isGliding();
+      return this.hasMovementRestrictions(simulated);
    }
 
    private boolean isInsideTightSpace(PlayerSimulation simulated) {
@@ -565,8 +563,8 @@ public class StrikeManager implements IMinecraft {
    }
 
    private boolean checkElytraMode(StrikerConstructor.AttackPerpetratorConfigurable config) {
-      // ИСПРАВЛЕНИЕ 3: Убрано требование, чтобы цель тоже летела (AuraModule.target.isGliding())
       return AuraModule.target != null
+         && AuraModule.target.isGliding()
          && mc.player.isGliding()
          && ElytraTarget.getInstance() != null
          && ElytraTarget.getInstance().isEnabled();
@@ -590,16 +588,8 @@ public class StrikeManager implements IMinecraft {
          predictedPos.z + (double)(config.getTarget().getWidth() / 2.0F)
       );
       Vec3d eyePos = mc.player.getEyePos();
-      
-      // ИСПРАВЛЕНИЕ 4: Используем angle из config (целевой угол), а не текущий поворот камеры (чтобы не блокировалось плавной ротацией)
-      Vec3d lookVec = config.getAngle().toVector();
-      
-      // ИСПРАВЛЕНИЕ 5: Увеличиваем дальность проверки рейкаста при полете на элитре
-      float maxRange = (mc.player.isGliding() && elytraTarget != null && elytraTarget.isEnabled()) 
-                       ? elytraTarget.getRange() 
-                       : config.getMaximumRange();
-
-      return predictedBox.raycast(eyePos, eyePos.add(lookVec.multiply((double)maxRange))).isPresent();
+      Vec3d lookVec = AngleConnection.INSTANCE.getRotation().toVector();
+      return predictedBox.raycast(eyePos, eyePos.add(lookVec.multiply((double)config.getMaximumRange()))).isPresent();
    }
 
    private boolean isPlayerInCriticalState(PlayerSimulation simulated, int ticks) {
