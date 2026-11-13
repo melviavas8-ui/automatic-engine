@@ -2,10 +2,13 @@ package daamky.ua.api.module.impl.combat;
 
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.PacketEvent;
+import daamky.ua.api.events.impl.RotationUpdateEvent;
 import daamky.ua.api.events.impl.TickEvent;
+import daamky.ua.api.events.types.EventPhase;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.settings.impl.BooleanSetting;
+import daamky.ua.api.settings.impl.NumberSetting;
 import java.util.Random;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.decoration.EndCrystalEntity;
@@ -26,13 +29,22 @@ public final class AutoExplosion extends Module {
     private final BooleanSetting doubleCrystal = this.register(
         new BooleanSetting("Double Crystal", "Установить двойной кристалл", false)
     );
-    private final BooleanSetting autoRotate = this.register(
-        new BooleanSetting("Auto Rotate", "Автоматически наводиться на кристалл", true)
+    private final NumberSetting aimSpeed = this.register(
+        new NumberSetting("Aim Speed", "Скорость наводки (0-1)", 0.5, 0.1, 1.0, 0.05)
+    );
+    private final BooleanSetting silent = this.register(
+        new BooleanSetting("Silent Aim", "Поворот только на сервере (камера не двигается)", true)
+    );
+    private final BooleanSetting smooth = this.register(
+        new BooleanSetting("Smooth Aim", "Плавная интерполяция (быстро, но не рывком)", true)
     );
 
     private BlockPos obsidianPos = null;
     private int tick = 0;
     private int prevSlot = -1;
+    private Vec3d aimPoint = null;
+    private float targetYaw = 0f;
+    private float targetPitch = 0f;
 
     public AutoExplosion() {
         super("AutoExplosion", "Автоматически ставит кристалл на обсидиан и подрывает", ModuleCategory.COMBAT);
@@ -49,6 +61,41 @@ public final class AutoExplosion extends Module {
         this.obsidianPos = hit.getBlockPos().offset(hit.getSide());
         this.prevSlot = -1;
         this.tick = 0;
+    }
+
+    @SubscribeEvent
+    private void onRotationUpdate(RotationUpdateEvent event) {
+        if (!this.isEnabled() || event.getPhase() != EventPhase.PRE) return;
+        if (mc.player == null || aimPoint == null) return;
+
+        float curYaw = MathHelper.wrapDegrees(mc.player.getYaw());
+        float curPitch = mc.player.getPitch();
+
+        float newYaw;
+        float newPitch;
+
+        if (smooth.getValue()) {
+            // Плавная интерполяция
+            float deltaYaw = MathHelper.wrapDegrees(targetYaw - curYaw);
+            float deltaPitch = targetPitch - curPitch;
+            float speed = aimSpeed.getFloat();
+            newYaw = curYaw + deltaYaw * speed;
+            newPitch = MathHelper.clamp(curPitch + deltaPitch * speed, -90f, 90f);
+        } else {
+            // Мгновенный snap
+            newYaw = targetYaw;
+            newPitch = MathHelper.clamp(targetPitch, -90f, 90f);
+        }
+
+        if (silent.getValue()) {
+            // Silent: меняем локально, но на следующем тике откатываем
+            mc.player.setYaw(newYaw);
+            mc.player.setPitch(newPitch);
+            // Возврат будет в onTick Post — когда interactBlock уже отправил пакет
+        } else {
+            mc.player.setYaw(newYaw);
+            mc.player.setPitch(newPitch);
+        }
     }
 
     @SubscribeEvent
@@ -71,12 +118,10 @@ public final class AutoExplosion extends Module {
             this.placeCrystal(crystalSlot);
         }
 
-        // Ищем кристалл в Box над обсидианом
         Box searchBox = new Box(this.obsidianPos.up()).expand(0.5);
         for (EndCrystalEntity crystal : mc.world.getEntitiesByClass(EndCrystalEntity.class, searchBox, c -> true)) {
-            if (this.autoRotate.getValue() && !isAuraControlling()) {
-                this.rotateTo(aimPoint(crystal.getBoundingBox()));
-            }
+            this.setAimTarget(aimPoint(crystal.getBoundingBox()));
+
             if (this.tick >= 3 && mc.player.canInteractWithEntity(crystal, 0.0)) {
                 mc.interactionManager.attackEntity(mc.player, crystal);
                 mc.player.swingHand(Hand.MAIN_HAND);
@@ -94,11 +139,6 @@ public final class AutoExplosion extends Module {
         }
     }
 
-    private boolean isAuraControlling() {
-        AuraModule aura = AuraModule.getInstance();
-        return aura != null && aura.isEnabled() && aura.canAttack(0);
-    }
-
     private void placeCrystal(int slot) {
         if (mc.player == null || mc.interactionManager == null) return;
         int current = mc.player.getInventory().getSelectedSlot();
@@ -106,13 +146,26 @@ public final class AutoExplosion extends Module {
             this.prevSlot = current;
             mc.player.networkHandler.sendPacket(new UpdateSelectedSlotC2SPacket(slot));
             mc.player.getInventory().setSelectedSlot(slot);
+        } else {
+            // Уже на кристалле — запоминаем текущий слот как prevSlot тоже (на случай если не вернётся)
+            if (this.prevSlot == -1) {
+                this.prevSlot = current;
+            }
         }
         Vec3d center = this.obsidianPos.toCenterPos();
         Vec3d hitVec = new Box(this.obsidianPos).raycast(mc.player.getEyePos(), center).orElse(center);
-        this.rotateTo(center);
+        this.setAimTarget(center);
         mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND,
             new BlockHitResult(hitVec, Direction.getFacing(hitVec.subtract(center)), this.obsidianPos, false));
         mc.player.swingHand(Hand.MAIN_HAND);
+    }
+
+    private void setAimTarget(Vec3d point) {
+        if (mc.player == null) return;
+        this.aimPoint = point;
+        Vec3d diff = point.subtract(mc.player.getEyePos());
+        this.targetYaw = (float) Math.toDegrees(Math.atan2(diff.z, diff.x)) - 90.0f + rand(-3.0f, 3.0f);
+        this.targetPitch = (float) (-Math.toDegrees(Math.atan2(diff.y, Math.sqrt(diff.x * diff.x + diff.z * diff.z)))) + rand(-3.0f, 3.0f);
     }
 
     private Vec3d aimPoint(Box box) {
@@ -122,15 +175,6 @@ public final class AutoExplosion extends Module {
             MathHelper.clamp(eye.y, box.minY, box.maxY) + rand(-0.1f, 0.1f),
             MathHelper.clamp(eye.z, box.minZ, box.maxZ) + rand(-0.1f, 0.1f)
         );
-    }
-
-    private void rotateTo(Vec3d point) {
-        if (mc.player == null) return;
-        Vec3d diff = point.subtract(mc.player.getEyePos());
-        float yaw = (float) Math.toDegrees(Math.atan2(diff.z, diff.x)) - 90.0f;
-        float pitch = (float) (-Math.toDegrees(Math.atan2(diff.y, Math.sqrt(diff.x * diff.x + diff.z * diff.z))));
-        mc.player.setYaw(yaw + rand(-3.0f, 3.0f));
-        mc.player.setPitch(pitch + rand(-3.0f, 3.0f));
     }
 
     private int findCrystalSlot() {
@@ -145,6 +189,7 @@ public final class AutoExplosion extends Module {
     }
 
     private void reset() {
+        // Возврат слота
         if (this.prevSlot != -1 && mc.player != null) {
             mc.player.networkHandler.sendPacket(new UpdateSelectedSlotC2SPacket(this.prevSlot));
             mc.player.getInventory().setSelectedSlot(this.prevSlot);
@@ -152,6 +197,7 @@ public final class AutoExplosion extends Module {
         this.prevSlot = -1;
         this.obsidianPos = null;
         this.tick = 0;
+        this.aimPoint = null;
     }
 
     @Override
