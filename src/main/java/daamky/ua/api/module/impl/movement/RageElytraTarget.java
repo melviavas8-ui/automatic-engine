@@ -170,7 +170,7 @@ public final class RageElytraTarget extends Module {
     }
 
     private double getGroundDistance(MinecraftClient mc) {
-        Vec3d start = mc.player.getPos();
+        Vec3d start = mc.player.getEntityPos();
         Vec3d end = start.subtract(0.0, 2.0, 0.0);
         BlockHitResult hit = mc.world.raycast(new RaycastContext(
             start, end,

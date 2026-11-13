@@ -162,7 +162,7 @@ public final class BlockESP extends Module {
       float range = performance ? this.radius.getFloat() : view * 16.0F * 1.5F + 48.0F;
       int limit = performance ? Math.min(MAX_BOXES, (int)this.boxLimit.getFloat()) : MAX_BOXES;
       int mask = this.selectedMask();
-      Vec3d camera = mc.gameRenderer.getCamera().getPos();
+      Vec3d camera = mc.gameRenderer.getCamera().getCameraPos();
       long now = System.currentTimeMillis();
       boolean rebuild = this.scanner.version() != this.lastVersion
          || mask != this.lastMask
