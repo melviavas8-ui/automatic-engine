@@ -42,6 +42,8 @@ public class DaamkyClickGui extends Screen {
     static final float CLIP_T = 44, CLIP_B = H - 8;
     static final float PANEL_W = 204, PANEL_MAX_H = 330, HEAD_H = 22, LABEL_W = 140;
     static final float OPT_H = 16, SLIDER_H = 33;
+    /** Target Minecraft GUI scale the design was made for. Keeps physical size consistent across GUI Scale / resolution. */
+    static final float REF_GUI_SCALE = 2f;
     static final int PANEL_BG = 0xFF080E18, TOG_OFF = 0xFF36506D, KNOB = 0xFFF5FAFF, THUMB = 0xFF587DA8;
 
 
@@ -304,8 +306,13 @@ public class DaamkyClickGui extends Screen {
         else c.fill(0, 0, width, height, ((int) (0x70 * ga) << 24));
         if (ga <= 0.003f) return;
 
-        float base = Math.min(1f, Math.min((height - 10f) / H, (width - 10f) / W));
-        S = base * (0.65f + 0.35f * k);
+        // Compensate for Minecraft GUI Scale so the menu has the same physical size for everyone.
+        // REF_GUI_SCALE=2 → at GUI Scale 2 the design size is 1:1; at Scale 1 it enlarges in scaled units, etc.
+        float guiScale = (float) client.getWindow().getScaleFactor();
+        float fit = Math.min((height - 10f) / H, (width - 10f) / W);
+        float base = Math.min(REF_GUI_SCALE / guiScale, fit);
+        // Open animation; clamp final S so bounce overshoot never exceeds available space
+        S = Math.min(base * (0.65f + 0.35f * k), fit);
         ox = (width - W * S) / 2f;
         oy = (height - H * S) / 2f;
         curOx = ox; curOy = oy; curS = S;
