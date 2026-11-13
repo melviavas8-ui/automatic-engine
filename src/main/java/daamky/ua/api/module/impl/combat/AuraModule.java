@@ -17,11 +17,9 @@ import net.minecraft.util.Pair;
 import net.minecraft.util.PlayerInput;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
-// ДОБАВЛЕНЫ ИМПОРТЫ ДЛЯ РЕЙКАСТА
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.world.RaycastContext;
-// ---
 import daamky.ua.api.module.impl.combat.aura.rotations.SpookyTimeAngle;
 import daamky.ua.api.module.impl.combat.aura.rotations.SpookyTime2Angle;
 import net.minecraft.util.math.Vec3d;
@@ -104,7 +102,6 @@ public class AuraModule extends Module {
    private final MultiPoint pointFinder = new MultiPoint();
    private final StrikerConstructor attackPerpetrator = new StrikerConstructor();
 
-   // ─────── ПРЕСЕТЫ (кнопка загрузки конфига) ───────
    public final ModeSetting presetSelector = this.register(
       new ModeSetting(
          "Preset", "Ready-made Aura configs", "Not Selected",
@@ -114,7 +111,6 @@ public class AuraModule extends Module {
    public final ButtonSetting applyPresetButton = this.register(
       new ButtonSetting("Load Config", "Applies the selected preset to Aura only", this::applySelectedPreset)
    );
-   // ───────────────────────────────────────────────
 
    public final ModeSetting mode = this.register(
       new ModeSetting(
@@ -790,12 +786,12 @@ public class AuraModule extends Module {
 
             double distanceToGround = 2.0; // Default fallback
             BlockHitResult raycast = client.world.raycast(new RaycastContext(
-                client.player.getPos(), client.player.getPos().subtract(0, 2, 0), 
+                client.player.getEntityPos(), client.player.getEntityPos().subtract(0, 2, 0), 
                 RaycastContext.ShapeType.COLLIDER, 
                 RaycastContext.FluidHandling.NONE, client.player
             ));
             if (raycast.getType() != HitResult.Type.MISS) {
-                distanceToGround = client.player.getPos().y - raycast.getPos().y;
+                distanceToGround = client.player.getEntityPos().y - raycast.getPos().y;
             }
             double lift = Math.max(0.0d, 3.0d - distanceToGround);
 
