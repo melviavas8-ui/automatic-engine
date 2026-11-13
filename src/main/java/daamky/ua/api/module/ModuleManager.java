@@ -55,7 +55,6 @@ import daamky.ua.api.module.impl.misc.UseTracker;
 import daamky.ua.api.module.impl.movement.AirStuck;
 import daamky.ua.api.module.impl.movement.AutoSprint;
 import daamky.ua.api.module.impl.movement.ElytraTarget;
-import daamky.ua.api.module.impl.movement.RageElytraTarget;
 import daamky.ua.api.module.impl.movement.Fly;
 import daamky.ua.api.module.impl.movement.InventoryMove;
 import daamky.ua.api.module.impl.movement.NoSlow;
@@ -280,7 +279,6 @@ public final class ModuleManager {
          this.register(new AutoSprint());
          this.register(new Fly());
          this.register(new ElytraTarget());
-         this.register(new RageElytraTarget());
          this.register(new NoWeb());
          this.register(new NoSlow());
          this.register(new InventoryMove());
