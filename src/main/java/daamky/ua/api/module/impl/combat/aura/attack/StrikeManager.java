@@ -123,8 +123,9 @@ public class StrikeManager implements IMinecraft {
          this.preAttackEntity(config);
       }
 
-      if (!this.checkElytraMode(config) || this.checkElytraRaycast(config)) {
-         boolean raytrace = RaycastAngle.rayTrace(config);
+      boolean elytraFlight = this.isElytraTargetFlight();
+      if (elytraFlight || !this.checkElytraMode(config) || this.checkElytraRaycast(config)) {
+         boolean raytrace = elytraFlight ? this.isTargetInElytraReach(config) : RaycastAngle.rayTrace(config);
          boolean sprint = mc.player.isSprinting();
          if (mc.player.isSwimming()) {
             sprint = false;
@@ -132,7 +133,7 @@ public class StrikeManager implements IMinecraft {
 
          PlayerSimulation simulated = PlayerSimulation.simulateLocalPlayer(0);
          boolean wallSprintBypass = sprint && this.shouldBypassSprintGateInTightSpace(config, simulated);
-         boolean effectiveSprint = sprint && !wallSprintBypass;
+         boolean effectiveSprint = sprint && !wallSprintBypass && !elytraFlight;
          boolean canAttackNow = this.canAttack(config, 0);
          if (raytrace && canAttackNow && !effectiveSprint) {
             if (config.isShouldUnPressShield() && this.waitingForPostReleaseTick) {
@@ -284,6 +285,8 @@ public class StrikeManager implements IMinecraft {
             float minimumCooldown = aura != null && aura.isCriticalBalanceEnabled() ? randomBetween(0.86F, 0.89F) : 0.82F;
             if (!this.clickScheduler.isCooldownComplete(config.isTpsSync(), (float)ticks, minimumCooldown)) {
                return false;
+            } else if (this.isElytraTargetFlight()) {
+               return true;
             } else {
                PlayerSimulation simulated = PlayerSimulation.simulateLocalPlayer(ticks);
                if (this.shouldBypassCriticalChecks(simulated)) {
@@ -560,6 +563,35 @@ public class StrikeManager implements IMinecraft {
 
    private boolean isFreeCamCritWindow(PlayerSimulation simulated) {
       return !simulated.onGround && simulated.velocity.y <= -0.01 && !this.hasCriticalRestrictions(simulated);
+   }
+
+   private boolean isElytraTargetFlight() {
+      return mc.player != null
+         && mc.player.isGliding()
+         && ElytraTarget.getInstance() != null
+         && ElytraTarget.getInstance().isEnabled();
+   }
+
+   private boolean isTargetInElytraReach(StrikerConstructor.AttackPerpetratorConfigurable config) {
+      if (mc.player == null || config == null || config.getTarget() == null) {
+         return false;
+      }
+
+      Vec3d eye = mc.player.getEyePos();
+      Box box = config.getTarget().getBoundingBox();
+      Vec3d closest = new Vec3d(
+         Math.max(box.minX, Math.min(eye.x, box.maxX)),
+         Math.max(box.minY, Math.min(eye.y, box.maxY)),
+         Math.max(box.minZ, Math.min(eye.z, box.maxZ))
+      );
+      double distance = eye.distanceTo(closest);
+      if (distance > (double)config.getMaximumRange()) {
+         return false;
+      } else if (distance < 1.0E-6) {
+         return true;
+      } else {
+         return RaycastAngle.rayTrace(closest.subtract(eye).normalize(), distance + 0.05, box, config.isIgnoreWalls());
+      }
    }
 
    private boolean checkElytraMode(StrikerConstructor.AttackPerpetratorConfigurable config) {
