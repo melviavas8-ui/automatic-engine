@@ -4,6 +4,8 @@ import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import net.minecraft.block.enums.CameraSubmersionType;
 import net.minecraft.client.render.Camera;
+import net.minecraft.client.render.RenderTickCounter;
+import net.minecraft.client.world.ClientWorld;
 import net.minecraft.client.render.fog.FogRenderer;
 import net.minecraft.client.render.fog.FogRenderer.FogType;
 import org.joml.Vector4f;
@@ -16,6 +18,7 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import daamky.ua.api.module.impl.visual.Ambience;
 import daamky.ua.api.module.impl.visual.NoRender;
+import daamky.ua.utils.render.FogEffectSuppression;
 
 @Mixin({FogRenderer.class})
 public abstract class FogRendererMixin {
@@ -27,6 +30,50 @@ public abstract class FogRendererMixin {
    private static int FOG_UBO_SIZE;
 
    public FogRendererMixin() {
+   }
+
+   @Inject(
+      method = {"applyFog(Lnet/minecraft/client/render/Camera;ILnet/minecraft/client/render/RenderTickCounter;FLnet/minecraft/client/world/ClientWorld;)Lorg/joml/Vector4f;"},
+      at = {@At("HEAD")},
+      require = 0
+   )
+   private void daamky$beginApplyFog(
+      Camera camera, int viewDistance, RenderTickCounter tickCounter, float skyDarkness, ClientWorld world, CallbackInfoReturnable<Vector4f> cir
+   ) {
+      FogEffectSuppression.begin();
+   }
+
+   @Inject(
+      method = {"applyFog(Lnet/minecraft/client/render/Camera;ILnet/minecraft/client/render/RenderTickCounter;FLnet/minecraft/client/world/ClientWorld;)Lorg/joml/Vector4f;"},
+      at = {@At("RETURN")},
+      require = 0
+   )
+   private void daamky$endApplyFog(
+      Camera camera, int viewDistance, RenderTickCounter tickCounter, float skyDarkness, ClientWorld world, CallbackInfoReturnable<Vector4f> cir
+   ) {
+      FogEffectSuppression.end();
+   }
+
+   @Inject(
+      method = {"getFogColor"},
+      at = {@At("HEAD")},
+      require = 0
+   )
+   private void daamky$beginFogColor(
+      Camera camera, float tickProgress, ClientWorld world, int viewDistance, float skyDarkness, CallbackInfoReturnable<Vector4f> cir
+   ) {
+      FogEffectSuppression.begin();
+   }
+
+   @Inject(
+      method = {"getFogColor"},
+      at = {@At("RETURN")},
+      require = 0
+   )
+   private void daamky$endFogColor(
+      Camera camera, float tickProgress, ClientWorld world, int viewDistance, float skyDarkness, CallbackInfoReturnable<Vector4f> cir
+   ) {
+      FogEffectSuppression.end();
    }
 
    @Inject(

@@ -154,6 +154,8 @@ void main() {
     // its own tiny length amplifies the C1 kinks that bilinear sampling leaves
     // on the texel grid, and those kinks then print a regular lattice across the
     // entire flame. A ratio of two positive samples has no such amplification.
+    float upness = 0.0;
+    if (flameStrength > 0.0) {
     float probe = mix(3.0, 10.0, distanceScale);
     float fieldBelow = coverageOf(texture(HazeSampler, texCoord - vec2(0.0, probe) * texel));
     float fieldAbove = coverageOf(texture(HazeSampler, texCoord + vec2(0.0, probe) * texel));
@@ -161,7 +163,8 @@ void main() {
     // Zero means the silhouette extends equally far up and down, which is the
     // case along the flanks of a tall model. Those flanks still need flame, so
     // the range is biased to give them a solid share of the full height.
-    float upness = smoothstep(-0.22, 0.60, vertical);
+    upness = smoothstep(-0.22, 0.60, vertical);
+    }
 
     // Aspect corrected and resolution independent, so the flame keeps its shape
     // at any window size or GUI scale. A distant entity covers fewer pixels, so
@@ -169,6 +172,11 @@ void main() {
     // Offsetting by the camera angle pins the pattern to the world instead of to
     // the monitor. Without it every camera turn drags all the entities across a
     // stationary noise field and the flame is seen crawling over them.
+    float streakNoise = 0.5;
+    float flameHeight = 0.0;
+    vec2 flameUV = vec2(0.0);
+    float basePeriodPixels = 1.0;
+    if (flameStrength > 0.0) {
     vec2 noiseUV = vec2(texCoord.x * resolution.x / resolution.y, texCoord.y)
         + BloomView.xy;
     float noiseScale = mix(10.0, 28.0, clamp((detail - 0.2) / 1.3, 0.0, 1.0))
@@ -181,7 +189,7 @@ void main() {
 
     // One unit of noiseUV spans resolution.y pixels on both axes, so the
     // shortest wavelength of the first octave is measured off the larger scale.
-    float basePeriodPixels = resolution.y / max(flameScale.x, flameScale.y);
+    basePeriodPixels = resolution.y / max(flameScale.x, flameScale.y);
 
     // Domain warp: a slow large scale swirl bends the fine octaves, which is
     // what makes the tongues curl and shear instead of sliding straight up.
@@ -192,7 +200,7 @@ void main() {
         fbmBanded(warpUV + vec2(4.7, 1.3), warpPeriod, 3)
     ) - 0.5;
 
-    vec2 flameUV = noiseUV * flameScale
+    flameUV = noiseUV * flameScale
         + vec2(warp.x * 2.4, warp.y * 0.9)
         + vec2(sin(time * 0.55) * 0.25, -time * 1.35);
     float flameNoise = fbmBanded(flameUV, basePeriodPixels, 5);
@@ -201,7 +209,7 @@ void main() {
         basePeriodPixels / 2.1,
         3
     );
-    float streakNoise = fbmBanded(
+    streakNoise = fbmBanded(
         flameUV * vec2(2.55, 1.9) + vec2(1.7, -time * 2.4),
         basePeriodPixels / 2.55,
         3
@@ -218,11 +226,12 @@ void main() {
     // The ceiling stops well short of 1.0 on purpose: the last stretch of the
     // distance field is its long faint tail, which is exactly where neighbouring
     // entities overlap, so flame allowed to reach it bridges between them.
-    float flameHeight = clamp(
+    flameHeight = clamp(
         (0.12 + 0.96 * pow(heightNoise, 1.25)) * rise * min(1.3, flameStrength),
         0.0,
         0.88
     );
+    }
     float feather = 0.055 + 0.075 * (1.0 - upness);
     float flame = 1.0 - smoothstep(
         flameHeight - feather,
@@ -262,8 +271,10 @@ void main() {
 
     // Sparse embers drifting off the tips. Deliberately rare and small - they
     // read as motion, not as dots.
-    float emberNoise = valueNoise(flameUV * vec2(2.2, 1.7) + vec2(11.3, -time * 3.1))
-        * smoothstep(1.8, 4.5, basePeriodPixels / 2.2);
+    float emberNoise = flameStrength >= 0.05
+        ? valueNoise(flameUV * vec2(2.2, 1.7) + vec2(11.3, -time * 3.1))
+            * smoothstep(1.8, 4.5, basePeriodPixels / 2.2)
+        : 0.0;
     float embers = smoothstep(0.945, 0.999, emberNoise)
         * smoothstep(0.12, 0.55, distanceOut)
         * (1.0 - smoothstep(0.72, 0.97, distanceOut))

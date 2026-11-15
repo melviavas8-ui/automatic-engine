@@ -9,12 +9,16 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
 import daamky.ua.api.config.ConfigManager;
 
 public final class ClientLanguage {
    private static final Gson GSON = new Gson();
    private static final String CONFIG_FILE = "language.daamky";
    private static ClientLanguage.Lang current = ClientLanguage.Lang.EN;
+   private static final int FALLBACK_CACHE_LIMIT = 4096;
+   private static final Map<String, String> NAME_FALLBACK_CACHE = new ConcurrentHashMap<>();
+   private static final Map<String, String> DESCRIPTION_FALLBACK_CACHE = new ConcurrentHashMap<>();
    private static final Map<String, String> RU = entries(
       Map.entry("Combat", "Бой"),
       Map.entry("Movement", "Движение"),
@@ -426,8 +430,28 @@ public final class ClientLanguage {
          return text;
       } else {
          String translated = RU.get(text);
-         return translated != null ? translated : DESCRIPTION_RU.getOrDefault(text, fallbackNameRu(text));
+         if (translated != null) {
+            return translated;
+         }
+
+         translated = DESCRIPTION_RU.get(text);
+         return translated != null ? translated : cachedFallback(NAME_FALLBACK_CACHE, text, false);
       }
+   }
+
+   private static String cachedFallback(Map<String, String> cache, String text, boolean description) {
+      String cached = cache.get(text);
+      if (cached != null) {
+         return cached;
+      }
+
+      String value = description ? fallbackDescriptionRu(text) : fallbackNameRu(text);
+      if (cache.size() >= FALLBACK_CACHE_LIMIT) {
+         cache.clear();
+      }
+
+      cache.put(text, value);
+      return value;
    }
 
    private static String fallbackNameRu(String text) {
@@ -541,7 +565,7 @@ public final class ClientLanguage {
             return translated;
          } else {
             translated = RU.get(text);
-            return translated != null ? translated : fallbackDescriptionRu(text);
+            return translated != null ? translated : cachedFallback(DESCRIPTION_FALLBACK_CACHE, text, true);
          }
       }
    }

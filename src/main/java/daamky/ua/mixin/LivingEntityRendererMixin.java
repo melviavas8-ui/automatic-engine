@@ -64,7 +64,7 @@ public abstract class LivingEntityRendererMixin<S extends LivingEntityRenderStat
          state.invisible = false;
          state.invisibleToPlayer = false;
       } else if (SeeInvisible.shouldRenderInvisible() && entity.isInvisible()) {
-         state.invisible = true;
+         state.invisible = false;
          state.invisibleToPlayer = false;
          accessor.daamky$setSeeInvisibleAlpha(SeeInvisible.getAlpha());
       } else {

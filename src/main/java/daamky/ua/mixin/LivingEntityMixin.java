@@ -4,8 +4,11 @@ import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.effect.StatusEffect;
+import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffectUtil;
 import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import org.spongepowered.asm.mixin.Mixin;
@@ -24,6 +27,7 @@ import daamky.ua.api.module.impl.combat.aura.AngleConnection;
 import daamky.ua.api.module.impl.combat.aura.AngleConstructor;
 import daamky.ua.api.module.impl.movement.Fly;
 import daamky.ua.manager.Manager;
+import daamky.ua.utils.render.FogEffectSuppression;
 
 @Mixin(
    value = {LivingEntity.class},
@@ -38,6 +42,30 @@ public abstract class LivingEntityMixin {
 
    @Shadow
    protected abstract double getEffectiveGravity();
+
+   @Inject(
+      method = {"hasStatusEffect"},
+      at = {@At("HEAD")},
+      cancellable = true,
+      require = 0
+   )
+   private void daamky$hideDarknessFromFogHas(RegistryEntry<StatusEffect> effect, CallbackInfoReturnable<Boolean> cir) {
+      if (FogEffectSuppression.hidesEffect((LivingEntity)(Object)this, effect)) {
+         cir.setReturnValue(false);
+      }
+   }
+
+   @Inject(
+      method = {"getStatusEffect"},
+      at = {@At("HEAD")},
+      cancellable = true,
+      require = 0
+   )
+   private void daamky$hideDarknessFromFogGet(RegistryEntry<StatusEffect> effect, CallbackInfoReturnable<StatusEffectInstance> cir) {
+      if (FogEffectSuppression.hidesEffect((LivingEntity)(Object)this, effect)) {
+         cir.setReturnValue(null);
+      }
+   }
 
    @Redirect(
       method = {"travel"},

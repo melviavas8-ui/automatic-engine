@@ -18,6 +18,6 @@ public class SeeInvisible extends Module {
    }
 
    public static float getAlpha() {
-      return instance == null ? 0.5F : instance.alpha.getFloat() * 5.0F;
+      return instance == null ? 0.5F : Math.min(instance.alpha.getFloat(), 0.995F);
    }
 }
