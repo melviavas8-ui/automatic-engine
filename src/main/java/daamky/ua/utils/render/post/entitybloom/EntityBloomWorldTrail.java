@@ -1,3 +1,4 @@
+// FIXED 2026-11-17: MAX_RENDERED_GHOSTS=0, MAX_STORED_SNAPSHOTS=0 (trail disabled for FPS)
 package daamky.ua.utils.render.post.entitybloom;
 
 import java.util.ArrayDeque;
@@ -28,8 +29,8 @@ import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.module.impl.visual.EntityBloom;
 
 public final class EntityBloomWorldTrail {
-   private static final int MAX_STORED_SNAPSHOTS = 28;
-   private static final int MAX_RENDERED_GHOSTS = 7;
+   private static final int MAX_STORED_SNAPSHOTS = 0;
+   private static final int MAX_RENDERED_GHOSTS = 0;
    private static final long CAPTURE_INTERVAL_NANOS = 38000000L;
    private static final long STALE_HISTORY_NANOS = 2500000000L;
    private static final double MAX_TRAIL_DISTANCE_SQUARED = 2.4025000000000003;

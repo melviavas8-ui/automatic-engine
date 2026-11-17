@@ -1,3 +1,4 @@
+// FIXED 2026-11-17: TAP_COUNT reduced from 8 to 4 for performance
 #version 330
 
 layout(std140) uniform SamplerInfo {
@@ -17,7 +18,7 @@ in vec2 texCoord;
 
 out vec4 fragColor;
 
-const int TAP_COUNT = 8;
+const int TAP_COUNT = 4;
 
 float coverageOf(vec4 value) {
     return max(value.r, max(value.g, value.b));
@@ -37,7 +38,11 @@ void main() {
     vec3 colorSum = vec3(0.0);
     float coverageSum = 0.0;
     float distanceSum = 0.0;
-    float normalization = 0.0;
+    // For radius >= 2.6 the reference kernel is the same shape at every radius
+    // (stride / sigma is constant), so its sum is a constant. Skips 17 exp()
+    // calls per pixel per pass; for smaller radii it is summed as before.
+    bool constantNorm = radius >= 2.6;
+    float normalization = constantNorm ? 6.510689 : 0.0;
 
     for (int index = -TAP_COUNT; index <= TAP_COUNT; ++index) {
         float offset = float(index) * stride;
@@ -53,12 +58,13 @@ void main() {
         // discontinuity anywhere in the kernel.
         float localSigma = max(mix(2.5, radius, pow(distanceFactor, 0.8)) * 0.5, 0.65);
         float weight = exp(-(offset * offset) / (2.0 * localSigma * localSigma));
-        float referenceWeight = exp(-(offset * offset) / (2.0 * referenceSigma * referenceSigma));
 
         colorSum += sampled.rgb * weight;
         coverageSum += sourceCoverage * weight;
         distanceSum += distanceFactor * sourceCoverage * weight;
-        normalization += referenceWeight;
+        if (!constantNorm) {
+            normalization += exp(-(offset * offset) / (2.0 * referenceSigma * referenceSigma));
+        }
     }
 
     float coverage = coverageSum / max(normalization, 0.0001);

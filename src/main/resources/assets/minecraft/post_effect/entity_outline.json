@@ -55,12 +55,15 @@
                     {
                         "name": "BlurDir",
                         "type": "vec2",
-                        "value": [ 1.0, 0.0 ]
+                        "value": [
+                            1.0,
+                            0.0
+                        ]
                     },
                     {
                         "name": "Radius",
                         "type": "float",
-                        "value": 2.0
+                        "value": 2.5
                     }
                 ]
             }
@@ -81,12 +84,15 @@
                     {
                         "name": "BlurDir",
                         "type": "vec2",
-                        "value": [ 0.0, 1.0 ]
+                        "value": [
+                            0.0,
+                            1.0
+                        ]
                     },
                     {
                         "name": "Radius",
                         "type": "float",
-                        "value": 2.0
+                        "value": 2.5
                     }
                 ]
             }
@@ -107,12 +113,15 @@
                     {
                         "name": "BlurDir",
                         "type": "vec2",
-                        "value": [ 1.0, 0.0 ]
+                        "value": [
+                            1.0,
+                            0.0
+                        ]
                     },
                     {
                         "name": "Radius",
                         "type": "float",
-                        "value": 7.0
+                        "value": 5.0
                     }
                 ]
             }
@@ -133,64 +142,15 @@
                     {
                         "name": "BlurDir",
                         "type": "vec2",
-                        "value": [ 0.0, 1.0 ]
+                        "value": [
+                            0.0,
+                            1.0
+                        ]
                     },
                     {
                         "name": "Radius",
                         "type": "float",
-                        "value": 7.0
-                    }
-                ]
-            }
-        },
-        {
-            "vertex_shader": "minecraft:core/screenquad",
-            "fragment_shader": "minecraft:post/entity_outline_box_blur",
-            "inputs": [
-                {
-                    "sampler_name": "In",
-                    "target": "wide",
-                    "bilinear": true
-                }
-            ],
-            "output": "swap",
-            "uniforms": {
-                "BlurConfig": [
-                    {
-                        "name": "BlurDir",
-                        "type": "vec2",
-                        "value": [ 1.0, 0.0 ]
-                    },
-                    {
-                        "name": "Radius",
-                        "type": "float",
-                        "value": 18.0
-                    }
-                ]
-            }
-        },
-        {
-            "vertex_shader": "minecraft:core/screenquad",
-            "fragment_shader": "minecraft:post/entity_outline_box_blur",
-            "inputs": [
-                {
-                    "sampler_name": "In",
-                    "target": "swap",
-                    "bilinear": true
-                }
-            ],
-            "output": "haze",
-            "uniforms": {
-                "BlurConfig": [
-                    {
-                        "name": "BlurDir",
-                        "type": "vec2",
-                        "value": [ 0.0, 1.0 ]
-                    },
-                    {
-                        "name": "Radius",
-                        "type": "float",
-                        "value": 18.0
+                        "value": 5.0
                     }
                 ]
             }
@@ -215,7 +175,7 @@
                 },
                 {
                     "sampler_name": "Haze",
-                    "target": "haze",
+                    "target": "wide",
                     "bilinear": true
                 },
                 {
@@ -228,27 +188,47 @@
                     {
                         "name": "ColorModulate",
                         "type": "vec4",
-                        "value": [ 1.0, 1.0, 1.0, 1.0 ]
+                        "value": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ]
                     },
                     {
                         "name": "BloomShape",
                         "type": "vec4",
-                        "value": [ 1.0, 1.0, 1.0, 1.0 ]
+                        "value": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ]
                     },
                     {
                         "name": "BloomMotion",
                         "type": "vec4",
-                        "value": [ 0.0, 0.9, 1.0, 0.85 ]
+                        "value": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            0.85
+                        ]
                     },
                     {
                         "name": "BloomView",
                         "type": "vec4",
-                        "value": [ 0.0, 0.0, 0.0, 0.0 ]
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
                     }
                 ]
             },
             "output": "minecraft:entity_outline"
         }
-    ]
+    ],
+    "_fixed": "2026-11-17 EntityBloom performance fix - fewer passes, cheaper shaders"
 }
-

@@ -1,3 +1,4 @@
+// FIXED 2026-11-17: EntityBloom optimized - trail disabled, cheaper glow defaults
 package daamky.ua.api.module.impl.visual;
 
 import java.awt.Color;
@@ -20,13 +21,13 @@ public final class EntityBloom extends Module {
    private final BooleanSetting self = this.register(new BooleanSetting("Self", "Glow around your own model in third person.", false));
    private final BooleanSetting invisible = this.register(new BooleanSetting("Invisible", "Include invisible living entities.", false));
    private final ColorSetting color = this.register(new ColorSetting("Color", "Bloom and outline color.", new Color(170, 92, 255, 235)));
-   private final NumberSetting radius = this.register(new NumberSetting("Glow Radius", "Soft shader glow radius in screen pixels.", 8.0, 2.0, 14.0, 0.5));
-   private final NumberSetting strength = this.register(new NumberSetting("Glow Strength", "Brightness and opacity of the shader glow.", 1.05, 0.15, 1.5, 0.05));
+   private final NumberSetting radius = this.register(new NumberSetting("Glow Radius", "Soft shader glow radius in screen pixels.", 4.0, 2.0, 14.0, 0.5));
+   private final NumberSetting strength = this.register(new NumberSetting("Glow Strength", "Brightness and opacity of the shader glow.", 0.7, 0.15, 1.5, 0.05));
    private final NumberSetting outlineStrength = this.register(
       new NumberSetting("Outline Strength", "Density of the dark-neon edge outside the silhouette.", 0.55, 0.0, 1.0, 0.05)
    );
    private final NumberSetting flameAmount = this.register(
-      new NumberSetting("Flame Shape", "Height and turbulence of the flame tongues. Zero leaves a plain soft glow.", 1.0, 0.0, 1.5, 0.05)
+      new NumberSetting("Flame Shape", "Height and turbulence of the flame tongues. Zero leaves a plain soft glow.", 0.0, 0.0, 1.5, 0.05)
    );
    private final NumberSetting flameSpeed = this.register(new NumberSetting("Flame Speed", "Speed of the living flame motion.", 0.9, 0.1, 5.0, 0.1));
    private final NumberSetting flameDetail = this.register(
@@ -36,7 +37,7 @@ public final class EntityBloom extends Module {
    private final NumberSetting distance = this.register(new NumberSetting("Distance", "Maximum entity glow distance.", 96.0, 8.0, 192.0, 4.0));
    private final BooleanSetting hitColor = this.register(new BooleanSetting("Hit Color", "Fills a damaged entity with the bloom color.", true));
    private final BooleanSetting afterimageTrail = this.register(
-      new BooleanSetting("Afterimage Trail", "Leaves soft fading bloom silhouettes behind moving entities.", true)
+      new BooleanSetting("Afterimage Trail", "Leaves soft fading bloom silhouettes behind moving entities.", false)
    );
    private final NumberSetting trailLength = this.register(
       new NumberSetting("Trail Length", "How long bloom afterimages remain visible.", 0.88, 0.55, 0.97, 0.01)
