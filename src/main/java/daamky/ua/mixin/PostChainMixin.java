@@ -47,6 +47,7 @@ public abstract class PostChainMixin {
          float radius = bloom != null ? bloom.getShaderRadius() : 2.0F;
          float strength = bloom != null ? bloom.getShaderStrength() : 1.0F;
          float outlineStrength = bloom != null ? bloom.getOutlineStrength() : 0.35F;
+         boolean lite = bloom == null || !bloom.isEnabled();
          float hitFill = bloom != null && bloom.isHitColorEnabled() ? 1.0F : 0.0F;
          float flameAmount = bloom != null ? bloom.getFlameAmount() : 0.0F;
          float flameSpeed = bloom != null ? bloom.getFlameSpeed() : 0.75F;
@@ -75,12 +76,19 @@ public abstract class PostChainMixin {
                   case 1 -> remainingRadius(wideRadius, coreRadius);
                   default -> remainingRadius(hazeRadius, wideRadius);
                };
-               writeBlur(encoder, uniforms, horizontal ? 1.0F : 0.0F, horizontal ? 0.0F : 1.0F, layerRadius, outlineStrength);
+               writeBlur(
+                  encoder,
+                  uniforms,
+                  horizontal ? 1.0F : 0.0F,
+                  horizontal ? 0.0F : 1.0F,
+                  lite && (passIndex >> 1) > 0 ? 0.0F : layerRadius,
+                  lite ? -1.0F : outlineStrength
+               );
             }
 
             GpuBuffer blit = uniforms.get("BlitConfig");
             if (blit != null) {
-               writeBlit(encoder, uniforms, strength, outlineStrength, radius, flameAmount, flameSpeed, flameDetail, viewOffsetX, viewOffsetY);
+               writeBlit(encoder, uniforms, strength, outlineStrength, radius, flameAmount, flameSpeed, flameDetail, viewOffsetX, viewOffsetY, lite);
             }
          }
       }
@@ -187,7 +195,8 @@ public abstract class PostChainMixin {
       float flameSpeed,
       float flameDetail,
       float viewOffsetX,
-      float viewOffsetY
+      float viewOffsetY,
+      boolean lite
    ) {
       float normalizedStrength = Math.clamp(strength, 0.0F, 1.5F);
       float alpha = Math.min(0.98F, normalizedStrength * 0.88F);
@@ -215,7 +224,7 @@ public abstract class PostChainMixin {
          data.putFloat(Math.clamp(flameDetail, 0.2F, 1.5F));
          data.putFloat(viewOffsetX);
          data.putFloat(viewOffsetY);
-         data.putFloat(0.0F);
+         data.putFloat(lite ? 1.0F : 0.0F);
          data.putFloat(0.0F);
          data.flip();
          writeUniform(encoder, uniforms, "BlitConfig", data);

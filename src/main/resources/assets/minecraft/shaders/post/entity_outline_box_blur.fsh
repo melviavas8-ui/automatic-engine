@@ -1,4 +1,3 @@
-// FIXED 2026-11-17: TAP_COUNT reduced from 8 to 4 for performance
 #version 330
 
 layout(std140) uniform SamplerInfo {
@@ -18,13 +17,60 @@ in vec2 texCoord;
 
 out vec4 fragColor;
 
-const int TAP_COUNT = 4;
+const int TAP_COUNT = 8;
 
 float coverageOf(vec4 value) {
     return max(value.r, max(value.g, value.b));
 }
 
 void main() {
+    // Lite mode (EntityBloom disabled, e.g. a plain vanilla glow): RimStrength < 0.
+    // Only the tight layer is blurred, with 9 taps and one exp() per tap. The
+    // wider layers are sent with Radius 0 and are skipped here entirely.
+    if (RimStrength < 0.0) {
+        if (Radius <= 0.0) {
+            fragColor = vec4(0.0);
+            return;
+        }
+
+        float liteRadius = clamp(Radius, 1.0, 48.0);
+        vec2 liteDir = BlurDir / InSize;
+        float liteSigma = max(liteRadius * 0.5, 0.65);
+        float liteStride = max(0.5, liteRadius / 2.6);
+        vec3 liteColor = vec3(0.0);
+        float liteCoverage = 0.0;
+        float liteDistance = 0.0;
+        float liteNorm = 0.0;
+
+        for (int index = -4; index <= 4; ++index) {
+            float offset = float(index) * liteStride;
+            vec4 sampled = texture(InSampler, texCoord + liteDir * offset);
+            float sourceCoverage = coverageOf(sampled);
+            float distanceFactor = sourceCoverage > 0.0001
+                ? clamp(sampled.a / sourceCoverage, 0.12, 1.0)
+                : 1.0;
+            float weight = exp(-(offset * offset) / (2.0 * liteSigma * liteSigma));
+
+            liteColor += sampled.rgb * weight;
+            liteCoverage += sourceCoverage * weight;
+            liteDistance += distanceFactor * sourceCoverage * weight;
+            liteNorm += weight;
+        }
+
+        float outCoverage = liteCoverage / max(liteNorm, 0.0001);
+        if (outCoverage <= 0.0002) {
+            fragColor = vec4(0.0);
+            return;
+        }
+
+        vec3 liteTint = liteColor / max(liteCoverage, 0.0001);
+        liteTint /= max(max(liteTint.r, liteTint.g), max(liteTint.b, 0.0001));
+        float liteProp = clamp(liteDistance / max(liteCoverage, 0.0001), 0.12, 1.0);
+        outCoverage = clamp(outCoverage * mix(0.88, 1.10, 0.35), 0.0, 1.0);
+        fragColor = vec4(liteTint * outCoverage, outCoverage * liteProp);
+        return;
+    }
+
     float radius = clamp(Radius, 1.0, 48.0);
     vec2 sampleDir = BlurDir / InSize;
 
