@@ -197,6 +197,8 @@ public final class ClientLanguage {
       Map.entry("Tint Intensity", "Сила тонировки"),
       Map.entry("Legacy Sound", "Звук эффекта"),
       Map.entry("Legacy Volume", "Громкость эффекта"),
+      Map.entry("Effect Size", "Размер эффекта"),
+      Map.entry("Debug", "Отладка"),
       Map.entry("Kill Style", "Эффект убийства"),
       Map.entry("Totem Effect", "Эффект тотема"),
       Map.entry("Totem Color", "Цвет тотема"),

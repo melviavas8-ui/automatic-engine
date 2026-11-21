@@ -30,8 +30,10 @@ public final class KillFx {
    private static final float TAU = (float)(Math.PI * 2.0);
    private final List<Fx> active = new ArrayList<>();
    private int seedCounter = 1;
+   private static double OX, OY, OZ;
+   private static float SC = 1.0F;
 
-   public void spawn(Kind kind, Vec3d pos, float height, float bodyYawDeg, int color, float speed) {
+   public void spawn(Kind kind, Vec3d pos, float height, float bodyYawDeg, int color, float speed, float scale) {
       if (kind == null || pos == null) {
          return;
       }
@@ -39,7 +41,7 @@ public final class KillFx {
          this.active.remove(0);
       }
       long dur = Math.max(300L, (long)(kind.baseMs / Math.clamp(speed, 0.25F, 2.0F)));
-      this.active.add(new Fx(kind, pos.x, pos.y, pos.z, Math.max(height, 0.6F), bodyYawDeg, color | 0xFF000000, System.currentTimeMillis(), dur, this.seedCounter++ * 7919));
+      this.active.add(new Fx(kind, pos.x, pos.y, pos.z, Math.max(height, 0.6F), bodyYawDeg, color | 0xFF000000, System.currentTimeMillis(), dur, this.seedCounter++ * 7919, Math.clamp(scale, 0.3F, 5.0F)));
    }
 
    public boolean isEmpty() {
@@ -67,6 +69,11 @@ public final class KillFx {
          }
          float u = (float)el / (float)f.dur;
          float t = (float)el / 1000.0F * ((float)f.kind.baseMs / (float)f.dur);
+         boolean body = f.kind == Kind.T_WINGS || f.kind == Kind.T_CROSS;
+         OX = f.x;
+         OY = body ? f.y + f.h * 0.6 : f.y;
+         OZ = f.z;
+         SC = body ? 1.0F + (f.sc - 1.0F) * 0.6F : f.sc;
          switch (f.kind) {
             case NOVA -> nova(f, u, t);
             case HALO -> halo(f, u, t);
@@ -96,8 +103,8 @@ public final class KillFx {
       }
       float beamH = 7.0F * easeOut(Math.min(1.0F, u * 2.5F));
       float ba = (float)Math.pow(1.0F - u, 1.2F);
-      Render3D.drawLineGradient(new Vec3d(f.x, f.y, f.z), new Vec3d(f.x, f.y + beamH, f.z), ColorUtil.withAlpha(ColorUtil.WHITE, (int)(255 * ba)), ColorUtil.withAlpha(f.color, 0), 3.0F, true);
-      Render3D.drawLineGradient(new Vec3d(f.x, f.y, f.z), new Vec3d(f.x, f.y + beamH, f.z), ColorUtil.withAlpha(f.color, (int)(140 * ba)), ColorUtil.withAlpha(f.color, 0), 8.0F, true);
+      line(new Vec3d(f.x, f.y, f.z), new Vec3d(f.x, f.y + beamH, f.z), ColorUtil.withAlpha(ColorUtil.WHITE, (int)(255 * ba)), ColorUtil.withAlpha(f.color, 0), 3.0F, true);
+      line(new Vec3d(f.x, f.y, f.z), new Vec3d(f.x, f.y + beamH, f.z), ColorUtil.withAlpha(f.color, (int)(140 * ba)), ColorUtil.withAlpha(f.color, 0), 8.0F, true);
       for (int k = 0; k < 8; k++) {
          float s = k / 8.0F;
          glow(f.x, f.y + s * beamH, f.z, 0.45F - 0.3F * s, f.color, 0.55F * ba);
@@ -121,7 +128,7 @@ public final class KillFx {
       glow(ox, oy, oz, 0.3F, light, 0.9F * env);
       ring(ox, oy + 0.6, oz, 0.34F, 22, light, (int)(235 * env), 2.4F, t * 2.0F);
       glow(ox, oy + 0.6, oz, 0.18F, light, 0.5F * env);
-      Render3D.drawLineGradient(new Vec3d(f.x, f.y + f.h * 0.6, f.z), new Vec3d(ox, oy, oz), ColorUtil.withAlpha(f.color, 0), ColorUtil.withAlpha(light, (int)(110 * env)), 2.0F, true);
+      line(new Vec3d(f.x, f.y + f.h * 0.6, f.z), new Vec3d(ox, oy, oz), ColorUtil.withAlpha(f.color, 0), ColorUtil.withAlpha(light, (int)(110 * env)), 2.0F, true);
       for (int i = 0; i < 26; i++) {
          float p = rnd(f.seed, i, 0);
          float age = (t * 0.55F + p) % 1.0F;
@@ -151,7 +158,7 @@ public final class KillFx {
             if (k == 0) { ax = px; az = pz; } else { bx = px; bz = pz; }
          }
          if (j % 3 == 0) {
-            Render3D.drawLineGradient(new Vec3d(ax, f.y + 0.1 + hy, az), new Vec3d(bx, f.y + 0.1 + hy, bz), ColorUtil.withAlpha(f.color, (int)(110 * env)), ColorUtil.withAlpha(light, (int)(110 * env)), 1.6F, true);
+            line(new Vec3d(ax, f.y + 0.1 + hy, az), new Vec3d(bx, f.y + 0.1 + hy, bz), ColorUtil.withAlpha(f.color, (int)(110 * env)), ColorUtil.withAlpha(light, (int)(110 * env)), 1.6F, true);
          }
       }
       if (u > 0.8F) {
@@ -175,7 +182,7 @@ public final class KillFx {
          double[] p0 = shard(f.x, cy, f.z, dx, dy, dz, spd, Math.max(0.0F, t - 0.06F));
          int c = rnd(f.seed, i, 3) > 0.5F ? f.color : light;
          glow(p1[0], p1[1], p1[2], 0.08F + rnd(f.seed, i, 4) * 0.06F, c, fade);
-         Render3D.drawLineGradient(new Vec3d(p0[0], p0[1], p0[2]), new Vec3d(p1[0], p1[1], p1[2]), ColorUtil.withAlpha(c, 0), ColorUtil.withAlpha(c, (int)(200 * fade)), 1.5F, true);
+         line(new Vec3d(p0[0], p0[1], p0[2]), new Vec3d(p1[0], p1[1], p1[2]), ColorUtil.withAlpha(c, 0), ColorUtil.withAlpha(c, (int)(200 * fade)), 1.5F, true);
       }
       float fl = 1.0F - easeOut(Math.min(1.0F, u * 3.0F));
       if (fl > 0.0F) glow(f.x, cy, f.z, 1.5F * fl + 0.2F, light, 0.9F * fl);
@@ -184,8 +191,8 @@ public final class KillFx {
          float a = i * TAU / 8.0F + rnd(f.seed, i, 5) * 0.3F;
          double mx = f.x + Math.cos(a) * len * 0.5 + (rnd(f.seed, i, 6) - 0.5F) * 0.3F;
          double mz = f.z + Math.sin(a) * len * 0.5 + (rnd(f.seed, i, 7) - 0.5F) * 0.3F;
-         Render3D.drawLineGradient(new Vec3d(f.x, f.y + 0.04, f.z), new Vec3d(mx, f.y + 0.04, mz), ColorUtil.withAlpha(f.color, (int)(220 * fade)), ColorUtil.withAlpha(f.color, (int)(160 * fade)), 2.2F, true);
-         Render3D.drawLineGradient(new Vec3d(mx, f.y + 0.04, mz), new Vec3d(f.x + Math.cos(a) * len, f.y + 0.04, f.z + Math.sin(a) * len), ColorUtil.withAlpha(f.color, (int)(160 * fade)), ColorUtil.withAlpha(f.color, 0), 1.6F, true);
+         line(new Vec3d(f.x, f.y + 0.04, f.z), new Vec3d(mx, f.y + 0.04, mz), ColorUtil.withAlpha(f.color, (int)(220 * fade)), ColorUtil.withAlpha(f.color, (int)(160 * fade)), 2.2F, true);
+         line(new Vec3d(mx, f.y + 0.04, mz), new Vec3d(f.x + Math.cos(a) * len, f.y + 0.04, f.z + Math.sin(a) * len), ColorUtil.withAlpha(f.color, (int)(160 * fade)), ColorUtil.withAlpha(f.color, 0), 1.6F, true);
       }
    }
 
@@ -199,29 +206,33 @@ public final class KillFx {
       float fl = u < 0.1F ? 1.0F : u < 0.18F ? 0.25F : u < 0.28F ? 1.0F : Math.max(0.0F, 1.0F - (u - 0.28F) / 0.72F);
       int light = mix(f.color, ColorUtil.WHITE, 0.7F);
       int n = 14;
-      Vec3d prev = null, branchStart = null;
+      Vec3d prev = null;
+      Vec3d[] branches = new Vec3d[3];
+      int nb = 0;
       for (int k = 0; k <= n; k++) {
          float s = k / (float)n;
-         float amp = (1.0F - s) * 1.7F;
-         Vec3d p = new Vec3d(f.x + (rnd(f.seed, k, 0) - 0.5F) * amp, f.y + 16.0F * (1.0F - s), f.z + (rnd(f.seed, k, 1) - 0.5F) * amp);
-         if (k == 6) branchStart = p;
+         float amp = (1.0F - s) * 3.2F;
+         Vec3d p = new Vec3d(f.x + (rnd(f.seed, k, 0) - 0.5F) * amp, f.y + 42.0F * (1.0F - s), f.z + (rnd(f.seed, k, 1) - 0.5F) * amp);
+         if (k == 4 || k == 7 || k == 10) branches[nb++] = p;
          if (prev != null) {
-            Render3D.drawLineGradient(prev, p, ColorUtil.withAlpha(f.color, (int)(90 * fl)), ColorUtil.withAlpha(f.color, (int)(90 * fl)), 9.0F, true);
-            Render3D.drawLineGradient(prev, p, ColorUtil.withAlpha(light, (int)(255 * fl)), ColorUtil.withAlpha(light, (int)(255 * fl)), 3.0F, true);
+            line(prev, p, ColorUtil.withAlpha(f.color, (int)(110 * fl)), ColorUtil.withAlpha(f.color, (int)(110 * fl)), 16.0F, true);
+            line(prev, p, ColorUtil.withAlpha(light, (int)(255 * fl)), ColorUtil.withAlpha(light, (int)(255 * fl)), 5.5F, true);
+            glow(p.x, p.y, p.z, 0.55F, f.color, 0.45F * fl);
          }
          prev = p;
       }
-      if (branchStart != null) {
-         Vec3d b = branchStart;
-         for (int k = 0; k < 4; k++) {
-            Vec3d nb = b.add((rnd(f.seed, k, 2) - 0.2F) * 1.2F, -1.3F, (rnd(f.seed, k, 3) - 0.5F) * 1.2F);
-            Render3D.drawLineGradient(b, nb, ColorUtil.withAlpha(light, (int)(200 * fl)), ColorUtil.withAlpha(light, (int)(200 * fl)), 2.0F, true);
-            b = nb;
+      for (int bi = 0; bi < nb; bi++) {
+         Vec3d b = branches[bi];
+         float dirx = rnd(f.seed, bi, 8) - 0.5F, dirz = rnd(f.seed, bi, 9) - 0.5F;
+         for (int k = 0; k < 6; k++) {
+            Vec3d nbp = b.add(dirx * 3.2F + (rnd(f.seed, k + bi * 7, 2) - 0.5F) * 1.6F, -2.6F, dirz * 3.2F + (rnd(f.seed, k + bi * 7, 3) - 0.5F) * 1.6F);
+            line(b, nbp, ColorUtil.withAlpha(light, (int)(210 * fl)), ColorUtil.withAlpha(light, (int)(210 * fl)), 3.0F, true);
+            b = nbp;
          }
       }
-      glow(f.x, f.y + 0.3, f.z, 1.9F * fl + 0.2F, f.color, 0.8F * fl);
+      glow(f.x, f.y + 0.3, f.z, 3.2F * fl + 0.2F, f.color, 0.85F * fl);
       glow(f.x, f.y + 0.3, f.z, 0.7F * fl + 0.1F, light, 0.9F * fl);
-      if (u < 0.5F) ring(f.x, f.y + 0.05, f.z, 2.2F * easeOut(u * 2.0F), 28, light, (int)(220 * (1.0F - u * 2.0F)), 2.4F, 0.0F);
+      if (u < 0.5F) ring(f.x, f.y + 0.05, f.z, 4.5F * easeOut(u * 2.0F), 36, light, (int)(220 * (1.0F - u * 2.0F)), 2.4F, 0.0F);
       for (int i = 0; i < 18; i++) {
          float a = rnd(f.seed, i, 4) * TAU;
          float spd = 1.0F + rnd(f.seed, i, 5) * 2.5F;
@@ -275,10 +286,10 @@ public final class KillFx {
       Vec3d v0 = new Vec3d(cx, cy - 0.95F * s, cz), v1 = new Vec3d(cx, cy + 0.95F * s, cz);
       double hy = cy + 0.35F * s;
       Vec3d h0 = new Vec3d(cx - hx * 0.55F * s, hy, cz - hz * 0.55F * s), h1 = new Vec3d(cx + hx * 0.55F * s, hy, cz + hz * 0.55F * s);
-      Render3D.drawLineGradient(v0, v1, ColorUtil.withAlpha(gold, (int)(120 * env)), ColorUtil.withAlpha(gold, (int)(120 * env)), 10.0F, false);
-      Render3D.drawLineGradient(h0, h1, ColorUtil.withAlpha(gold, (int)(120 * env)), ColorUtil.withAlpha(gold, (int)(120 * env)), 10.0F, false);
-      Render3D.drawLineGradient(v0, v1, ColorUtil.withAlpha(light, (int)(255 * env)), ColorUtil.withAlpha(light, (int)(255 * env)), 3.5F, false);
-      Render3D.drawLineGradient(h0, h1, ColorUtil.withAlpha(light, (int)(255 * env)), ColorUtil.withAlpha(light, (int)(255 * env)), 3.5F, false);
+      line(v0, v1, ColorUtil.withAlpha(gold, (int)(120 * env)), ColorUtil.withAlpha(gold, (int)(120 * env)), 10.0F, false);
+      line(h0, h1, ColorUtil.withAlpha(gold, (int)(120 * env)), ColorUtil.withAlpha(gold, (int)(120 * env)), 10.0F, false);
+      line(v0, v1, ColorUtil.withAlpha(light, (int)(255 * env)), ColorUtil.withAlpha(light, (int)(255 * env)), 3.5F, false);
+      line(h0, h1, ColorUtil.withAlpha(light, (int)(255 * env)), ColorUtil.withAlpha(light, (int)(255 * env)), 3.5F, false);
       for (int i = 0; i < 9; i++) {
          glow(cx, cy - 0.95F * s + i * 0.2375F * s, cz, 0.2F * s, gold, 0.5F * env);
       }
@@ -325,11 +336,11 @@ public final class KillFx {
             double dz = side * rz * Math.cos(theta) - fz * 0.45;
             double inv = 1.0 / Math.sqrt(dx * dx + dy * dy + dz * dz);
             Vec3d tip = new Vec3d(ax + dx * inv * len, ay + dy * inv * len, az + dz * inv * len);
-            Render3D.drawLineGradient(new Vec3d(ax, ay, az), tip, ColorUtil.withAlpha(light, (int)(230 * env)), ColorUtil.withAlpha(f.color, (int)(120 * env)), 3.0F, false);
+            line(new Vec3d(ax, ay, az), tip, ColorUtil.withAlpha(light, (int)(230 * env)), ColorUtil.withAlpha(f.color, (int)(120 * env)), 3.0F, false);
             glow(tip.x, tip.y, tip.z, 0.14F, light, 0.75F * env);
             glow((ax + tip.x) * 0.5, (ay + tip.y) * 0.5, (az + tip.z) * 0.5, 0.08F, f.color, 0.5F * env);
             if (prevTip != null) {
-               Render3D.drawLineGradient(prevTip, tip, ColorUtil.withAlpha(light, (int)(150 * env)), ColorUtil.withAlpha(light, (int)(150 * env)), 1.8F, false);
+               line(prevTip, tip, ColorUtil.withAlpha(light, (int)(150 * env)), ColorUtil.withAlpha(light, (int)(150 * env)), 1.8F, false);
             }
             prevTip = tip;
          }
@@ -399,8 +410,15 @@ public final class KillFx {
 
    private static void glow(double x, double y, double z, float size, int color, float alpha) {
       if (alpha <= 0.01F) return;
-      Glow3D.glow(x, y, z, size, color, alpha * 0.4F, 0.95F);
-      Glow3D.core(x, y, z, size * 0.25F, color, Math.min(1.0F, alpha));
+      double tx = OX + (x - OX) * SC, ty = OY + (y - OY) * SC, tz = OZ + (z - OZ) * SC;
+      Glow3D.glow(tx, ty, tz, size * SC, color, alpha * 0.4F, 0.95F);
+      Glow3D.core(tx, ty, tz, size * SC * 0.25F, color, Math.min(1.0F, alpha));
+   }
+
+   private static void line(Vec3d a, Vec3d b, int c1, int c2, float w, boolean depth) {
+      Vec3d ta = new Vec3d(OX + (a.x - OX) * SC, OY + (a.y - OY) * SC, OZ + (a.z - OZ) * SC);
+      Vec3d tb = new Vec3d(OX + (b.x - OX) * SC, OY + (b.y - OY) * SC, OZ + (b.z - OZ) * SC);
+      Render3D.drawLineGradient(ta, tb, c1, c2, w * (float)Math.sqrt(SC), depth);
    }
 
    private static void ring(double cx, double cy, double cz, float rad, int segs, int color, int alpha, float width, float rot) {
@@ -410,7 +428,7 @@ public final class KillFx {
       for (int i = 1; i <= segs; i++) {
          float a = rot + i * TAU / segs;
          double nx = cx + Math.cos(a) * rad, nz = cz + Math.sin(a) * rad;
-         Render3D.drawLineGradient(new Vec3d(px, cy, pz), new Vec3d(nx, cy, nz), c, c, width, true);
+         line(new Vec3d(px, cy, pz), new Vec3d(nx, cy, nz), c, c, width, true);
          px = nx;
          pz = nz;
       }
@@ -440,6 +458,6 @@ public final class KillFx {
       return Math.min(clamp01(u / in), clamp01((1.0F - u) / out));
    }
 
-   private record Fx(Kind kind, double x, double y, double z, float h, float yaw, int color, long start, long dur, int seed) {
+   private record Fx(Kind kind, double x, double y, double z, float h, float yaw, int color, long start, long dur, int seed, float sc) {
    }
 }

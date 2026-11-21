@@ -23,6 +23,7 @@ public final class FragEffectDeathMemoryTracker {
    private static final long CONFIRMED_DEATH_GRACE_MS = 300L;
    private final MinecraftClient minecraft = MinecraftClient.getInstance();
    private final List<DeathMemory> memories = new ArrayList<>();
+   public String lastReason = "";
 
    public FragEffectDeathMemoryTracker() {
    }
@@ -72,6 +73,7 @@ public final class FragEffectDeathMemoryTracker {
             }
             memory.observe(this.minecraft);
             if (!memory.triggered && memory.shouldTrigger(this.minecraft)) {
+               this.lastReason = memory.deathPacket ? "death packet" : isConfirmedDead(memory.entity) ? "health/deathTime" : "entity removed";
                onConfirmedDeath.accept(memory.entity);
                memory.markTriggered();
             } else if (!memory.triggered && memory.shouldDiscard(this.minecraft)) {
@@ -88,6 +90,10 @@ public final class FragEffectDeathMemoryTracker {
 
    public void clear() {
       this.memories.clear();
+   }
+
+   private static boolean isConfirmedDead(LivingEntity living) {
+      return DeathMemory.isConfirmedDead(living);
    }
 
    private static final class DeathMemory {

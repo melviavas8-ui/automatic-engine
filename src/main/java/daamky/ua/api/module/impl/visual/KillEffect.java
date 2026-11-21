@@ -66,6 +66,8 @@ public class KillEffect extends Module {
    private final FragEffectParticleSystem particleSystem = new FragEffectParticleSystem();
    private final List<KillEffect.LegacyEffectEntry> legacyEffects = new ArrayList<>();
    private final KillFx killFx = new KillFx();
+   private final NumberSetting effectSize = this.register(new NumberSetting("Effect Size", "Size of kill and totem effects in percent.", 150.0, 50.0, 400.0, 5.0));
+   private final BooleanSetting debug = this.register(new BooleanSetting("Debug", "Writes in chat how each kill was detected.", false));
    private final ModeSetting mode = this.register(
       new ModeSetting("Kill Style", "Kill effect style. None disables the kill effect.", "Frag", "None", "Frag", "Legacy", "Nova", "Halo", "Helix", "Shatter", "Thunder", "Vortex")
    );
@@ -204,12 +206,12 @@ public class KillEffect extends Module {
       }
       if (status == 3) {
          this.deathMemoryTracker.markDeathPacket(living);
-      } else if (living instanceof PlayerEntity player) {
-         this.onTotemPop(player);
+      } else {
+         this.onTotemPop(living);
       }
    }
 
-   private void onTotemPop(PlayerEntity player) {
+   private void onTotemPop(LivingEntity player) {
       boolean self = player == mc.player;
       if (!self && !this.matchesEffectTarget(player)) {
          return;
@@ -228,7 +230,7 @@ public class KillEffect extends Module {
          default -> KillFx.Kind.T_CROSS;
       };
       Color c = this.totemColor.getValue();
-      this.killFx.spawn(kind, player.getEntityPos(), player.getHeight(), player.bodyYaw, ColorUtil.rgba(c.getRed(), c.getGreen(), c.getBlue(), 255), this.speedMultiplier());
+      this.killFx.spawn(kind, player.getEntityPos(), player.getHeight(), player.bodyYaw, ColorUtil.rgba(c.getRed(), c.getGreen(), c.getBlue(), 255), this.speedMultiplier(), this.effectSize.getFloat() / 100.0F);
    }
 
    @SubscribeEvent
@@ -310,6 +312,10 @@ public class KillEffect extends Module {
    }
 
    private void onTrackedKill(LivingEntity entity) {
+      if (this.debug.getValue() && mc.player != null) {
+         mc.player.sendMessage(net.minecraft.text.Text.literal("[KillEffect] kill: " + entity.getName().getString() + " via " + this.deathMemoryTracker.lastReason + (this.matchesEffectTarget(entity) ? "" : " (filtered by Targets)")), false);
+      }
+
       if (this.matchesEffectTarget(entity)) {
          if (!this.killSound.is("None")) {
             SoundEvent sound = this.killSound.is("Kill 2") ? SoundManager.KILL_V2 : SoundManager.KILL_V1;
@@ -329,7 +335,7 @@ public class KillEffect extends Module {
                case "Vortex" -> KillFx.Kind.VORTEX;
                default -> KillFx.Kind.NOVA;
             };
-            this.killFx.spawn(kind, entity.getEntityPos(), entity.getHeight(), entity.getYaw(), this.accent(), this.speedMultiplier());
+            this.killFx.spawn(kind, entity.getEntityPos(), entity.getHeight(), entity.getYaw(), this.accent(), this.speedMultiplier(), this.effectSize.getFloat() / 100.0F);
          }
       }
    }
