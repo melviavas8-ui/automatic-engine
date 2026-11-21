@@ -8,19 +8,6 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.api.module.impl.combat.aura.impl.RotateConstructor;
-
-/**
- * SpookyTime 3 — точный порт mell.stroy.yd (SpookyTime rotation).
- *
- * Логика:
- *  - Если игрок внутри хитбокса цели — не двигаемся
- *  - Считаем diff yaw/pitch, ограничиваем минимальным шагом
- *  - Шаг адаптивный: 40.2°/0.2° если луч УЖЕ попадает в box, 50.2°/16.2° если нет
- *  - Каждый шаг умножается на 0.977 (инерция)
- *  - Рандом-jitter: yaw ±7.5°, pitch ±2°, обновление раз в 30мс, smooth 0.7
- *  - GCD-квантование через mouse sensitivity (как в ваниле)
- *  - Fallback: если после шага луч вышел из box — пробуем 0.5x, 0.25x, 0.125x, 0.0625x
- */
 public class SpookyTime3Angle extends RotateConstructor {
     private static final SecureRandom RANDOM = new SecureRandom();
 

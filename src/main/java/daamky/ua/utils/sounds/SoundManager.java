@@ -34,6 +34,10 @@ public final class SoundManager {
    public static final SoundEvent FRAG_EFFECT_KNOCK_MAIN = sound("frag_effect_knock_main");
    public static final SoundEvent FRAG_EFFECT_PULSE = sound("frag_effect_pulse");
    public static final SoundEvent FRAG_EFFECT_SPARKS_COLLISION = sound("frag_effect_sparks_collision");
+   public static final SoundEvent KILL_V1 = sound("kill_effect_v1");
+   public static final SoundEvent KILL_V2 = sound("kill_effect_v2");
+   public static final SoundEvent TOTEM_V1 = sound("totem_effect_v1");
+   public static final SoundEvent TOTEM_V2 = sound("totem_effect_v2");
    private static boolean initialized;
 
    private SoundManager() {
@@ -67,6 +71,10 @@ public final class SoundManager {
          register(FRAG_EFFECT_KNOCK_MAIN);
          register(FRAG_EFFECT_PULSE);
          register(FRAG_EFFECT_SPARKS_COLLISION);
+         register(KILL_V1);
+         register(KILL_V2);
+         register(TOTEM_V1);
+         register(TOTEM_V2);
       }
    }
 

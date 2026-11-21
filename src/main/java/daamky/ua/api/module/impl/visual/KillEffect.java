@@ -14,6 +14,8 @@ import net.minecraft.entity.Entity.RemovalReason;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.network.packet.s2c.play.EntityStatusS2CPacket;
+import net.minecraft.sound.SoundEvent;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
@@ -21,6 +23,7 @@ import org.joml.Matrix4f;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.AttackEvent;
 import daamky.ua.api.events.impl.DrawEvent;
+import daamky.ua.api.events.impl.PacketEvent;
 import daamky.ua.api.events.impl.TickEvent;
 import daamky.ua.api.events.impl.WorldRenderEvent;
 import daamky.ua.api.module.Module;
@@ -32,6 +35,7 @@ import daamky.ua.api.module.impl.visual.frageffect.FragEffectEasing;
 import daamky.ua.api.module.impl.visual.frageffect.FragEffectParticleSystem;
 import daamky.ua.api.module.impl.visual.frageffect.FragEffectScanRenderer;
 import daamky.ua.api.module.impl.visual.frageffect.FragEffectSoundQueue;
+import daamky.ua.api.module.impl.visual.killfx.KillFx;
 import daamky.ua.api.settings.impl.BooleanSetting;
 import daamky.ua.api.settings.impl.ButtonSetting;
 import daamky.ua.api.settings.impl.ColorSetting;
@@ -61,7 +65,19 @@ public class KillEffect extends Module {
    private final FragEffectDeathMemoryTracker deathMemoryTracker = new FragEffectDeathMemoryTracker();
    private final FragEffectParticleSystem particleSystem = new FragEffectParticleSystem();
    private final List<KillEffect.LegacyEffectEntry> legacyEffects = new ArrayList<>();
-   private final ModeSetting mode = this.register(new ModeSetting("Mode", "Kill effect mode.", "Frag", "Frag", "Legacy"));
+   private final KillFx killFx = new KillFx();
+   private final ModeSetting mode = this.register(
+      new ModeSetting("Kill Style", "Kill effect style. None disables the kill effect.", "Frag", "None", "Frag", "Legacy", "Nova", "Halo", "Helix", "Shatter", "Thunder", "Vortex")
+   );
+   private final ModeSetting killSound = this.register(new ModeSetting("Kill Sound", "Sound on kill (enemies and animals only).", "Kill 1", "None", "Kill 1", "Kill 2"));
+   private final NumberSetting killVolume = this.register(new NumberSetting("Kill Volume", "Kill sound volume.", 100.0, 0.0, 100.0, 1.0));
+   private final ModeSetting totemMode = this.register(
+      new ModeSetting("Totem Effect", "Animation on totem pop. None disables it.", "Cross", "None", "Cross", "Wings", "Rings", "Spiral")
+   );
+   private final ColorSetting totemColor = this.register(new ColorSetting("Totem Color", "Totem effect color.", new Color(255, 214, 90, 255)));
+   private final BooleanSetting totemSelf = this.register(new BooleanSetting("Totem Self", "Also show the totem effect on yourself.", false));
+   private final ModeSetting totemSound = this.register(new ModeSetting("Totem Sound", "Sound on totem pop (other players only).", "Totem 1", "None", "Totem 1", "Totem 2"));
+   private final NumberSetting totemVolume = this.register(new NumberSetting("Totem Volume", "Totem sound volume.", 100.0, 0.0, 100.0, 1.0));
    private final NumberSetting speed = this.register(new NumberSetting("Speed", "Controls effect playback speed.", 100.0, 25.0, 200.0, 1.0));
    private final ColorSetting effectColor = this.register(new ColorSetting("Color", "Primary kill effect color.", new Color(-50116, true)));
    private final MultiModeSetting effectTargets = this.register(
@@ -93,8 +109,12 @@ public class KillEffect extends Module {
    public KillEffect() {
       super("Kill Effect", "Kill effect with vignette, scan wave, particles and sounds.", ModuleCategory.VISUAL);
       instance = this;
-      this.speed.visibleWhen(this::isFragMode);
-      this.effectColor.visibleWhen(this::isFragMode);
+      this.speed.visibleWhen(() -> this.isFragMode() || this.isFxMode() || !this.totemMode.is("None"));
+      this.effectColor.visibleWhen(() -> this.isFragMode() || this.isFxMode());
+      this.killVolume.visibleWhen(() -> !this.killSound.is("None"));
+      this.totemColor.visibleWhen(() -> !this.totemMode.is("None"));
+      this.totemSelf.visibleWhen(() -> !this.totemMode.is("None"));
+      this.totemVolume.visibleWhen(() -> !this.totemSound.is("None"));
       this.screenOverlay.visibleWhen(this::isFragMode);
       this.scanlines.visibleWhen(this::isFragMode);
       this.changeSaturation.visibleWhen(this::isFragMode);
@@ -166,12 +186,60 @@ public class KillEffect extends Module {
    }
 
    @SubscribeEvent
+   private void onPacket(PacketEvent event) {
+      if (event.isReceive() && event.getPacket() instanceof EntityStatusS2CPacket packet) {
+         byte status = packet.getStatus();
+         if (status == 3 || status == 35) {
+            mc.execute(() -> this.handleStatus(packet, status));
+         }
+      }
+   }
+
+   private void handleStatus(EntityStatusS2CPacket packet, byte status) {
+      if (mc.world == null || mc.player == null) {
+         return;
+      }
+      if (!(packet.getEntity(mc.world) instanceof LivingEntity living)) {
+         return;
+      }
+      if (status == 3) {
+         this.deathMemoryTracker.markDeathPacket(living);
+      } else if (living instanceof PlayerEntity player) {
+         this.onTotemPop(player);
+      }
+   }
+
+   private void onTotemPop(PlayerEntity player) {
+      boolean self = player == mc.player;
+      if (!self && !this.matchesEffectTarget(player)) {
+         return;
+      }
+      if (!self && !this.totemSound.is("None")) {
+         SoundEvent sound = this.totemSound.is("Totem 2") ? SoundManager.TOTEM_V2 : SoundManager.TOTEM_V1;
+         SoundManager.playSoundDirect(sound, (float)(this.totemVolume.getValue() / 100.0), 1.0F);
+      }
+      if (this.totemMode.is("None") || self && !this.totemSelf.getValue()) {
+         return;
+      }
+      KillFx.Kind kind = switch (this.totemMode.getValue()) {
+         case "Wings" -> KillFx.Kind.T_WINGS;
+         case "Rings" -> KillFx.Kind.T_RINGS;
+         case "Spiral" -> KillFx.Kind.T_SPIRAL;
+         default -> KillFx.Kind.T_CROSS;
+      };
+      Color c = this.totemColor.getValue();
+      this.killFx.spawn(kind, player.getEntityPos(), player.getHeight(), player.bodyYaw, ColorUtil.rgba(c.getRed(), c.getGreen(), c.getBlue(), 255), this.speedMultiplier());
+   }
+
+   @SubscribeEvent
    private void onWorldRender(WorldRenderEvent event) {
       if (this.isFragMode()) {
          this.particleSystem.render(event.getPartialTicks());
-      } else {
+      } else if (this.isLegacyMode()) {
          this.renderLegacyEffects(event);
       }
+
+      this.killFx.render();
    }
 
    @SubscribeEvent
@@ -243,10 +311,25 @@ public class KillEffect extends Module {
 
    private void onTrackedKill(LivingEntity entity) {
       if (this.matchesEffectTarget(entity)) {
+         if (!this.killSound.is("None")) {
+            SoundEvent sound = this.killSound.is("Kill 2") ? SoundManager.KILL_V2 : SoundManager.KILL_V1;
+            SoundManager.playSoundDirect(sound, (float)(this.killVolume.getValue() / 100.0), 1.0F);
+         }
+
          if (this.isFragMode()) {
             this.triggerFragEffect(entity);
-         } else {
+         } else if (this.isLegacyMode()) {
             this.spawnLegacyEffect(entity, true);
+         } else if (this.isFxMode()) {
+            KillFx.Kind kind = switch (this.mode.getValue()) {
+               case "Halo" -> KillFx.Kind.HALO;
+               case "Helix" -> KillFx.Kind.HELIX;
+               case "Shatter" -> KillFx.Kind.SHATTER;
+               case "Thunder" -> KillFx.Kind.THUNDER;
+               case "Vortex" -> KillFx.Kind.VORTEX;
+               default -> KillFx.Kind.NOVA;
+            };
+            this.killFx.spawn(kind, entity.getEntityPos(), entity.getHeight(), entity.getYaw(), this.accent(), this.speedMultiplier());
          }
       }
    }
@@ -441,6 +524,10 @@ public class KillEffect extends Module {
       return this.mode.is("Legacy");
    }
 
+   private boolean isFxMode() {
+      return this.mode.is("Nova") || this.mode.is("Halo") || this.mode.is("Helix") || this.mode.is("Shatter") || this.mode.is("Thunder") || this.mode.is("Vortex");
+   }
+
    private float effectProgress() {
       long duration = this.effectDurationMs();
       float progress = this.animate ? Math.min((float)this.elapsedMillis() / (float)duration, 1.0F) : 0.0F;
@@ -507,6 +594,7 @@ public class KillEffect extends Module {
       this.deathMemoryTracker.clear();
       this.particleSystem.clear();
       this.clearLegacyEffects();
+      this.killFx.clear();
       FragEffectScanRenderer.clear();
    }
 

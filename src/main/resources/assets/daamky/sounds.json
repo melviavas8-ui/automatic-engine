@@ -1,4 +1,24 @@
 {
+  "kill_effect_v1": {
+    "sounds": [
+      "daamky:other/kill_effect/kill_v1"
+    ]
+  },
+  "kill_effect_v2": {
+    "sounds": [
+      "daamky:other/kill_effect/kill_v2"
+    ]
+  },
+  "totem_effect_v1": {
+    "sounds": [
+      "daamky:other/totem_effect/totem_v1"
+    ]
+  },
+  "totem_effect_v2": {
+    "sounds": [
+      "daamky:other/totem_effect/totem_v2"
+    ]
+  },
   "kolokolnia_kill": {
     "sounds": [
       "daamky:other/kill_effect/kolokolnia_kill"
