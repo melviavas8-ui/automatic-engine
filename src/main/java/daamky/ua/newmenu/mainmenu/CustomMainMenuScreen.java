@@ -17,8 +17,6 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
 import net.minecraft.client.gui.screen.option.OptionsScreen;
 import net.minecraft.client.gui.screen.world.SelectWorldScreen;
-import net.minecraft.client.util.DefaultSkinHelper;
-import net.minecraft.client.util.SkinTextures;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import org.joml.Matrix3x2fStack;
@@ -89,7 +87,7 @@ public final class CustomMainMenuScreen extends Screen {
     private int toastColor = 0xFF52D68A;
 
     // Account skin cache
-    private final Map<String, SkinTextures> skinCache = new HashMap<>();
+    private final Map<String, Identifier> skinCache = new HashMap<>();
 
     // -------------------------------------------------------------
     // Accounts Screen State
@@ -2110,20 +2108,14 @@ public final class CustomMainMenuScreen extends Screen {
     private void drawAccountHead(DrawContext context, String nickname, float x, float y, float size) {
         try {
             String clean = nickname == null || nickname.isBlank() ? "Player" : nickname;
-            SkinTextures textures = skinCache.get(clean);
-            if (textures == null) {
+            Identifier skinTexture = skinCache.get(clean);
+            if (skinTexture == null) {
                 UUID uuid = UUID.nameUUIDFromBytes(("OfflinePlayer:" + clean).getBytes(java.nio.charset.StandardCharsets.UTF_8));
-                GameProfile profile = new GameProfile(uuid, clean);
-                if (this.client != null) {
-                    textures = this.client.getSkinProvider().getSkinTextures(profile);
-                }
-                if (textures == null) {
-                    textures = DefaultSkinHelper.getSkinTextures(uuid);
-                }
-                skinCache.put(clean, textures);
+                boolean slim = (uuid.hashCode() & 1) == 1;
+                skinTexture = Identifier.ofVanilla(slim ? "textures/entity/player/wide/alex.png" : "textures/entity/player/wide/steve.png");
+                skinCache.put(clean, skinTexture);
             }
 
-            Identifier skinTexture = textures.texture();
             float faceU = 8.0F / 64.0F;
             float faceV = 8.0F / 64.0F;
             float faceW = 8.0F / 64.0F;
