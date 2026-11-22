@@ -71,7 +71,7 @@ public class KillEffect extends Module {
    private final ModeSetting mode = this.register(
       new ModeSetting("Kill Style", "Kill effect style. None disables the kill effect.", "Frag", "None", "Frag", "Legacy", "Nova", "Halo", "Helix", "Shatter", "Thunder", "Vortex")
    );
-   private final ModeSetting killSound = this.register(new ModeSetting("Kill Sound", "Sound on kill (enemies and animals only).", "Kill 1", "None", "Kill 1", "Kill 2"));
+   private final ModeSetting killSound = this.register(new ModeSetting("Kill Sound", "Sound on kill (enemies and animals only).", "Kill 1", "None", "Kill 1", "Kill 2", "Kill 3"));
    private final NumberSetting killVolume = this.register(new NumberSetting("Kill Volume", "Kill sound volume.", 100.0, 0.0, 100.0, 1.0));
    private final ModeSetting totemMode = this.register(
       new ModeSetting("Totem Effect", "Animation on totem pop. None disables it.", "Cross", "None", "Cross", "Wings", "Rings", "Spiral")
@@ -318,7 +318,7 @@ public class KillEffect extends Module {
 
       if (this.matchesEffectTarget(entity)) {
          if (!this.killSound.is("None")) {
-            SoundEvent sound = this.killSound.is("Kill 2") ? SoundManager.KILL_V2 : SoundManager.KILL_V1;
+            SoundEvent sound = this.killSound.is("Kill 3") ? SoundManager.KILL_V3 : this.killSound.is("Kill 2") ? SoundManager.KILL_V2 : SoundManager.KILL_V1;
             SoundManager.playSoundDirect(sound, (float)(this.killVolume.getValue() / 100.0), 1.0F);
          }
 

@@ -20,6 +20,10 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
+    // Pure-Java H.264 decoder for the main menu video (bundled into the mod jar).
+    implementation 'org.jcodec:jcodec:0.2.5'
+    include 'org.jcodec:jcodec:0.2.5'
+
     compileOnly fileTree(dir: 'src/main/resources/META-INF/jars', include: ['*.jar'])
     runtimeOnly fileTree(dir: 'src/main/resources/META-INF/jars', include: ['*.jar'])
 }

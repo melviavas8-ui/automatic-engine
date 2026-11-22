@@ -9,6 +9,19 @@
       "daamky:other/kill_effect/kill_v2"
     ]
   },
+  "kill_effect_v3": {
+    "sounds": [
+      "daamky:other/kill_effect/kill3"
+    ]
+  },
+  "mainmenu_theme": {
+    "sounds": [
+      {
+        "name": "daamky:other/mainmenu_theme",
+        "stream": true
+      }
+    ]
+  },
   "totem_effect_v1": {
     "sounds": [
       "daamky:other/totem_effect/totem_v1"

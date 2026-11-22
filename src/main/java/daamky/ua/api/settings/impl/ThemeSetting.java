@@ -10,6 +10,14 @@ public final class ThemeSetting extends ModeSetting {
       ThemeManager.select(this.getValue());
    }
 
+   /** Called after the client style changed: swaps the list to the new style's themes and keeps its own selected theme. */
+   public void refreshForStyle() {
+      String wanted = ThemeManager.current().name();
+      this.replaceModes(ThemeManager.names().toArray(String[]::new));
+      this.setValue(wanted);
+      ThemeManager.select(wanted);
+   }
+
    public ClientTheme selectedTheme() {
       return ThemeManager.find(this.getValue());
    }

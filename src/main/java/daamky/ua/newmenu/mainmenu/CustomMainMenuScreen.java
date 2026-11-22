@@ -1,6 +1,7 @@
 package daamky.ua.newmenu.mainmenu;
 
 import com.mojang.authlib.GameProfile;
+import daamky.gui.UiStyle;
 import daamky.ua.newmenu.multibot.BotProxyConfig;
 import daamky.ua.newmenu.render.Render2D;
 import daamky.ua.newmenu.render.font.Fonts;
@@ -8,6 +9,7 @@ import daamky.ua.newmenu.render.font.MsdfFont;
 import daamky.ua.newmenu.render.liqvid.BlurRenderer;
 import daamky.ua.newmenu.render.util.RenderColor;
 import daamky.ua.newmenu.render.util.ScissorStack;
+import daamky.ua.newmenu.video.MenuMedia;
 import java.awt.Color;
 import java.util.*;
 import net.minecraft.client.MinecraftClient;
@@ -144,6 +146,8 @@ public final class CustomMainMenuScreen extends Screen {
     protected void init() {
         super.init();
         screenOpenTime = System.currentTimeMillis();
+        MenuMedia.INSTANCE.onMenuOpened();
+        lcSurvey = UiStyle.needsSetup();
         selectedAccount = AccountManager.getInstance().getActiveAccount();
         lastAccountClickTime = 0L;
         lastClickedAccount = "";
@@ -213,138 +217,226 @@ public final class CustomMainMenuScreen extends Screen {
     // 1. MAIN MENU VIEW
     // =========================================================================
 
+    // =========================================================================
+    // Liberty City main view: left button column over the menu video
+    // =========================================================================
+
+    private static final float LC_ANIM_SECONDS = 0.95F;
+    private static final float LC_STAGGER_SECONDS = 0.09F;
+    private static final int LC_SLOT_MULTIPLAYER = 0;
+    private static final int LC_SLOT_SINGLEPLAYER = 1;
+    private static final int LC_SLOT_ACCOUNTS = 2;
+    private static final int LC_SLOT_SETTINGS = 3;
+    private static final int LC_SLOT_EXIT = 4;
+    private static final int LC_SLOT_PROXY = 5;
+
+    private final float[] lcHover = new float[6];
+    private boolean lcSurvey;
+    private long lcSurveyPickedAtNs;
+
+    private float lcClock() {
+        if (lcSurveyPickedAtNs != 0L) {
+            return MenuMedia.BUTTONS_AT_SECONDS + (System.nanoTime() - lcSurveyPickedAtNs) / 1.0E9F;
+        }
+        return MenuMedia.INSTANCE.buttonsClock();
+    }
+
+    private float lcProgress(int slot) {
+        float t = lcClock() - MenuMedia.BUTTONS_AT_SECONDS - slot * LC_STAGGER_SECONDS;
+        return Math.clamp(t / LC_ANIM_SECONDS, 0.0F, 1.0F);
+    }
+
+    private static float elasticOut(float t) {
+        if (t <= 0.0F) return 0.0F;
+        if (t >= 1.0F) return 1.0F;
+        float c4 = (float) (2.0 * Math.PI / 3.0);
+        return (float) (Math.pow(2.0, -10.0 * t) * Math.sin((t * 10.0 - 0.75) * c4) + 1.0);
+    }
+
+    /** Final (resting) rectangle {x, y, w, h} of a slot. Slot 2 is shortened to make room for the proxy square. */
+    private float[] lcRect(int slot) {
+        float h = this.height;
+        float w = this.width;
+        float bh = Math.clamp(h * 0.068F, 22.0F, 40.0F);
+        float gap = Math.max(3.0F, h * 0.0075F);
+        float bw = Math.clamp(w * 0.255F, 150.0F, 240.0F);
+        float x = (float) Math.round(w * 0.08F);
+        float pitch = bh + gap;
+        float y0 = (float) Math.round(h * 0.387F);
+        float maxY0 = h - 34.0F - 5.0F * pitch;
+        if (y0 > maxY0) y0 = Math.max(8.0F, maxY0);
+        if (slot == LC_SLOT_PROXY) return new float[]{x + bw - bh, y0 + 2 * pitch, bh, bh};
+        float width = slot == LC_SLOT_ACCOUNTS ? bw - bh - gap : bw;
+        return new float[]{x, y0 + slot * pitch, width, bh};
+    }
+
+    private boolean lcHit(int slot, double mouseX, double mouseY) {
+        if (lcProgress(slot == LC_SLOT_PROXY ? LC_SLOT_ACCOUNTS : slot) < 0.55F) return false;
+        float[] r = lcRect(slot);
+        return mouseX >= r[0] && mouseX <= r[0] + r[2] && mouseY >= r[1] && mouseY <= r[1] + r[3];
+    }
+
+    private boolean lcMainActive() {
+        return !lcSurvey;
+    }
+
     private void renderMainMenuView(DrawContext context, int mouseX, int mouseY, float dt, float alpha) {
         if (alpha <= 0.01F) return;
 
-        long now = System.currentTimeMillis();
-        float centerX = (float) Math.round(this.width * 0.5F);
-        float baseCenterY = (float) Math.round(this.height * 0.44F);
-
-        // Hover animation smoothing (Material properties only)
-        hoverTopBadge = lerp(hoverTopBadge, isTopBadgeHovered(mouseX, mouseY) ? 1.0F : 0.0F, dt * 10.0F);
-        hoverSingleplayer = lerp(hoverSingleplayer, isSingleplayerHovered(mouseX, mouseY) ? 1.0F : 0.0F, dt * 10.0F);
-        hoverMultiplayer = lerp(hoverMultiplayer, isMultiplayerHovered(mouseX, mouseY) ? 1.0F : 0.0F, dt * 10.0F);
-        hoverBtnAccounts = lerp(hoverBtnAccounts, isBtnAccountsHovered(mouseX, mouseY) ? 1.0F : 0.0F, dt * 10.0F);
-        hoverBtnSettings = lerp(hoverBtnSettings, isBtnSettingsHovered(mouseX, mouseY) ? 1.0F : 0.0F, dt * 10.0F);
-        hoverBtnProxy = lerp(hoverBtnProxy, isBtnProxyHovered(mouseX, mouseY) ? 1.0F : 0.0F, dt * 10.0F);
-        hoverBtnExit = lerp(hoverBtnExit, isExitBtnHovered(mouseX, mouseY) ? 1.0F : 0.0F, dt * 10.0F);
-        hoverWinClose = lerp(hoverWinClose, isWinCloseHovered(mouseX, mouseY) ? 1.0F : 0.0F, dt * 10.0F);
-        hoverWinMin = lerp(hoverWinMin, isWinMinHovered(mouseX, mouseY) ? 1.0F : 0.0F, dt * 10.0F);
-
-        // -------------------------------------------------------------
-        // A. Top Identity: F Mark + Username Pill [Shonus ∨]
-        // -------------------------------------------------------------
-        float logoY = (float) Math.round(baseCenterY - 100.0F);
-        drawWatermarkMark(context, centerX, logoY, alpha, now);
-
-        String activeUser = AccountManager.getInstance().getActiveAccount();
-        float badgeW = usernameBadgeWidth(activeUser);
-        float badgeH = 20.0F;
-        float badgeX = (float) Math.round(centerX - badgeW * 0.5F);
-        float badgeY = (float) Math.round(logoY + 28.0F);
-        drawUsernameBadge(context, activeUser, badgeX, badgeY, badgeW, badgeH, alpha, hoverTopBadge);
-
-        // -------------------------------------------------------------
-        // B. Title "daamky" + Subtitle (Normalized Vertical Rhythm)
-        // -------------------------------------------------------------
-        float titleY = (float) Math.round(badgeY + 34.0F);
-        Fonts.SEMIBOLD.drawCenteredString(context, "daamky", centerX, titleY, 23.0F,
-                RenderColor.multiplyAlpha(0xFFFFFFFF, alpha));
-
-        // Subtitles rotation with smooth cross-fade
-        if (subtitleIndex < 0) {
-            subtitleIndex = new Random().nextInt(MAIN_SUBTITLES.length);
-            subtitleSwitchAt = now;
-            nextSubtitleSwitchAt = now + 5400L;
-        } else if (now >= nextSubtitleSwitchAt) {
-            previousSubtitleIndex = subtitleIndex;
-            int nextIndex = subtitleIndex;
-            while (MAIN_SUBTITLES.length > 1 && nextIndex == subtitleIndex) {
-                nextIndex = new Random().nextInt(MAIN_SUBTITLES.length);
-            }
-            subtitleIndex = nextIndex;
-            subtitleSwitchAt = now;
-            nextSubtitleSwitchAt = now + 5000L + new Random().nextInt(2500);
+        // Hover smoothing.
+        for (int i = 0; i < lcHover.length; i++) {
+            boolean over = lcHit(i, mouseX, mouseY) && (lcMainActive() || (lcSurvey && i <= LC_SLOT_SINGLEPLAYER));
+            lcHover[i] = lerp(lcHover[i], over ? 1.0F : 0.0F, dt * 10.0F);
         }
-        float subtitleBlend = Math.clamp((now - subtitleSwitchAt) / 450.0F, 0.0F, 1.0F);
-        float subY = (float) Math.round(titleY + 29.0F);
-        if (previousSubtitleIndex >= 0 && subtitleBlend < 1.0F) {
-            Fonts.REGULAR.drawCenteredString(context, MAIN_SUBTITLES[previousSubtitleIndex], centerX,
-                    subY, 9.5F,
-                    RenderColor.multiplyAlpha(0xFFA0B2C6, alpha * (1.0F - subtitleBlend)));
+
+        float h = this.height;
+        float[] first = lcRect(0);
+        float x0 = first[0];
+        float logoSize = Math.clamp(h * 0.082F, 16.0F, 40.0F);
+        float logoY = Math.max(10.0F, first[1] - logoSize * 2.35F);
+        float logoAlpha = alpha * Math.max(lcProgress(0), 0.0F);
+
+        // Logo: "<_ daamky."
+        if (logoAlpha > 0.01F) {
+            float markW = Fonts.BOLD.getWidth("<_", logoSize);
+            int white = RenderColor.multiplyAlpha(0xFFFFFFFF, logoAlpha);
+            Fonts.BOLD.drawString(context, "<_", x0, logoY, logoSize, white);
+            Fonts.BOLD.drawString(context, "daamky.", x0 + markW + logoSize * 0.3F, logoY, logoSize, white);
         }
-        Fonts.REGULAR.drawCenteredString(context, MAIN_SUBTITLES[subtitleIndex], centerX,
-                subY, 9.5F,
-                RenderColor.multiplyAlpha(0xFFA0B2C6, alpha * subtitleBlend));
 
-        // -------------------------------------------------------------
-        // C. Row 1: [▶ Одиночная]  [👥 Мультиплеер]
-        // -------------------------------------------------------------
-        float colW = 248.0F;
-        float gap = 8.0F;
-        float halfW = (float) Math.round((colW - gap) * 0.5F); // 120px
-        float r1Y = (float) Math.round(subY + 25.0F);
-        float btnH = 31.0F;
+        if (lcSurvey) {
+            renderLcSurvey(context, alpha, first);
+        } else {
+            String user = AccountManager.getInstance().getActiveAccount();
+            drawLcButton(context, LC_SLOT_MULTIPLAYER, "СЕТЕВАЯ ИГРА", ICON_MULTIPLAYER, 100, false, null, alpha);
+            drawLcButton(context, LC_SLOT_SINGLEPLAYER, "ОДИНОЧНАЯ ИГРА", ICON_SINGLEPLAYER, 100, false, null, alpha);
+            drawLcButton(context, LC_SLOT_ACCOUNTS, "АККАУНТ-МЕНЕДЖЕР", ICON_ACCOUNTS, 128, false, user, alpha);
+            drawLcButton(context, LC_SLOT_SETTINGS, "НАСТРОЙКИ", ICON_SETTINGS, 128, false, null, alpha);
+            drawLcButton(context, LC_SLOT_EXIT, "ВЫХОД", null, 0, true, null, alpha);
+            drawLcProxyButton(context, alpha);
+        }
 
-        float btnSingleX = (float) Math.round(centerX - colW * 0.5F);
-        float btnMultiX = (float) Math.round(btnSingleX + halfW + gap);
+        // Corner texts appear together with the last button.
+        float cornerAlpha = alpha * lcProgress(LC_SLOT_EXIT);
+        if (cornerAlpha > 0.01F) {
+            float small = Math.clamp(h * 0.0105F, 6.0F, 9.0F);
+            float track = small * 0.28F;
+            int dim = RenderColor.multiplyAlpha(0xB0FFFFFF, cornerAlpha);
+            int line = RenderColor.multiplyAlpha(0x50FFFFFF, cornerAlpha);
 
-        // Button 1: Singleplayer (GLASS_PRIMARY - Stronger material presence)
-        drawGroupButton(context, btnSingleX, r1Y, halfW, btnH, 8.0F,
-                hoverSingleplayer, alpha, GlassStyle.PRIMARY,
-                ICON_SINGLEPLAYER, 100, 13.0F, "Одиночная",
-                Fonts.MEDIUM, 10.5F, 7.0F, 0xFFCBD5E1, 0xFFE2E8F0);
+            String top = "DAAMKY CLIENT  ·  1.5 RELEASE";
+            float topW = trackedWidth(Fonts.REGULAR, top, small, track);
+            float topRight = this.width - this.width * 0.055F;
+            drawTracked(context, Fonts.REGULAR, top, topRight - topW, h * 0.068F, small, track, dim);
+            float lineLen = this.width * 0.045F;
+            Render2D.drawRound(context, topRight - topW - 12.0F - lineLen, h * 0.068F + small * 0.45F, lineLen, 1.0F, 0.0F, line);
 
-        // Button 2: Multiplayer (GLASS_PRIMARY - Stronger material presence)
-        drawGroupButton(context, btnMultiX, r1Y, halfW, btnH, 8.0F,
-                hoverMultiplayer, alpha, GlassStyle.PRIMARY,
-                ICON_MULTIPLAYER, 100, 13.0F, "Мультиплеер",
-                Fonts.MEDIUM, 10.5F, 7.0F, 0xFFCBD5E1, 0xFFE2E8F0);
+            String foot = "MINECRAFT 1.21.11 / FABRIC";
+            float footY = h - h * 0.062F;
+            float footW = trackedWidth(Fonts.REGULAR, foot, small, track);
+            drawTracked(context, Fonts.REGULAR, foot, x0, footY, small, track, dim);
+            Render2D.drawRound(context, x0 + footW + 12.0F, footY + small * 0.45F, this.width * 0.3F, 1.0F, 0.0F, line);
 
-        // -------------------------------------------------------------
-        // D. Row 2: Secondary Icon Buttons: [ 👤 ] [ ⚙ ] [ ⚡ ] [ 🚪 ]
-        // (4 Identical 31x31 Utility Buttons, normalized optical icon size)
-        // -------------------------------------------------------------
-        float r2Y = (float) Math.round(r1Y + btnH + 8.0F);
-        float iconBtnSize = 31.0F;
-        float iconGap = 7.0F;
+            Fonts.REGULAR.drawRightString(context, "Играй по-своему.", this.width * 0.962F, h * 0.912F,
+                    Math.clamp(h * 0.032F, 8.0F, 14.0F), dim);
+        }
+    }
 
-        float startRow2X = (float) Math.round(centerX - (iconBtnSize * 4.0F + iconGap * 3.0F) * 0.5F);
+    private void drawLcButton(DrawContext context, int slot, String label, Identifier icon, int iconTexture,
+                              boolean exitIcon, String rightHint, float alpha) {
+        float p = lcProgress(slot);
+        float a = alpha * Math.clamp(p * 2.5F, 0.0F, 1.0F);
+        if (a <= 0.01F) return;
+        float[] r = lcRect(slot);
+        float slide = (1.0F - elasticOut(p)) * (r[0] + r[2] + 16.0F);
+        float x = r[0] - slide;
+        float y = r[1];
+        float w = r[2];
+        float bh = r[3];
+        float hover = lcHover[slot];
 
-        // Button 1: Accounts (👤) - 13.5px optical normalization
-        drawIconSquareButton(context, startRow2X, r2Y, iconBtnSize, iconBtnSize,
-                ICON_ACCOUNTS, 128, 13.5F, hoverBtnAccounts, alpha, 0xFFCAD4DF);
+        drawGlassButton(context, x, y, w, bh, bh * 0.22F, hover, a, GlassStyle.SECONDARY);
+        if (hover > 0.02F) {
+            Render2D.drawRound(context, x + 2.0F, y + bh * 0.15F, 2.0F, bh * 0.7F, 1.0F,
+                    RenderColor.multiplyAlpha(0xFFFFFFFF, a * hover));
+        }
 
-        // Button 2: Options / Settings (⚙) - 13.0px optical normalization
-        drawIconSquareButton(context, startRow2X + iconBtnSize + iconGap, r2Y, iconBtnSize, iconBtnSize,
-                ICON_SETTINGS, 128, 13.0F, hoverBtnSettings, alpha, 0xFFCAD4DF);
+        int tint = RenderColor.multiplyAlpha(RenderColor.interpolate(0xFFB9BDC4, 0xFFFFFFFF, hover), a);
+        float iconSize = bh * 0.40F;
+        float cx = x + w * 0.11F;
+        float cy = y + bh * 0.5F;
+        if (exitIcon) {
+            drawExitDoorIcon(context, cx, cy, iconSize, tint);
+        } else if (icon != null) {
+            drawMenuIcon(context, icon, iconTexture, cx - iconSize * 0.5F, cy - iconSize * 0.5F, iconSize, tint);
+        }
 
-        // Button 3: Proxy (⚡) - 13.0px optical normalization
-        drawIconSquareButton(context, startRow2X + (iconBtnSize + iconGap) * 2.0F, r2Y, iconBtnSize, iconBtnSize,
-                ICON_PROXY, 128, 13.0F, hoverBtnProxy, alpha, 0xFFCAD4DF);
+        float fontSize = bh * 0.38F;
+        float ty = y + (bh - fontSize) * 0.5F - fontSize * 0.08F;
+        Fonts.MEDIUM.drawString(context, label, x + w * 0.25F, ty, fontSize, tint);
 
-        // Button 4: Exit Button (🚪) - 13.0px vector door logout icon with muted red
-        drawExitSquareButton(context, startRow2X + (iconBtnSize + iconGap) * 3.0F, r2Y, iconBtnSize, iconBtnSize,
-                hoverBtnExit, alpha);
+        if (rightHint != null && !rightHint.isEmpty()) {
+            float hintSize = fontSize * 0.78F;
+            String fitted = fitLabel(rightHint, w * 0.28F, hintSize);
+            Fonts.REGULAR.drawRightString(context, fitted, x + w - bh * 0.35F, ty + fontSize * 0.1F, hintSize,
+                    RenderColor.multiplyAlpha(0x90FFFFFF, a));
+        }
+    }
 
-        // -------------------------------------------------------------
-        // E. Top-Right Window Controls: [ — ]  [ ✕ ]
-        // -------------------------------------------------------------
-        float winX = (float) Math.round(this.width - 48.0F);
-        float winY = 12.0F;
-        Fonts.REGULAR.drawString(context, "—", winX, winY, 11.0F,
-                RenderColor.multiplyAlpha(RenderColor.interpolate(0x6094A3B8, 0xFFFFFFFF, hoverWinMin), alpha));
-        Fonts.REGULAR.drawString(context, "✕", winX + 16.0F, winY, 11.0F,
-                RenderColor.multiplyAlpha(RenderColor.interpolate(0x6094A3B8, 0xFFF87171, hoverWinClose), alpha));
+    private void drawLcProxyButton(DrawContext context, float alpha) {
+        float p = lcProgress(LC_SLOT_ACCOUNTS);
+        float a = alpha * Math.clamp(p * 2.5F, 0.0F, 1.0F);
+        if (a <= 0.01F) return;
+        float[] r = lcRect(LC_SLOT_PROXY);
+        float slide = (1.0F - elasticOut(p)) * (r[0] + r[2] + 16.0F);
+        float x = r[0] - slide;
+        float hover = lcHover[LC_SLOT_PROXY];
+        drawGlassButton(context, x, r[1], r[2], r[3], r[3] * 0.22F, hover, a, GlassStyle.SECONDARY);
+        int tint = RenderColor.multiplyAlpha(RenderColor.interpolate(0xFFB9BDC4, 0xFFFFFFFF, hover), a);
+        float iconSize = r[3] * 0.40F;
+        drawMenuIcon(context, ICON_PROXY, 128, x + (r[2] - iconSize) * 0.5F, r[1] + (r[3] - iconSize) * 0.5F, iconSize, tint);
+    }
 
-        // -------------------------------------------------------------
-        // F. Footer Text (Clean Centered, subtle & crisp typography)
-        // -------------------------------------------------------------
-        float footerY = (float) Math.round(this.height - 28.0F);
-        Fonts.REGULAR.drawCenteredString(context, "Продукты daamky не связаны с Mojang.", centerX, footerY, 8.0F,
-                RenderColor.multiplyAlpha(0x70FFFFFF, alpha));
-        Fonts.REGULAR.drawCenteredString(context, "Политика конфиденциальности  ·  Условия использования", centerX, footerY + 11.0F, 7.8F,
-                RenderColor.multiplyAlpha(0x50FFFFFF, alpha));
+    private void renderLcSurvey(DrawContext context, float alpha, float[] first) {
+        float h = this.height;
+        float headSize = Math.clamp(h * 0.03F, 8.0F, 13.0F);
+        float p0 = lcProgress(0);
+        if (p0 > 0.05F) {
+            Fonts.SEMIBOLD.drawString(context, "Выбери стиль клиента", first[0], first[1] - headSize * 1.7F, headSize,
+                    RenderColor.multiplyAlpha(0xFFFFFFFF, alpha * p0));
+        }
+        drawLcButton(context, 0, "LEGACY", null, 0, false, null, alpha);
+        drawLcButton(context, 1, "LIBERTY CITY", null, 0, false, null, alpha);
+
+        String hint = lcHover[1] > 0.5F ? "Новый тёмный стиль в духе Liberty City."
+                : lcHover[0] > 0.5F ? "Классический интерфейс и привычные темы."
+                : "Стиль можно сменить позже: Appearance → Style.";
+        float[] second = lcRect(1);
+        float hintSize = Math.clamp(h * 0.026F, 7.0F, 11.0F);
+        float p1 = lcProgress(1);
+        if (p1 > 0.4F) {
+            Fonts.REGULAR.drawString(context, hint, second[0], second[1] + second[3] + hintSize * 0.9F, hintSize,
+                    RenderColor.multiplyAlpha(0xB0FFFFFF, alpha * p1));
+        }
+    }
+
+    private float trackedWidth(MsdfFont font, String text, float size, float tracking) {
+        float total = 0.0F;
+        for (int i = 0; i < text.length(); i++) {
+            total += font.getWidth(String.valueOf(text.charAt(i)), size);
+            if (i < text.length() - 1) total += tracking;
+        }
+        return total;
+    }
+
+    private void drawTracked(DrawContext context, MsdfFont font, String text, float x, float y, float size,
+                             float tracking, int color) {
+        float cursor = x;
+        for (int i = 0; i < text.length(); i++) {
+            String ch = String.valueOf(text.charAt(i));
+            font.drawString(context, ch, cursor, y, size, color);
+            cursor += font.getWidth(ch, size) + tracking;
+        }
     }
 
     /**
@@ -1472,6 +1564,18 @@ public final class CustomMainMenuScreen extends Screen {
 
         // Handle Main Menu clicks
         if (currentState == MenuState.MAIN && transitionProgress > 0.5F) {
+            if (lcSurvey) {
+                if (lcHit(0, mouseX, mouseY)) {
+                    UiStyle.select(UiStyle.LEGACY);
+                    lcSurvey = false;
+                    lcSurveyPickedAtNs = System.nanoTime();
+                } else if (lcHit(1, mouseX, mouseY)) {
+                    UiStyle.select(UiStyle.LIBERTY);
+                    lcSurvey = false;
+                    lcSurveyPickedAtNs = System.nanoTime();
+                }
+                return true;
+            }
             if (isTopBadgeHovered(mouseX, mouseY)) {
                 targetState = MenuState.ACCOUNTS;
                 accountInputFocused = false;
@@ -1976,96 +2080,39 @@ public final class CustomMainMenuScreen extends Screen {
     // =========================================================================
 
     private boolean isTopBadgeHovered(double mouseX, double mouseY) {
-        float centerX = (float) Math.round(this.width * 0.5F);
-        float baseCenterY = (float) Math.round(this.height * 0.44F);
-        String activeUser = AccountManager.getInstance().getActiveAccount();
-        float badgeW = usernameBadgeWidth(activeUser);
-        float badgeH = 20.0F;
-        float badgeX = (float) Math.round(centerX - badgeW * 0.5F);
-        float badgeY = (float) Math.round(baseCenterY - 100.0F + 28.0F);
-        return mouseX >= badgeX && mouseX <= badgeX + badgeW && mouseY >= badgeY && mouseY <= badgeY + badgeH;
+        return false;
     }
 
     private boolean isSingleplayerHovered(double mouseX, double mouseY) {
-        float centerX = (float) Math.round(this.width * 0.5F);
-        float baseCenterY = (float) Math.round(this.height * 0.44F);
-        float colW = 248.0F;
-        float gap = 8.0F;
-        float halfW = (float) Math.round((colW - gap) * 0.5F);
-        float btnSingleX = (float) Math.round(centerX - colW * 0.5F);
-        float r1Y = (float) Math.round(baseCenterY - 100.0F + 28.0F + 34.0F + 29.0F + 25.0F);
-        return mouseX >= btnSingleX && mouseX <= btnSingleX + halfW && mouseY >= r1Y && mouseY <= r1Y + 31.0F;
+        return lcMainActive() && lcHit(LC_SLOT_SINGLEPLAYER, mouseX, mouseY);
     }
 
     private boolean isMultiplayerHovered(double mouseX, double mouseY) {
-        float centerX = (float) Math.round(this.width * 0.5F);
-        float baseCenterY = (float) Math.round(this.height * 0.44F);
-        float colW = 248.0F;
-        float gap = 8.0F;
-        float halfW = (float) Math.round((colW - gap) * 0.5F);
-        float btnSingleX = (float) Math.round(centerX - colW * 0.5F);
-        float btnMultiX = (float) Math.round(btnSingleX + halfW + gap);
-        float r1Y = (float) Math.round(baseCenterY - 100.0F + 28.0F + 34.0F + 29.0F + 25.0F);
-        return mouseX >= btnMultiX && mouseX <= btnMultiX + halfW && mouseY >= r1Y && mouseY <= r1Y + 31.0F;
+        return lcMainActive() && lcHit(LC_SLOT_MULTIPLAYER, mouseX, mouseY);
     }
 
     private boolean isBtnAccountsHovered(double mouseX, double mouseY) {
-        float centerX = (float) Math.round(this.width * 0.5F);
-        float baseCenterY = (float) Math.round(this.height * 0.44F);
-        float iconBtnSize = 31.0F;
-        float iconGap = 7.0F;
-        float startRow2X = (float) Math.round(centerX - (iconBtnSize * 4.0F + iconGap * 3.0F) * 0.5F);
-        float r1Y = (float) Math.round(baseCenterY - 100.0F + 28.0F + 34.0F + 29.0F + 25.0F);
-        float r2Y = (float) Math.round(r1Y + 31.0F + 8.0F);
-        return mouseX >= startRow2X && mouseX <= startRow2X + iconBtnSize && mouseY >= r2Y && mouseY <= r2Y + iconBtnSize;
+        return lcMainActive() && lcHit(LC_SLOT_ACCOUNTS, mouseX, mouseY);
     }
 
     private boolean isBtnSettingsHovered(double mouseX, double mouseY) {
-        float centerX = (float) Math.round(this.width * 0.5F);
-        float baseCenterY = (float) Math.round(this.height * 0.44F);
-        float iconBtnSize = 31.0F;
-        float iconGap = 7.0F;
-        float startRow2X = (float) Math.round(centerX - (iconBtnSize * 4.0F + iconGap * 3.0F) * 0.5F);
-        float btnOptX = (float) Math.round(startRow2X + iconBtnSize + iconGap);
-        float r1Y = (float) Math.round(baseCenterY - 100.0F + 28.0F + 34.0F + 29.0F + 25.0F);
-        float r2Y = (float) Math.round(r1Y + 31.0F + 8.0F);
-        return mouseX >= btnOptX && mouseX <= btnOptX + iconBtnSize && mouseY >= r2Y && mouseY <= r2Y + iconBtnSize;
+        return lcMainActive() && lcHit(LC_SLOT_SETTINGS, mouseX, mouseY);
     }
 
     private boolean isBtnProxyHovered(double mouseX, double mouseY) {
-        float centerX = (float) Math.round(this.width * 0.5F);
-        float baseCenterY = (float) Math.round(this.height * 0.44F);
-        float iconBtnSize = 31.0F;
-        float iconGap = 7.0F;
-        float startRow2X = (float) Math.round(centerX - (iconBtnSize * 4.0F + iconGap * 3.0F) * 0.5F);
-        float btnPrxX = (float) Math.round(startRow2X + (iconBtnSize + iconGap) * 2.0F);
-        float r1Y = (float) Math.round(baseCenterY - 100.0F + 28.0F + 34.0F + 29.0F + 25.0F);
-        float r2Y = (float) Math.round(r1Y + 31.0F + 8.0F);
-        return mouseX >= btnPrxX && mouseX <= btnPrxX + iconBtnSize && mouseY >= r2Y && mouseY <= r2Y + iconBtnSize;
+        return lcMainActive() && lcHit(LC_SLOT_PROXY, mouseX, mouseY);
     }
 
     private boolean isExitBtnHovered(double mouseX, double mouseY) {
-        float centerX = (float) Math.round(this.width * 0.5F);
-        float baseCenterY = (float) Math.round(this.height * 0.44F);
-        float iconBtnSize = 31.0F;
-        float iconGap = 7.0F;
-        float startRow2X = (float) Math.round(centerX - (iconBtnSize * 4.0F + iconGap * 3.0F) * 0.5F);
-        float btnExitX = (float) Math.round(startRow2X + (iconBtnSize + iconGap) * 3.0F);
-        float r1Y = (float) Math.round(baseCenterY - 100.0F + 28.0F + 34.0F + 29.0F + 25.0F);
-        float r2Y = (float) Math.round(r1Y + 31.0F + 8.0F);
-        return mouseX >= btnExitX && mouseX <= btnExitX + iconBtnSize && mouseY >= r2Y && mouseY <= r2Y + iconBtnSize;
+        return lcMainActive() && lcHit(LC_SLOT_EXIT, mouseX, mouseY);
     }
 
     private boolean isWinCloseHovered(double mouseX, double mouseY) {
-        float winX = (float) Math.round(this.width - 48.0F + 16.0F);
-        float winY = 12.0F;
-        return mouseX >= winX - 4.0F && mouseX <= winX + 16.0F && mouseY >= winY - 4.0F && mouseY <= winY + 16.0F;
+        return false;
     }
 
     private boolean isWinMinHovered(double mouseX, double mouseY) {
-        float winX = (float) Math.round(this.width - 48.0F);
-        float winY = 12.0F;
-        return mouseX >= winX - 4.0F && mouseX <= winX + 16.0F && mouseY >= winY - 4.0F && mouseY <= winY + 16.0F;
+        return false;
     }
 
     private boolean isBackBtnHovered(double mouseX, double mouseY) {

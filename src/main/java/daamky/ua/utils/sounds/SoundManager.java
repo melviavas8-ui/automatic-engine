@@ -28,6 +28,7 @@ public final class SoundManager {
    public static final SoundEvent BUTTON_CLICK = sound("buttonclick");
    public static final SoundEvent MENU_OPEN = sound("menu_open");
    public static final SoundEvent MENU_CLOSE = sound("menu_close");
+   public static final SoundEvent MENU_THEME = sound("mainmenu_theme");
    public static final SoundEvent UNKNOWN_COMMAND = sound("unknowncommand");
    public static final SoundEvent NOTIFICATION = sound("welcome");
    public static final SoundEvent FRAG_EFFECT_ECHO_MAIN = sound("frag_effect_echo_main");
@@ -36,6 +37,7 @@ public final class SoundManager {
    public static final SoundEvent FRAG_EFFECT_SPARKS_COLLISION = sound("frag_effect_sparks_collision");
    public static final SoundEvent KILL_V1 = sound("kill_effect_v1");
    public static final SoundEvent KILL_V2 = sound("kill_effect_v2");
+   public static final SoundEvent KILL_V3 = sound("kill_effect_v3");
    public static final SoundEvent TOTEM_V1 = sound("totem_effect_v1");
    public static final SoundEvent TOTEM_V2 = sound("totem_effect_v2");
    private static boolean initialized;
@@ -65,6 +67,7 @@ public final class SoundManager {
          register(BUTTON_CLICK);
          register(MENU_OPEN);
          register(MENU_CLOSE);
+         register(MENU_THEME);
          register(UNKNOWN_COMMAND);
          register(NOTIFICATION);
          register(FRAG_EFFECT_ECHO_MAIN);
@@ -73,6 +76,7 @@ public final class SoundManager {
          register(FRAG_EFFECT_SPARKS_COLLISION);
          register(KILL_V1);
          register(KILL_V2);
+         register(KILL_V3);
          register(TOTEM_V1);
          register(TOTEM_V2);
       }

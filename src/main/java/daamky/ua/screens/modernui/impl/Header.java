@@ -148,7 +148,6 @@ public final class Header {
    }
 
    private void renderLanguageIcon(float x, float y, int alpha) {
-      Render2D.text(FontType.GUI_ICONS, "Z", this.languageIconX() + 2.0F, this.languageIconY(), 15.0F, new Color(255, 255, 255, alpha).getRGB());
    }
 
    private void renderThemesIcon(float x, float y, int alpha) {
@@ -164,70 +163,6 @@ public final class Header {
    }
 
    private void renderLanguageMenu(int mouseX, int mouseY, int alpha) {
-      this.languageMenuAnimation.setDirection(this.languageMenuOpen ? Direction.FORWARDS : Direction.BACKWARDS);
-      float progress = MathUtils.clamp(this.languageMenuAnimation.getOutput().floatValue(), 0.0F, 1.0F);
-      if (!(progress <= 0.01F)) {
-         float menuWidth = this.languageMenuWidth();
-         float menuX = this.languageMenuX();
-         float menuY = this.languageMenuY() - (1.0F - progress) * 4.0F;
-         float rowHeight = 14.0F;
-         float menuHeight = rowHeight * (float)ClientLanguage.Lang.values().length;
-         int backgroundAlpha = Math.round(225.0F * progress);
-         int outlineAlpha = Math.round(75.0F * progress);
-         ClientTheme theme = ThemeManager.current();
-         Render2D.blur(menuX, menuY, menuWidth, menuHeight, 4.0F, 18.0F, 1.0F, this.alpha(theme.accentBright(), Math.round(150.0F * progress)));
-         Render2D.rect(
-            menuX,
-            menuY,
-            menuWidth,
-            menuHeight,
-            4.0F,
-            this.alpha(theme.surfaceDark(), backgroundAlpha),
-            this.alpha(theme.surface(), backgroundAlpha),
-            this.alpha(theme.surfaceDeep(), backgroundAlpha),
-            this.alpha(theme.surfaceDark(), backgroundAlpha)
-         );
-         Render2D.outline(
-            menuX,
-            menuY,
-            menuWidth,
-            menuHeight,
-            4.0F,
-            0.25F,
-            this.alpha(theme.outline(), outlineAlpha),
-            this.alpha(theme.accent(), outlineAlpha),
-            this.alpha(theme.accentDark(), outlineAlpha),
-            this.alpha(theme.outline(), outlineAlpha)
-         );
-         ClientLanguage.Lang[] values = ClientLanguage.Lang.values();
-
-         for (int i = 0; i < values.length; i++) {
-            ClientLanguage.Lang lang = values[i];
-            float rowY = menuY + (float)i * rowHeight;
-            boolean hovered = this.inside((double)mouseX, (double)mouseY, menuX, rowY, menuWidth, rowHeight);
-            boolean selected = ClientLanguage.current() == lang;
-            if (hovered || selected) {
-               int rowAlpha = Math.round((hovered ? 85.0F : 65.0F) * progress);
-               Render2D.rect(
-                  menuX + 2.0F,
-                  rowY + 2.0F,
-                  menuWidth - 4.0F,
-                  rowHeight - 4.0F,
-                  3.0F,
-                  this.alpha(theme.controlTop(), rowAlpha),
-                  this.alpha(theme.accent(), rowAlpha),
-                  this.alpha(theme.controlBottom(), rowAlpha),
-                  this.alpha(theme.controlTop(), rowAlpha)
-               );
-            }
-
-            String label = lang.name();
-            float size = 5.8F;
-            float labelWidth = Render2D.textWidth(FontType.SEMIBOLD, label, size);
-            int textAlpha = Math.round((selected ? 255.0F : 185.0F) * progress * ((float)alpha / 255.0F));
-            Render2D.text(FontType.SEMIBOLD, label, menuX + (menuWidth - labelWidth) * 0.5F, rowY + 4.0F, size, new Color(255, 255, 255, textAlpha).getRGB());
-         }
-      }
    }
 
    private void renderThemeMenu(DrawContext graphics, int mouseX, int mouseY, int alpha) {
@@ -663,20 +598,7 @@ public final class Header {
    }
 
    public boolean isLanguageIconClicked(double mouseX, double mouseY, SearchHandler searchHandler) {
-      if (this.searchOpenProgress(searchHandler) > 0.16F) {
-         return false;
-      } else {
-         float iconX = this.languageIconX();
-         float iconY = this.languageIconY();
-         float iconWidth = 15.0F;
-         float iconHeight = 15.0F;
-         float clickPadding = 2.0F;
-         float right = Math.min(iconX + iconWidth + clickPadding, this.closedIconSplitX());
-         return mouseX >= (double)(iconX - clickPadding)
-            && mouseX <= (double)right
-            && mouseY >= (double)(iconY - clickPadding)
-            && mouseY <= (double)(iconY + iconHeight + clickPadding);
-      }
+      return false;
    }
 
    public boolean isThemeIconClicked(double mouseX, double mouseY, SearchHandler searchHandler) {
@@ -692,25 +614,7 @@ public final class Header {
    }
 
    public boolean mouseClickedLanguage(Click event, SearchHandler searchHandler) {
-      if (event.button() == 0 && !(this.searchOpenProgress(searchHandler) > 0.16F)) {
-         if (this.isLanguageIconClicked(event.x(), event.y(), searchHandler)) {
-            this.languageMenuOpen = !this.languageMenuOpen;
-            this.themeMenuOpen = false;
-            return true;
-         } else if (!this.languageMenuOpen) {
-            return false;
-         } else {
-            ClientLanguage.Lang clicked = this.languageAt(event.x(), event.y());
-            if (clicked != null) {
-               ClientLanguage.set(clicked);
-            }
-
-            this.languageMenuOpen = false;
-            return true;
-         }
-      } else {
-         return false;
-      }
+      return false;
    }
 
    public boolean mouseClickedTheme(Click event, SearchHandler searchHandler) {
@@ -739,15 +643,6 @@ public final class Header {
    }
 
    private ClientLanguage.Lang languageAt(double mouseX, double mouseY) {
-      float rowHeight = 14.0F;
-      ClientLanguage.Lang[] values = ClientLanguage.Lang.values();
-
-      for (int i = 0; i < values.length; i++) {
-         if (this.inside(mouseX, mouseY, this.languageMenuX(), this.languageMenuY() + (float)i * rowHeight, this.languageMenuWidth(), rowHeight)) {
-            return values[i];
-         }
-      }
-
       return null;
    }
 

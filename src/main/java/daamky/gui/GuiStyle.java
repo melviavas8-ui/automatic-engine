@@ -13,72 +13,103 @@ import java.nio.file.Path;
 import java.util.List;
 
 /**
- * Selected ClickGUI style. Like the client theme it lives in its own file (system/gui.daamky),
- * so loading somebody else's config never switches your GUI behind your back.
+ * Selected ClickGUI type. Each {@link UiStyle} remembers its own type (Legacy: Window or DropDown,
+ * Liberty City: Window, DropDown or CS). Like the client theme it lives in its own file
+ * (system/gui.daamky), so loading somebody else's config never switches your GUI behind your back.
  */
 public final class GuiStyle {
     public static final String WINDOW = "Window";
     public static final String DROPDOWN = "DropDown";
+    public static final String CS = "CS";
+    /** Types of the Legacy style. */
     public static final List<String> NAMES = List.of(WINDOW, DROPDOWN);
+    /** Types of the Liberty City style. */
+    public static final List<String> LIBERTY_NAMES = List.of(WINDOW, DROPDOWN, CS);
 
     private static final Gson GSON = new Gson();
     private static final String FILE = "gui.daamky";
-    private static String current = load();
+    private static String legacyType = WINDOW;
+    private static String libertyType = WINDOW;
+
+    static { load(); }
 
     private GuiStyle() {}
 
-    public static String current() { return current; }
+    /** Types available in the active style. */
+    public static List<String> names() { return UiStyle.isLiberty() ? LIBERTY_NAMES : NAMES; }
 
-    public static boolean isDropDown() { return DROPDOWN.equals(current); }
+    public static String current() { return UiStyle.isLiberty() ? libertyType : legacyType; }
 
-    /** Returns the canonical style name for the input, or the current style when it is unknown. */
+    public static boolean isDropDown() { return DROPDOWN.equals(current()); }
+
+    /** Returns the canonical type name for the input, or the current type when it is unknown. */
     public static String find(String name) {
         String exact = findExact(name);
-        return exact == null ? current : exact;
+        return exact == null ? current() : exact;
     }
 
     public static void select(String name) {
         String exact = findExact(name);
-        if (exact != null && !exact.equals(current)) {
-            current = exact;
+        if (exact != null && !exact.equals(current())) {
+            if (UiStyle.isLiberty()) libertyType = exact; else legacyType = exact;
             save();
         }
     }
 
     /** True for any of the client's own ClickGUI screens, whatever style is selected. */
     public static boolean isClientGui(Screen screen) {
-        return screen instanceof DaamkyClickGui || screen instanceof DaamkyDropDownGui;
+        return screen instanceof DaamkyClickGui || screen instanceof DaamkyDropDownGui || screen instanceof LC_Window;
     }
 
-    /** Creates the ClickGUI screen for the selected style. */
+    /**
+     * Creates the ClickGUI screen for the selected style and type.
+     * Liberty City opens LC_Window (also for the CS type, until CS gets its own screen) and,
+     * until LC_Dropdown is added in a later stage, the classic DropDown screen.
+     */
     public static Screen create() {
+        if (UiStyle.isLiberty()) {
+            return isDropDown() ? new DaamkyDropDownGui() : new LC_Window();
+        }
         return isDropDown() ? new DaamkyDropDownGui() : new DaamkyClickGui();
     }
 
     private static String findExact(String name) {
         if (name != null) {
-            for (String style : NAMES) {
-                if (style.equalsIgnoreCase(name.trim())) return style;
+            for (String type : names()) {
+                if (type.equalsIgnoreCase(name.trim())) return type;
             }
         }
         return null;
     }
 
-    private static String load() {
+    private static void load() {
         try {
             Path file = ConfigManager.systemDirectory().resolve(FILE);
-            if (!Files.exists(file)) return WINDOW;
+            if (!Files.exists(file)) return;
             try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
                 JsonObject json = GSON.fromJson(reader, JsonObject.class);
-                if (json != null && json.has("type")) {
-                    String exact = findExact(json.get("type").getAsString());
-                    if (exact != null) return exact;
+                if (json == null) return;
+                if (json.has("type")) {
+                    String type = exactIn(NAMES, json.get("type").getAsString());
+                    if (type != null) legacyType = type;
+                }
+                if (json.has("lcType")) {
+                    String type = exactIn(LIBERTY_NAMES, json.get("lcType").getAsString());
+                    if (type != null) libertyType = type;
                 }
             }
         } catch (Exception ignored) {
-            // Fall back to the default window style.
+            // Fall back to the default window type.
         }
-        return WINDOW;
+    }
+
+    private static String exactIn(List<String> list, String name) {
+        if (name != null) {
+            for (String type : list) {
+                if (type.equalsIgnoreCase(name.trim())) return type;
+            }
+        }
+        return null;
     }
 
     private static void save() {
@@ -86,12 +117,13 @@ public final class GuiStyle {
             Files.createDirectories(ConfigManager.systemDirectory());
             Path file = ConfigManager.systemDirectory().resolve(FILE);
             JsonObject json = new JsonObject();
-            json.addProperty("type", current);
+            json.addProperty("type", legacyType);
+            json.addProperty("lcType", libertyType);
             try (Writer writer = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
                 GSON.toJson(json, writer);
             }
         } catch (Exception ignored) {
-            // Not being able to persist the style must never break the GUI.
+            // Not being able to persist the type must never break the GUI.
         }
     }
 }

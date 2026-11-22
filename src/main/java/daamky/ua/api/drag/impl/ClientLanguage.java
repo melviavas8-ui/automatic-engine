@@ -7,10 +7,7 @@ import com.google.gson.JsonObject;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.io.Writer;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -19,27 +16,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
-import daamky.ua.api.config.ConfigManager;
 
 /**
  * Система языков клиента. Тексты лежат в ресурсах: assets/daamky/clientlang/{uk,ru,en}.json.
  * Формат файла: {"names": {...}, "descriptions": {...}, "words": [[from,to],...], "descWords": [[from,to],...]}.
  * Названия модулей (assets/daamky/clientlang/protected.json) никогда не переводятся.
- * Язык по умолчанию: украинский. Если ключа нет в файле языка, используется запасная замена слов (words),
+ * Язык клиента один и фиксированный: русский (переключателя нет). Если ключа нет в файле языка, используется запасная замена слов (words),
  * а если и её нет, показывается исходный английский текст.
  */
 public final class ClientLanguage {
    private static final Gson GSON = new Gson();
-   private static final String CONFIG_FILE = "language.daamky";
    private static final String RESOURCE_DIR = "/assets/daamky/clientlang/";
    private static final int FALLBACK_CACHE_LIMIT = 4096;
    private static final Map<ClientLanguage.Lang, Pack> PACKS = new EnumMap<>(ClientLanguage.Lang.class);
    private static final Set<String> PROTECTED = new HashSet<>();
-   private static final List<Runnable> LISTENERS = new CopyOnWriteArrayList<>();
    private static final Map<String, String> NAME_FALLBACK_CACHE = new ConcurrentHashMap<>();
    private static final Map<String, String> DESCRIPTION_FALLBACK_CACHE = new ConcurrentHashMap<>();
-   private static ClientLanguage.Lang current = ClientLanguage.Lang.UK;
+   private static final ClientLanguage.Lang current = ClientLanguage.Lang.RU;
 
    private ClientLanguage() {
    }
@@ -105,35 +98,8 @@ public final class ClientLanguage {
       return value;
    }
 
-   /** Переключает на следующий язык по кругу. */
-   public static void toggle() {
-      ClientLanguage.Lang[] values = ClientLanguage.Lang.values();
-      set(values[(current.ordinal() + 1) % values.length]);
-   }
-
-   public static void set(ClientLanguage.Lang lang) {
-      if (lang != null && lang != current) {
-         current = lang;
-         NAME_FALLBACK_CACHE.clear();
-         DESCRIPTION_FALLBACK_CACHE.clear();
-         saveLanguage();
-         for (Runnable listener : LISTENERS) {
-            listener.run();
-         }
-      }
-   }
-
    public static ClientLanguage.Lang current() {
       return current;
-   }
-
-   public static String buttonText() {
-      return current.name();
-   }
-
-   /** Вызывается при смене языка (например, чтобы синхронизировать настройку в Appearance). */
-   public static void addChangeListener(Runnable listener) {
-      LISTENERS.add(listener);
    }
 
    private static Pack pack(ClientLanguage.Lang lang) {
@@ -197,41 +163,8 @@ public final class ClientLanguage {
       }
    }
 
-   private static void loadLanguage() {
-      try {
-         Path file = ConfigManager.systemDirectory().resolve(CONFIG_FILE);
-         if (!Files.exists(file)) {
-            return;
-         }
-
-         try (Reader reader = Files.newBufferedReader(file)) {
-            JsonObject json = (JsonObject)GSON.fromJson(reader, JsonObject.class);
-            // Ключ "lang" появился вместе с украинским: старый ключ "language" (EN/RU) игнорируем, по умолчанию UK.
-            if (json != null && json.has("lang")) {
-               current = ClientLanguage.Lang.fromCode(json.get("lang").getAsString());
-            }
-         }
-      } catch (Exception var6) {
-      }
-   }
-
-   private static void saveLanguage() {
-      try {
-         Files.createDirectories(ConfigManager.systemDirectory());
-         Path file = ConfigManager.systemDirectory().resolve(CONFIG_FILE);
-         JsonObject json = new JsonObject();
-         json.addProperty("lang", current.code());
-
-         try (Writer writer = Files.newBufferedWriter(file)) {
-            GSON.toJson(json, writer);
-         }
-      } catch (Exception var6) {
-      }
-   }
-
    static {
       loadProtected();
-      loadLanguage();
    }
 
    private static final class Pack {

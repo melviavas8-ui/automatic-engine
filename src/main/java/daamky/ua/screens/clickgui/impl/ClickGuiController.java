@@ -13,7 +13,6 @@ import net.minecraft.client.util.InputUtil;
 import net.minecraft.client.util.InputUtil.Key;
 import net.minecraft.client.util.InputUtil.Type;
 import org.lwjgl.glfw.GLFW;
-import daamky.ua.api.drag.impl.ClientLanguage;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.module.impl.misc.ClientSounds;
@@ -112,7 +111,6 @@ public final class ClickGuiController {
          }
 
          SEARCH_BAR.render(graphics, designScreenWidth, openProgress, 0.0F, 0.0F);
-         renderLanguageButton(openProgress);
          Render2D.flush();
       }
    }
@@ -146,10 +144,7 @@ public final class ClickGuiController {
       event = toDesignEvent(event);
       mouseX = event.x();
       mouseY = event.y();
-      if (!closing && event.button() == 0 && languageButtonClicked(event.x(), event.y())) {
-         ClientLanguage.toggle();
-         return true;
-      } else if (!closing && SEARCH_BAR.mouseClicked(event, doubled, ClickGuiController::selectSearchResult)) {
+      if (!closing && SEARCH_BAR.mouseClicked(event, doubled, ClickGuiController::selectSearchResult)) {
          return true;
       } else {
          return !closing && handlePanelMouseClicked(event, doubled) ? true : true;
@@ -441,25 +436,6 @@ public final class ClickGuiController {
          color(0, 0, 0, 0, fadeAlpha),
          color(0, 0, 0, 96, fadeAlpha)
       );
-   }
-
-   private static void renderLanguageButton(float alpha) {
-      float textAlpha = clamp(alpha, 0.0F, 1.0F);
-      if (!(textAlpha <= 0.01F)) {
-         int background = color(12, 12, 18, 210, textAlpha);
-         int outline = color(255, 255, 255, 65, textAlpha);
-         int icon = color(255, 255, 255, 245, textAlpha);
-         Render2D.rect(14.0F, 13.0F, 34.0F, 18.0F, 5.0F, background);
-         Render2D.outline(14.0F, 13.0F, 34.0F, 18.0F, 5.0F, 0.5F, outline, outline, outline, outline);
-         String label = "Z";
-         float iconSize = 13.0F;
-         float iconWidth = Render2D.textWidth(FontType.GUI_ICONS, label, iconSize);
-         Render2D.text(FontType.GUI_ICONS, label, 14.0F + (34.0F - iconWidth) * 0.5F, 15.5F, iconSize, icon);
-      }
-   }
-
-   private static boolean languageButtonClicked(double mouseX, double mouseY) {
-      return mouseX >= 14.0 && mouseX <= 48.0 && mouseY >= 13.0 && mouseY <= 31.0;
    }
 
    private static int color(int red, int green, int blue, int alpha, float alphaMultiplier) {

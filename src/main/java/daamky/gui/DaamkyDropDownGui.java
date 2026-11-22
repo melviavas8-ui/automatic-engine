@@ -441,7 +441,7 @@ public class DaamkyDropDownGui extends Screen {
         } else if (!GuiStyle.isDropDown()) {
             // The Type setting was switched back to Window.
             saveStates();
-            if (client != null) client.setScreen(new DaamkyClickGui());
+            if (client != null) client.setScreen(GuiStyle.create());
         }
     }
 

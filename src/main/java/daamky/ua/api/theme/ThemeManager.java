@@ -9,12 +9,14 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import daamky.gui.UiStyle;
 import daamky.ua.api.config.ConfigManager;
 
 public final class ThemeManager {
    private static final Gson GSON = new Gson();
    private static final String CONFIG_FILE = "theme.daamky";
-   private static final List<ClientTheme> THEMES = List.of(
+   /** Themes of the Legacy style. The default one is Midnight. */
+   private static final List<ClientTheme> LEGACY_THEMES = List.of(
       theme("Purple", 247, 133, 255, 48, 35, 62),
       theme("Midnight", 105, 145, 255, 21, 27, 43),
       theme("Ocean", 52, 201, 255, 19, 43, 61),
@@ -27,32 +29,54 @@ public final class ThemeManager {
       theme("Nord", 136, 192, 208, 36, 43, 59),
       theme("Mono", 220, 225, 235, 35, 38, 46)
    );
-   private static ClientTheme current = loadTheme();
+   /** Themes of the Liberty City style. The default one is Gray. */
+   private static final List<ClientTheme> LIBERTY_THEMES = List.of(
+      theme("Gray", 176, 181, 190, 30, 32, 36),
+      theme("Red", 214, 52, 60, 40, 23, 25),
+      theme("Blue", 82, 134, 224, 22, 29, 42)
+   );
+   private static ClientTheme legacyCurrent = LEGACY_THEMES.get(1);
+   private static ClientTheme libertyCurrent = LIBERTY_THEMES.get(0);
+
+   static {
+      loadThemes();
+   }
 
    private ThemeManager() {
    }
 
+   private static List<ClientTheme> active() {
+      return UiStyle.isLiberty() ? LIBERTY_THEMES : LEGACY_THEMES;
+   }
+
+   /** Themes of the active style. */
    public static List<ClientTheme> themes() {
-      return THEMES;
+      return active();
    }
 
    public static List<String> names() {
-      return THEMES.stream().map(ClientTheme::name).toList();
+      return active().stream().map(ClientTheme::name).toList();
    }
 
+   /** Current theme of the active style. */
    public static ClientTheme current() {
-      return current;
+      return UiStyle.isLiberty() ? libertyCurrent : legacyCurrent;
    }
 
    public static ClientTheme find(String name) {
       ClientTheme theme = findExact(name);
-      return theme == null ? current : theme;
+      return theme == null ? current() : theme;
    }
 
    public static void select(String name) {
       ClientTheme theme = findExact(name);
-      if (theme != null && theme != current) {
-         current = theme;
+      if (theme != null && theme != current()) {
+         if (UiStyle.isLiberty()) {
+            libertyCurrent = theme;
+         } else {
+            legacyCurrent = theme;
+         }
+
          saveTheme();
       }
    }
@@ -63,7 +87,7 @@ public final class ThemeManager {
 
    private static ClientTheme findExact(String name) {
       if (name != null) {
-         for (ClientTheme theme : THEMES) {
+         for (ClientTheme theme : active()) {
             if (theme.name().equalsIgnoreCase(name)) {
                return theme;
             }
@@ -73,35 +97,46 @@ public final class ThemeManager {
       return null;
    }
 
-   private static ClientTheme loadTheme() {
+   private static ClientTheme exactIn(List<ClientTheme> list, String name, ClientTheme fallback) {
+      if (name != null) {
+         for (ClientTheme theme : list) {
+            if (theme.name().equalsIgnoreCase(name)) {
+               return theme;
+            }
+         }
+      }
+
+      return fallback;
+   }
+
+   private static void loadThemes() {
       try {
-         Path file = ConfigManager.systemDirectory().resolve("theme.daamky");
-         if (!Files.exists(file)) {
-            return THEMES.get(0);
-         } else {
+         Path file = ConfigManager.systemDirectory().resolve(CONFIG_FILE);
+         if (Files.exists(file)) {
             try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
                JsonObject json = (JsonObject)GSON.fromJson(reader, JsonObject.class);
-               if (json != null && json.has("theme")) {
-                  ClientTheme theme = findExact(json.get("theme").getAsString());
-                  if (theme != null) {
-                     return theme;
+               if (json != null) {
+                  if (json.has("theme")) {
+                     legacyCurrent = exactIn(LEGACY_THEMES, json.get("theme").getAsString(), legacyCurrent);
+                  }
+
+                  if (json.has("lcTheme")) {
+                     libertyCurrent = exactIn(LIBERTY_THEMES, json.get("lcTheme").getAsString(), libertyCurrent);
                   }
                }
-
-               return THEMES.get(0);
             }
          }
       } catch (Exception var7) {
-         return THEMES.get(0);
       }
    }
 
    private static void saveTheme() {
       try {
          Files.createDirectories(ConfigManager.systemDirectory());
-         Path file = ConfigManager.systemDirectory().resolve("theme.daamky");
+         Path file = ConfigManager.systemDirectory().resolve(CONFIG_FILE);
          JsonObject json = new JsonObject();
-         json.addProperty("theme", current.name());
+         json.addProperty("theme", legacyCurrent.name());
+         json.addProperty("lcTheme", libertyCurrent.name());
 
          try (Writer writer = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
             GSON.toJson(json, writer);
