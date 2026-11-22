@@ -36,8 +36,7 @@ public final class VanillaMenuTheme {
    public static boolean isThemed(Screen screen) {
       if (screen == null) return false;
       // Yarn package names use "screen", not Mojmap's "screens".
-      return screen instanceof AltManagerScreen
-         || screen instanceof SelectWorldScreen
+      return screen instanceof SelectWorldScreen
          || screen instanceof DirectConnectScreen
          || screen instanceof AddServerScreen;
    }
@@ -49,7 +48,7 @@ public final class VanillaMenuTheme {
    }
 
    public static boolean usesOpeningAnimation(Screen screen) {
-      return screen instanceof AltManagerScreen || isThemed(screen) && !(screen instanceof GameMenuScreen);
+      return isThemed(screen) && !(screen instanceof GameMenuScreen);
    }
 
    public static void renderBackground(DrawContext graphics, int width, int height) {

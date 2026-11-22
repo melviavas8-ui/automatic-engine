@@ -1,0 +1,1030 @@
+{
+ "names": {
+  "Combat": "Бой",
+  "Movement": "Движение",
+  "Visual": "Визуалы",
+  "Player": "Игрок",
+  "Display": "Интерфейс",
+  "World": "Мир",
+  "Misc": "Разное",
+  "Air Stuck": "Зависание",
+  "Elytra Target": "Элитра таргет",
+  "Super FireWork": "Супер фейерверк",
+  "Hud": "Худ",
+  "Custom Hotbar": "Кастомный хотбар",
+  " Color 1": "Цвет 1",
+  "Color 2": "Цвет 2",
+  "Click Pearl": "Клик перл",
+  "Item Scroller": "Скролл предметов",
+  "Sp Connect": "SP подключение",
+  "Server RP Spoofer": "Спуфер ресурспака",
+  "Use Tracker": "Трекер использований",
+  "Bind": "Бинд",
+  "Mode": "Режим",
+  "Range": "Дистанция",
+  "Distance": "Дистанция",
+  "Delay": "Задержка",
+  "Color": "Цвет",
+  "Only Crits": "Только криты",
+  "Return Item": "Вернуть предмет",
+  "Server": "Сервер",
+  "Auto Place": "Автоматическая ставка",
+  "Near Boost": "Рядом с игроком",
+  "Time": "Время",
+  "Saturation": "Насыщенность",
+  "Fog Density": "Плотность тумана",
+  "Brightness": "Яркость",
+  "Wave Speed": "Скорость волны",
+  "Wave Scale": "Волновая шкала",
+  "Wave Strength": "Сила волны",
+  "Glow Intensity": "Интенсивность свечения",
+  "Custom Fog": "Кастомный туман",
+  "Fog Shader": "Шейдер тумана",
+  "Color Mode": "Мод цвета",
+  "Max Distance": "Максимальная дистанция",
+  "Dash Length": "Длина следа",
+  "Self": "Отображать на себе",
+  "Motion Smoothing": "Сглаживание движения",
+  "Dash Segments": "Сегменты линии",
+  "Lighting": "Свечение",
+  "Dash Dots": "Точки линии",
+  "Color Fog": "Цвет тумана",
+  "Players": "Игроки",
+  "Mobs": "Мобы",
+  "Friends": "Друзья",
+  "None": "Нет",
+  "selected": "выбрано",
+  "Search": "Поиск",
+  "Search...": "Поиск...",
+  "Modules": "Модули",
+  "No modules found": "Модули не найдены",
+  "setting": "настройка",
+  "Click": "Клик",
+  "Opening": "Открытие",
+  "Closing": "Закрытие",
+  "Hot Keys": "Бинды",
+  "Example": "Пример",
+  "Volume": "Громкость",
+  "Predict": "Предикт",
+  "Auto Chestplate": "Автоматический нагрудник",
+  "Return Slot": "Вернуть слот",
+  "Return Items": "Вернуть предмет",
+  "Smart Crits": "Умные криты",
+  "Sync TPS": "Синхронизация ТПС",
+  "Height": "Высота",
+  "Golden Hearts": "Золотые сердца",
+  "AimAssist Speed": "Скорость АимАссиста",
+  "AimAssist Smoothness": "Плавность АимАссиста",
+  "Place Delay": "Скорость ставки",
+  "Attack Range": "Дистанция аттаки",
+  "Attack Delay": "Скорость аттаки",
+  "Priority": "Приоритет",
+  "Look Range": "Дополнительная дистанция",
+  "Crystal Height": "Высота кристала",
+  "Elytra Health": "Здоровье на элитрах",
+  "Crystal Distance": "Дистанция кристала",
+  "Horizontal": "Горизонталь",
+  "Vertical": "Вертикаль",
+  "Down Speed": "Скорость ",
+  "Return Speed": "Скорость возврата",
+  "Auto Jump": "Авто прыжок",
+  "Radius": "Радиус",
+  "Physics": "Физика",
+  "Blur": "Размытие",
+  "Glow": "Свечение",
+  "Elements": "Элементы",
+  "Wobble": "Колебание",
+  "Rise Speed": "Скорость подъема",
+  "": "",
+  "Look": "Дополнительная",
+  "Only": "Только",
+  "Crits": "Криты",
+  "Smart": "Умные",
+  "Golden": "Золотое",
+  "Hearts": "Сердце",
+  "Return": "Вернуть",
+  "Slot": "Слот",
+  "FOV": "Фов",
+  "Expand XZ": "Ускорение по XZ",
+  "Expand Y": "Ускорение по Y",
+  "Sound": "Звук",
+  "Aim Height": "Высота прицела",
+  "Draw FOV": "Рисовать Фов",
+  "Fov": "Фов",
+  "Ratio": "Соотношение",
+  "Wave Intensity": "Интенсивность волны",
+  "Blur Radius": "Радиус размытия",
+  "Blur Quality": "Качество размытия",
+  "Tint Intensity": "Сила тонировки",
+  "Legacy Sound": "Звук эффекта",
+  "Legacy Volume": "Громкость эффекта",
+  "Effect Size": "Размер эффекта",
+  "Debug": "Отладка",
+  "Kill Style": "Эффект убийства",
+  "Totem Effect": "Эффект тотема",
+  "Totem Color": "Цвет тотема",
+  "Totem Self": "Эффект на себе",
+  "Kill Sound": "Звук убийства",
+  "Kill Volume": "Громкость убийства",
+  "Totem Sound": "Звук тотема",
+  "Totem Volume": "Громкость тотема",
+  "Nova": "Нова",
+  "Halo": "Нимб",
+  "Helix": "Спираль ДНК",
+  "Shatter": "Осколки",
+  "Vortex": "Вихрь",
+  "Cross": "Крест",
+  "Wings": "Крылья",
+  "Rings": "Кольца",
+  "Spiral": "Спираль",
+  "Kill 1": "Убийство 1",
+  "Kill 2": "Убийство 2",
+  "Totem 1": "Тотем 1",
+  "Totem 2": "Тотем 2",
+  "Skin": "Скин",
+  "Dachshund": "Такса",
+  "Jack Russell": "Джек-рассел",
+  "Grief Number": "Номер грифа",
+  "Auto Takeoff": "Авто взлет",
+  "Firework Bind": "Бинд фейерверка",
+  "Delay ms": "Задержка, мс",
+  "Only Weapon": "Только с оружием",
+  "Only Players": "Только игроки",
+  "No Inventory Aim": "Не целиться в инвентаре",
+  "Invisible": "Невидимые",
+  "Only Armored": "Только в броне",
+  "Ignore Naked": "Не бить голых",
+  "Only Yaw": "Только по X",
+  "Multipoint": "Мультипоинт",
+  "Wall Check": "Проверка стен",
+  "Disable On World": "Выкл. при смене мира",
+  "Micro Movements": "Микродвижения",
+  "Auto Swap": "Авто свап",
+  "First Item": "Первый предмет",
+  "Second Item": "Второй предмет",
+  "Third Item": "Третий предмет",
+  "Swap Bind": "Бинд свапа",
+  "Auto Damage": "Автоурон",
+  "Double": "Двойной",
+  "Totem": "Тотем",
+  "RichDog": "Питомец",
+  "Warden Helper": "Помощник Вардена",
+  "ShiftTap": "Шифт-тап",
+  "Auto Tp Accept": "Авто принятие TP",
+  "Theme": "Тема",
+  "Weather": "Погода",
+  "Sunny": "Ясно",
+  "Rain": "Дождь",
+  "Thunder": "Гроза",
+  "Snow": "Снег",
+  "Day": "День",
+  "Midday": "Полдень",
+  "Night": "Ночь",
+  "Midnight": "Полночь",
+  "Custom": "Свой",
+  "Client": "Клиент",
+  "Rainbow": "Радуга",
+  "Default": "Обычный",
+  "Health": "Здоровье",
+  "Size": "Размер",
+  "Duration": "Длительность",
+  "Length": "Длина",
+  "Alpha": "Прозрачность",
+  "Notify": "Уведомлять",
+  "Safe Walk": "Безопасный шаг",
+  "Tower": "Башня",
+  "Extend": "Дальше",
+  "Downward": "Вниз",
+  "Triggers": "Триггеры",
+  "Only Friends": "Только друзья",
+  "Password": "Пароль",
+  "Money": "Деньги",
+  "Amount": "Сумма",
+  "Name": "Ник",
+  "Restart": "Перезапуск",
+  "Textures": "Текстуры",
+  "Events": "События",
+  "Tint": "Тонировка",
+  "Tint Color": "Цвет тонировки",
+  "Edge Glow": "Свечение краев",
+  "Edge Glow Intensity": "Сила свечения краев",
+  "Flame": "Пламя",
+  "Walk Point": "Точка ходьбы",
+  "Bypass Point": "Точка обхода",
+  "Walk Radius": "Радиус ходьбы",
+  "Options": "Опции",
+  "Only While Pressing": "Только при нажатии",
+  "Front": "Спереди",
+  "Direction Mode": "Режим направления",
+  "Direction": "Направление",
+  "Cube": "Куб",
+  "Center": "Центр",
+  "Circle": "Круг",
+  "Clockwise": "По часовой",
+  "Counter Clockwise": "Против часовой",
+  "Random": "Случайно",
+  "Icon HudColor": "Цвет HUD-иконок",
+  "TargetHud Particle Count": "Частиц TargetHud",
+  "TargetHud Hit Particles": "Частицы удара TargetHud",
+  "Line Width": "Толщина линии",
+  "Particle Texture": "Текстура частиц",
+  "Particle Count": "Кол-во частиц",
+  "Particle Size": "Размер частиц",
+  "Particle Speed": "Скорость частиц",
+  "Particle Lifetime": "Время жизни частиц",
+  "Random Particle Color": "Случайный цвет частиц",
+  "White Center": "Белый центр",
+  "Particle Spin": "Вращение частиц",
+  "Line Color": "Цвет линии",
+  "Particle Color": "Цвет частиц",
+  "Whitelist": "Белый список",
+  "Freeze": "Заморозка",
+  "Multiplier": "Множитель",
+  "Ping Delay": "Задержка пинга",
+  "Scroll Delay": "Задержка скролла",
+  "Disable With Sword": "Отключать с мечом",
+  "Ignore": "Игнор",
+  "Warden An": "Анархия Warden",
+  "Wardennhouse": "Дом Warden",
+  "Go invisible": "Уйти в инвиз",
+  "Use speed potion": "Использовать зелье скорости",
+  "An WareHouse": "Анархия склада",
+  "Afterglow": "Послесвечение",
+  "Afterimage Trail": "Остаточный след",
+  "Aim Speed": "Скорость наводки",
+  "Arc Spread": "Разброс дуги",
+  "Auto Parse": "Авто парс цен",
+  "Auto Pay": "Авто оплата",
+  "Break Speed": "Скорость ломания",
+  "Climb & Crawl": "Лазание и ползание",
+  "Conditions": "Условия",
+  "Critical Balance": "Баланс критов",
+  "Double Crystal": "Двойной кристалл",
+  "Easing": "Плавность анимации",
+  "Exit Hub": "Выход в хаб",
+  "Explosion Wait": "Ожидание взрыва",
+  "Fall Height": "Высота падения",
+  "Float Height": "Высота парения",
+  "Hit Bounce": "Отскок при ударе",
+  "Hit Chance": "Шанс попадания",
+  "Hit Only Crit": "Бить только критами",
+  "HP Threshold": "Порог HP",
+  "Keep Range": "Держать дистанцию",
+  "Leave Type": "Тип выхода",
+  "Mace Ignore Friends": "Булава: игнор друзей",
+  "Mace Only Air": "Булава: только в воздухе",
+  "Min Durability": "Мин. прочность",
+  "Move Fix": "Коррекция движения",
+  "No Clouds": "Без облаков",
+  "Only Aura": "Только по цели Aura",
+  "Only Items": "Только предметы",
+  "Only Swing": "Только взмах",
+  "Only with loot": "Только с лутом",
+  "Packet Delay": "Задержка пакетов",
+  "Particle Collisions": "Столкновения частиц",
+  "Play For Money": "Игра на деньги",
+  "Preset": "Пресет",
+  "Retreat": "Отступление",
+  "Render As": "Рендерить как",
+  "Scan Radius": "Радиус сканирования",
+  "Screen Overlay": "Оверлей экрана",
+  "Silent Aim": "Скрытая наводка",
+  "Smooth Aim": "Плавная наводка",
+  "Snap Hold": "Удержание снапа",
+  "Snap Speed": "Скорость снапа",
+  "Sprint Reset": "Сброс спринта",
+  "Static Fall": "Статичное падение",
+  "Storage Relist": "Перевыставление склада",
+  "Swap Hands": "Свап рук",
+  "Sync Aura": "Синхронизация с Aura",
+  "Through Walls": "Сквозь стены",
+  "Through walls": "Сквозь стены",
+  "Track": "Слежение",
+  "Use carrot": "Использовать морковь",
+  "Unknown Command": "Неизвестная команда",
+  "Restart Time": "Время перезапуска",
+  "Hit Moment": "Момент удара",
+  "Hit Types": "Типы ударов",
+  "Cloud Shadows": "Тени облаков",
+  "Distortion": "Искажение",
+  "Density": "Плотность",
+  "Box limit": "Лимит боксов",
+  "Shulker Profit $": "Прибыль шалкера $",
+  "Shulker Profit %": "Прибыль шалкера %",
+  "Shulker Value $": "Цена шалкера $",
+  "Max Damage": "Макс. урон",
+  "Min Distance": "Мин. дистанция",
+  "Minimum HP": "Минимум HP",
+  "Turn Sharpness": "Резкость поворота",
+  "Motion Influence": "Влияние движения",
+  "Smooth Textures": "Сглаживать текстуры",
+  "Item Motions": "Движения предметов",
+  "Search Item": "Поиск предмета",
+  "Targets": "Цели",
+  "Target Range": "Дальность цели",
+  "Swimming": "Плавание",
+  "Swimming Style": "Стиль плавания",
+  "Tag Elements": "Элементы тега",
+  "Tail Length": "Длина хвоста",
+  "Trail Length": "Длина шлейфа",
+  "Trail Softness": "Мягкость шлейфа",
+  "Tunnel Length": "Длина туннеля",
+  "Preset and Rotation": "Пресет и ротация",
+  "No Attack When Eat": "Не бить, пока ешь",
+  "Rotation": "Ротация",
+  "Presets": "Пресеты",
+  "Language": "Язык"
+ },
+ "descriptions": {
+  "Module key bind.": "Клавиша привязки модуля.",
+  "Kill effect style. None disables the kill effect.": "Стиль эффекта убийства. None выключает эффект.",
+  "Sound on kill (enemies and animals only).": "Звук при убийстве (только враги и животные).",
+  "Kill sound volume.": "Громкость звука убийства.",
+  "Animation on totem pop. None disables it.": "Анимация при срабатывании тотема. None выключает её.",
+  "Totem effect color.": "Цвет эффекта тотема.",
+  "Also show the totem effect on yourself.": "Показывать эффект тотема и на себе.",
+  "Sound on totem pop (other players only).": "Звук при срабатывании тотема (только у других игроков).",
+  "Totem sound volume.": "Громкость звука тотема.",
+  "Target strafe mode.": "Режим обхода цели.",
+  "Target strafe walk point.": "Точка движения вокруг цели.",
+  "Target strafe bypass point.": "Точка обхода для байпаса.",
+  "Target strafe walk radius.": "Радиус движения вокруг цели.",
+  "Matrix strafe radius.": "Радиус стрейфа Matrix.",
+  "Matrix strafe speed.": "Скорость стрейфа Matrix.",
+  "Target strafe options.": "Опции стрейфа вокруг цели.",
+  "Strafe direction.": "Направление стрейфа.",
+  "Firework boost mode.": "Режим ускорения фейерверком.",
+  "Custom firework speed.": "Своя скорость фейерверка.",
+  "Boosts when a player is close.": "Ускоряет, когда игрок рядом.",
+  "Fov": "Фов",
+  "": "",
+  "Strafe mode.": "Режим стрейфа.",
+  "Strafe speed.": "Скорость стрейфа.",
+  "Target server.": "Целевой сервер.",
+  "ReallyWorld grief number.": "Номер грифа ReallyWorld.",
+  "Delay between actions in seconds.": "Задержка между действиями в секундах.",
+  "Spider mode.": "Режим паука.",
+  "Knockback reduce mode.": "Режим уменьшения отбрасывания.",
+  "Wind charge key.": "Клавиша ветряного заряда.",
+  "Speed mode.": "Режим скорости.",
+  "Vanilla speed.": "Скорость Vanilla.",
+  "Swap elytra/chestplate bind.": "Клавиша свапа элитры и нагрудника.",
+  "Use firework bind.": "Клавиша использования фейерверка.",
+  "Automatically toggles jump for elytra takeoff.": "Автоматически включает прыжок для взлёта на элитрах.",
+  "Automatically uses firework after takeoff.": "Автоматически использует фейерверк после взлёта.",
+  "Attack distance to the target.": "Дистанция атаки до цели.",
+  "Minimum delay between attacks.": "Минимальная задержка между атаками.",
+  "Target type filter.": "Фильтр типов целей.",
+  "Attack options.": "Опции атаки.",
+  "Chance to attack the target.": "Шанс атаковать цель.",
+  "Allow smart ground hits while waiting for critical timing.": "Разрешает умные удары с земли при ожидании тайминга крита.",
+  "Adjust attack timing to current server TPS.": "Подстраивает тайминг атаки под текущий TPS сервера.",
+  "Sprint reset mode before attack.": "Режим сброса спринта перед атакой.",
+  "How many blocks to place forward.": "Сколько блоков ставить вперёд.",
+  "Jump tower.": "Прыжковая башня.",
+  "Automatically select blocks.": "Автоматически выбирает блоки.",
+  "Hold sneak at edges.": "Зажимает шифт у краёв.",
+  "Place lower while sneaking.": "Ставит блоки ниже при шифте.",
+  "Cobweb bypass mode.": "Режим обхода паутины.",
+  "Target highlight type.": "Тип подсветки цели.",
+  "Primary target ESP color.": "Основной цвет Target ESP.",
+  "Secondary target ESP color.": "Вторичный цвет Target ESP.",
+  "Client sound type.": "Тип звука клиента.",
+  "Client sound volume.": "Громкость звуков клиента.",
+  "Client sound pitch.": "Тон звуков клиента.",
+  "Search typing sound.": "Звук набора в поиске.",
+  "Slider move sound.": "Звук движения слайдера.",
+  "Category switch sound.": "Звук смены категории.",
+  "No settings sound.": "Звук отсутствия настроек.",
+  "Button click sound.": "Звук нажатия кнопки.",
+  "ClickGUI opening sound.": "Звук открытия ClickGUI.",
+  "ClickGUI closing sound.": "Звук закрытия ClickGUI.",
+  "Unknown command sound.": "Звук неизвестной команды.",
+  "Item slowdown bypass mode.": "Режим обхода замедления предметов.",
+  "Server mode.": "Режим сервера.",
+  "Flight height above target.": "Высота полёта над целью.",
+  "Equip chestplate on disable when possible.": "Надевает нагрудник при выключении, если возможно.",
+  "Predict target movement.": "Предсказывает движение цели.",
+  "Accept teleport requests only from friends.": "Принимает запросы телепорта только от друзей.",
+  "Swing animation type.": "Тип анимации взмаха.",
+  "Swing animation strength.": "Сила анимации взмаха.",
+  "Swing animation duration multiplier.": "Множитель длительности анимации взмаха.",
+  "Animate only while the player swings.": "Анимирует только во время взмаха игрока.",
+  "Animate only while Aura has a target.": "Анимирует только когда у Aura есть цель.",
+  "Pay target nickname.": "Ник цели для оплаты.",
+  "Pay amount.": "Сумма оплаты.",
+  "Delay in seconds.": "Задержка в секундах.",
+  "Restart module by timer.": "Перезапускает модуль по таймеру.",
+  "Restart delay in minutes.": "Задержка перезапуска в минутах.",
+  "Invisible entity alpha.": "Прозрачность невидимых сущностей.",
+  "Flight mode.": "Режим полёта.",
+  "Horizontal speed.": "Горизонтальная скорость.",
+  "Vertical speed.": "Вертикальная скорость.",
+  "Health threshold.": "Порог здоровья.",
+  "Elytra health threshold.": "Порог здоровья для элитры.",
+  "Totem equip triggers.": "Триггеры экипировки тотема.",
+  "Return offhand item after danger.": "Возвращает предмет во вторую руку после опасности.",
+  "Danger crystal distance.": "Опасная дистанция до кристалла.",
+  "Danger crystal vertical distance.": "Опасная вертикальная дистанция до кристалла.",
+  "Danger fall height.": "Опасная высота падения.",
+  "Preset and rotation.": "Пресет и ротация.",
+  "No attack when eating.": "Не атаковать во время еды.",
+  "Client interface language.": "Язык интерфейса клиента."
+ },
+ "words": [
+  [
+   "Off Hand",
+   "Вторая рука"
+  ],
+  [
+   "Screen Overlay",
+   "Оверлей экрана"
+  ],
+  [
+   "Change Saturation",
+   "Изменить насыщенность"
+  ],
+  [
+   "Legacy Preview",
+   "Превью Legacy"
+  ],
+  [
+   "Legacy Test",
+   "Тест Legacy"
+  ],
+  [
+   "Legacy Sound",
+   "Звук Legacy"
+  ],
+  [
+   "Legacy Volume",
+   "Громкость Legacy"
+  ],
+  [
+   "Legacy Type",
+   "Тип Legacy"
+  ],
+  [
+   "Tint Intensity",
+   "Сила тонировки"
+  ],
+  [
+   "Tint Color",
+   "Цвет тонировки"
+  ],
+  [
+   "Edge Glow Intensity",
+   "Сила свечения краев"
+  ],
+  [
+   "Edge Glow",
+   "Свечение краев"
+  ],
+  [
+   "Tint",
+   "Тонировка"
+  ],
+  [
+   "Flame",
+   "Пламя"
+  ],
+  [
+   "Particle Collisions",
+   "Столкновения частиц"
+  ],
+  [
+   "Render As",
+   "Рендерить как"
+  ],
+  [
+   "On Collision",
+   "При столкновении"
+  ],
+  [
+   "No Clouds",
+   "Без облаков"
+  ],
+  [
+   "Custom Sky",
+   "Свое небо"
+  ],
+  [
+   "Sky Mode",
+   "Режим неба"
+  ],
+  [
+   "Sky Color",
+   "Цвет неба"
+  ],
+  [
+   "Sky Speed",
+   "Скорость неба"
+  ],
+  [
+   "Sky Intensity",
+   "Интенсивность неба"
+  ],
+  [
+   "Fog Color",
+   "Цвет тумана"
+  ],
+  [
+   "Friend Color",
+   "Цвет друзей"
+  ],
+  [
+   "Fill Color",
+   "Цвет заливки"
+  ],
+  [
+   "Wave Color",
+   "Цвет волны"
+  ],
+  [
+   "Shader Mode",
+   "Режим шейдера"
+  ],
+  [
+   "Follow Smoothness",
+   "Плавность слежения"
+  ],
+  [
+   "Item Mode",
+   "Режим предмета"
+  ],
+  [
+   "Leave Type",
+   "Тип выхода"
+  ],
+  [
+   "Minimum HP",
+   "Минимум HP"
+  ],
+  [
+   "Send Speed",
+   "Скорость отправки"
+  ],
+  [
+   "Play For Money",
+   "Игра на деньги"
+  ],
+  [
+   "Search Item",
+   "Поиск предмета"
+  ],
+  [
+   "Storage Relist",
+   "Перевыставление склада"
+  ],
+  [
+   "Cheapest Color",
+   "Цвет самого дешевого"
+  ],
+  [
+   "Per Item Color",
+   "Цвет цены за штуку"
+  ],
+  [
+   "Default Loot",
+   "Обычный лут"
+  ],
+  [
+   "FT Warden Loot",
+   "FT Warden лут"
+  ],
+  [
+   "Max Scale",
+   "Макс. масштаб"
+  ],
+  [
+   "Dynamic Scale",
+   "Динамический масштаб"
+  ],
+  [
+   "Smooth Textures",
+   "Сглаживать текстуры"
+  ],
+  [
+   "Bright Mode",
+   "Яркий режим"
+  ],
+  [
+   "Rainbow Colors",
+   "Радужные цвета"
+  ],
+  [
+   "World Count",
+   "Частиц в мире"
+  ],
+  [
+   "World Spread",
+   "Разброс в мире"
+  ],
+  [
+   "World Spawn Direction",
+   "Направление спавна в мире"
+  ],
+  [
+   "World Force",
+   "Сила в мире"
+  ],
+  [
+   "World Lifetime",
+   "Время жизни в мире"
+  ],
+  [
+   "Attack Count",
+   "Частиц при атаке"
+  ],
+  [
+   "Attack Spread",
+   "Разброс при атаке"
+  ],
+  [
+   "Attack Spawn Direction",
+   "Направление спавна при атаке"
+  ],
+  [
+   "Attack Force",
+   "Сила при атаке"
+  ],
+  [
+   "Attack Lifetime",
+   "Время жизни при атаке"
+  ],
+  [
+   "Start Speed",
+   "Стартовая скорость"
+  ],
+  [
+   "Motion Influence",
+   "Влияние движения"
+  ],
+  [
+   "Turn Sharpness",
+   "Резкость поворота"
+  ],
+  [
+   "Hands",
+   "Руки"
+  ],
+  [
+   "Hand",
+   "Рука"
+  ],
+  [
+   "Only",
+   "Только"
+  ],
+  [
+   "Items",
+   "Предметы"
+  ],
+  [
+   "Item",
+   "Предмет"
+  ],
+  [
+   "Targets",
+   "Цели"
+  ],
+  [
+   "Entities",
+   "Сущности"
+  ],
+  [
+   "Players",
+   "Игроки"
+  ],
+  [
+   "Mobs",
+   "Мобы"
+  ],
+  [
+   "Friends",
+   "Друзья"
+  ],
+  [
+   "Color",
+   "Цвет"
+  ],
+  [
+   "Mode",
+   "Режим"
+  ],
+  [
+   "Speed",
+   "Скорость"
+  ],
+  [
+   "Smoothness",
+   "Плавность"
+  ],
+  [
+   "Strength",
+   "Сила"
+  ],
+  [
+   "Intensity",
+   "Интенсивность"
+  ],
+  [
+   "Count",
+   "Кол-во"
+  ],
+  [
+   "Range",
+   "Дальность"
+  ],
+  [
+   "Distance",
+   "Дистанция"
+  ],
+  [
+   "Lifetime",
+   "Время жизни"
+  ],
+  [
+   "Gravity",
+   "Гравитация"
+  ],
+  [
+   "Textures",
+   "Текстуры"
+  ],
+  [
+   "Texture",
+   "Текстура"
+  ],
+  [
+   "Render",
+   "Рендер"
+  ],
+  [
+   "Events",
+   "События"
+  ],
+  [
+   "Sound",
+   "Звук"
+  ],
+  [
+   "Volume",
+   "Громкость"
+  ],
+  [
+   "Type",
+   "Тип"
+  ],
+  [
+   "Style",
+   "Стиль"
+  ],
+  [
+   "Key",
+   "Клавиша"
+  ]
+ ],
+ "descWords": [
+  [
+   "Automatically",
+   "Автоматически"
+  ],
+  [
+   "automatically",
+   "автоматически"
+  ],
+  [
+   "Adds",
+   "Добавляет"
+  ],
+  [
+   "Draws",
+   "Рисует"
+  ],
+  [
+   "Draw",
+   "Рисовать"
+  ],
+  [
+   "Shows",
+   "Показывает"
+  ],
+  [
+   "Show",
+   "Показывать"
+  ],
+  [
+   "Uses",
+   "Использует"
+  ],
+  [
+   "Use",
+   "Использовать"
+  ],
+  [
+   "Only",
+   "Только"
+  ],
+  [
+   "Ignore",
+   "Игнорировать"
+  ],
+  [
+   "Skip",
+   "Пропускать"
+  ],
+  [
+   "Targets",
+   "Цели"
+  ],
+  [
+   "targets",
+   "цели"
+  ],
+  [
+   "Target",
+   "Цель"
+  ],
+  [
+   "target",
+   "цель"
+  ],
+  [
+   "Players",
+   "Игроки"
+  ],
+  [
+   "players",
+   "игроки"
+  ],
+  [
+   "Player",
+   "Игрок"
+  ],
+  [
+   "player",
+   "игрок"
+  ],
+  [
+   "Friends",
+   "Друзья"
+  ],
+  [
+   "friends",
+   "друзья"
+  ],
+  [
+   "Friend",
+   "Друг"
+  ],
+  [
+   "friend",
+   "друг"
+  ],
+  [
+   "Module",
+   "Модуль"
+  ],
+  [
+   "module",
+   "модуль"
+  ],
+  [
+   "Mode",
+   "Режим"
+  ],
+  [
+   "mode",
+   "режим"
+  ],
+  [
+   "Distance",
+   "Дистанция"
+  ],
+  [
+   "distance",
+   "дистанция"
+  ],
+  [
+   "Range",
+   "Дальность"
+  ],
+  [
+   "range",
+   "дальность"
+  ],
+  [
+   "Speed",
+   "Скорость"
+  ],
+  [
+   "speed",
+   "скорость"
+  ],
+  [
+   "Delay",
+   "Задержка"
+  ],
+  [
+   "delay",
+   "задержка"
+  ],
+  [
+   "Color",
+   "Цвет"
+  ],
+  [
+   "color",
+   "цвет"
+  ],
+  [
+   "Sound",
+   "Звук"
+  ],
+  [
+   "sound",
+   "звук"
+  ],
+  [
+   "Volume",
+   "Громкость"
+  ],
+  [
+   "volume",
+   "громкость"
+  ],
+  [
+   "Key",
+   "Клавиша"
+  ],
+  [
+   "key",
+   "клавиша"
+  ],
+  [
+   "Bind",
+   "Бинд"
+  ],
+  [
+   "bind",
+   "бинд"
+  ],
+  [
+   "Attack",
+   "Атака"
+  ],
+  [
+   "attack",
+   "атака"
+  ],
+  [
+   "Aim",
+   "Наводка"
+  ],
+  [
+   "aim",
+   "наводка"
+  ],
+  [
+   "Rotation",
+   "Ротация"
+  ],
+  [
+   "rotation",
+   "ротация"
+  ],
+  [
+   "Particles",
+   "Частицы"
+  ],
+  [
+   "particles",
+   "частицы"
+  ],
+  [
+   "Particle",
+   "Частица"
+  ],
+  [
+   "particle",
+   "частица"
+  ],
+  [
+   "Render",
+   "Рендер"
+  ],
+  [
+   "render",
+   "рендер"
+  ],
+  [
+   "ESP",
+   "ЕСП"
+  ],
+  [
+   "HUD",
+   "Дисплей элементы клиента"
+  ]
+ ]
+}
