@@ -14,6 +14,9 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.Click;
+import net.minecraft.client.input.CharInput;
+import net.minecraft.client.input.KeyInput;
 import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
 import net.minecraft.client.gui.screen.option.OptionsScreen;
 import net.minecraft.client.gui.screen.world.SelectWorldScreen;
@@ -1403,9 +1406,18 @@ public final class CustomMainMenuScreen extends Screen {
     // MOUSE & KEYBOARD INPUT HANDLING
     // =========================================================================
 
+    private Click daamky$click;
+    private boolean daamky$doubled;
+
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) return super.mouseClicked(mouseX, mouseY, button);
+    public boolean mouseClicked(Click click, boolean doubled) {
+        this.daamky$click = click;
+        this.daamky$doubled = doubled;
+        return handleMouseClicked(click.x(), click.y(), click.button());
+    }
+
+    private boolean handleMouseClicked(double mouseX, double mouseY, int button) {
+        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) return super.mouseClicked(this.daamky$click, this.daamky$doubled);
 
         // Handle Add Proxy Modal clicks
         if (currentState == MenuState.ADD_PROXY_MODAL && transitionProgress > 0.5F) {
@@ -1791,7 +1803,7 @@ public final class CustomMainMenuScreen extends Screen {
             return true;
         }
 
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(this.daamky$click, this.daamky$doubled);
     }
 
     private void submitModalProxy() {
@@ -1835,7 +1847,14 @@ public final class CustomMainMenuScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(KeyInput input) {
+        this.daamky$key = input;
+        return handleKeyPressed(input.key(), input.scancode(), input.modifiers());
+    }
+
+    private KeyInput daamky$key;
+
+    private boolean handleKeyPressed(int keyCode, int scanCode, int modifiers) {
         if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
             if (currentState == MenuState.ADD_PROXY_MODAL) {
                 targetState = MenuState.PROXY;
@@ -1908,11 +1927,18 @@ public final class CustomMainMenuScreen extends Screen {
             }
         }
 
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(this.daamky$key);
     }
 
     @Override
-    public boolean charTyped(char chr, int modifiers) {
+    public boolean charTyped(CharInput input) {
+        this.daamky$char = input;
+        return handleCharTyped(input.isValidChar() && !input.asString().isEmpty() ? input.asString().charAt(0) : (char)0, input.modifiers());
+    }
+
+    private CharInput daamky$char;
+
+    private boolean handleCharTyped(char chr, int modifiers) {
         if (chr >= 32 && chr != 127) {
             if (currentState == MenuState.ACCOUNTS) {
                 if (accountInputFocused && accountInput.length() < 16) {
@@ -1933,7 +1959,7 @@ public final class CustomMainMenuScreen extends Screen {
                 return true;
             }
         }
-        return super.charTyped(chr, modifiers);
+        return super.charTyped(this.daamky$char);
     }
 
     private void pasteClipboard(java.util.function.Consumer<String> consumer) {

@@ -244,8 +244,7 @@ public final class AccountManager {
                 uuid,
                 "",
                 Optional.empty(),
-                Optional.empty(),
-                Session.AccountType.MOJANG
+                Optional.empty()
             );
             ((MinecraftAccessor) mc).daamky$setUser(newSession);
             activeAccount = clean;

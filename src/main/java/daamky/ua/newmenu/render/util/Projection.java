@@ -52,7 +52,7 @@ public final class Projection {
             if (client.gameRenderer == null) return null;
             Camera camera = client.gameRenderer.getCamera();
             if (camera == null) return null;
-            Vec3d camPos = camera.getPos();
+            Vec3d camPos = camera.getCameraPos();
 
             float fov = lastFov > 0.0F ? lastFov : (client.options != null && client.options.getFov() != null ? (float) client.options.getFov().getValue() : 70.0F);
             Matrix4f projMatrix = client.gameRenderer.getBasicProjectionMatrix(fov);
