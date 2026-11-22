@@ -1,4 +1,4 @@
-package daamky.ua.newmenu.gui.mainmenu;
+package daamky.ua.newmenu.mainmenu;
 
 import daamky.ua.mixin.accessor.MinecraftAccessor;
 import java.io.File;

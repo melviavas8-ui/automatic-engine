@@ -1,4 +1,4 @@
-package daamky.ua.newmenu.gui.mainmenu;
+package daamky.ua.newmenu.mainmenu;
 
 import com.mojang.authlib.GameProfile;
 import daamky.ua.newmenu.multibot.BotProxyConfig;

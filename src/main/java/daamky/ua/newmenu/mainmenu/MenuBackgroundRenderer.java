@@ -1,4 +1,4 @@
-package daamky.ua.newmenu.gui.mainmenu;
+package daamky.ua.newmenu.mainmenu;
 
 import daamky.ua.newmenu.render.Render2D;
 import daamky.ua.newmenu.render.util.RenderColor;

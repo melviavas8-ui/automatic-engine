@@ -1,4 +1,4 @@
-package daamky.ua.newmenu.gui.mainmenu;
+package daamky.ua.newmenu.mainmenu;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
