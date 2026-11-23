@@ -48,7 +48,9 @@ public final class MenuMedia {
         registerTick();
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc == null || mc.world != null) return;
-        if (state == State.IDLE) beginSession(mc);
+        // Music and video play only once per launch: after the player has been in a world, the still
+        // background is shown right away and the buttons are already there.
+        if (state == State.IDLE && !hadFirstSession) beginSession(mc);
     }
 
     private void registerTick() {

@@ -338,6 +338,7 @@ public final class CustomMainMenuScreen extends Screen {
             drawLcButton(context, LC_SLOT_SETTINGS, "НАСТРОЙКИ", ICON_SETTINGS, 128, false, null, alpha);
             drawLcButton(context, LC_SLOT_EXIT, "ВЫХОД", null, 0, true, null, alpha);
             drawLcProxyButton(context, alpha);
+            drawLcNewsCard(context, alpha);
         }
 
         // Corner texts appear together with the last button.
@@ -382,7 +383,7 @@ public final class CustomMainMenuScreen extends Screen {
         float bh = r[3] * near;
         float hover = lcHover[slot];
 
-        drawGlassButton(context, x, y, w, bh, bh * 0.22F, hover, a, GlassStyle.SECONDARY);
+        drawGlassButton(context, x, y, w, bh, bh * 0.22F, hover, a, GlassStyle.MENU);
         if (hover > 0.02F) {
             Render2D.drawRound(context, x + 2.0F, y + bh * 0.15F, 2.0F, bh * 0.7F, 1.0F,
                     RenderColor.multiplyAlpha(0xFFFFFFFF, a * hover));
@@ -399,14 +400,26 @@ public final class CustomMainMenuScreen extends Screen {
         }
 
         float fontSize = bh * 0.38F;
+        float textX = x + w * 0.25F;
+        float edge = x + w - bh * 0.35F;
+        float labelW = Fonts.MEDIUM.getWidth(label, fontSize);
+        float room = edge - textX;
+        if (labelW > room && labelW > 0.0F) {
+            fontSize = Math.max(bh * 0.22F, fontSize * room / labelW);
+            labelW = Fonts.MEDIUM.getWidth(label, fontSize);
+        }
         float ty = y + (bh - fontSize) * 0.5F - fontSize * 0.08F;
-        Fonts.MEDIUM.drawString(context, label, x + w * 0.25F, ty, fontSize, tint);
+        Fonts.MEDIUM.drawString(context, label, textX, ty, fontSize, tint);
 
+        // The active account name is shown only when it fits next to the label without touching it.
         if (rightHint != null && !rightHint.isEmpty()) {
             float hintSize = fontSize * 0.78F;
-            String fitted = fitLabel(rightHint, w * 0.28F, hintSize);
-            Fonts.REGULAR.drawRightString(context, fitted, x + w - bh * 0.35F, ty + fontSize * 0.1F, hintSize,
-                    RenderColor.multiplyAlpha(0x90FFFFFF, a));
+            float hintRoom = edge - (textX + labelW + bh * 0.4F);
+            if (hintRoom > hintSize * 2.5F) {
+                String fitted = fitLabel(rightHint, hintRoom, hintSize);
+                Fonts.REGULAR.drawRightString(context, fitted, edge, ty + fontSize * 0.1F, hintSize,
+                        RenderColor.multiplyAlpha(0x90FFFFFF, a));
+            }
         }
     }
 
@@ -422,10 +435,88 @@ public final class CustomMainMenuScreen extends Screen {
         float y = vy + (r[1] - vy) * near;
         float size = r[2] * near;
         float hover = lcHover[LC_SLOT_PROXY];
-        drawGlassButton(context, x, y, size, size, size * 0.22F, hover, a, GlassStyle.SECONDARY);
+        drawGlassButton(context, x, y, size, size, size * 0.22F, hover, a, GlassStyle.MENU);
         int tint = RenderColor.multiplyAlpha(RenderColor.interpolate(0xFFB9BDC4, 0xFFFFFFFF, hover), a);
         float iconSize = size * 0.40F;
         drawMenuIcon(context, ICON_PROXY, 128, x + (size - iconSize) * 0.5F, y + (size - iconSize) * 0.5F, iconSize, tint);
+    }
+
+    /** Lines of the "what's new" card on the right of the main menu. Edit freely. */
+    private static final String[] LC_NEWS_LINES = {
+            "Новый стиль Liberty City",
+            "Новое главное меню с видео",
+            "LC Window: окно в два столбца",
+            "Десять тем и звук Kill 3"
+    };
+
+    private List<String> lcWrap(String text, float size, float maxWidth) {
+        List<String> lines = new ArrayList<>();
+        StringBuilder line = new StringBuilder();
+        for (String word : text.split(" ")) {
+            String candidate = line.isEmpty() ? word : line + " " + word;
+            if (!line.isEmpty() && Fonts.REGULAR.getWidth(candidate, size) > maxWidth) {
+                lines.add(line.toString());
+                line = new StringBuilder(word);
+            } else {
+                line = new StringBuilder(candidate);
+            }
+        }
+        if (!line.isEmpty()) lines.add(line.toString());
+        return lines;
+    }
+
+    private void drawLcNewsCard(DrawContext context, float alpha) {
+        float p = lcProgress(6);
+        float a = alpha * smoothstep(p * 1.6F);
+        if (a <= 0.01F) return;
+        float[] first = lcRect(0);
+        float bh = first[3];
+        float cardW = Math.clamp(this.width * 0.22F, 130.0F, 220.0F);
+        float pad = bh * 0.55F;
+        float textSize = bh * 0.34F;
+        float headSize = bh * 0.27F;
+        float lineH = textSize * 1.45F;
+
+        List<List<String>> wrapped = new ArrayList<>();
+        float contentH = headSize * 2.4F;
+        for (String item : LC_NEWS_LINES) {
+            List<String> lines = lcWrap(item, textSize, cardW - pad * 2.0F - textSize * 1.1F);
+            wrapped.add(lines);
+            contentH += lines.size() * lineH + lineH * 0.35F;
+        }
+        float cardH = pad * 2.0F + contentH;
+        float rx = this.width - cardW - this.width * 0.055F;
+        float ry = first[1];
+
+        float near = lcNearScale(p);
+        float vx = this.width * 0.5F;
+        float vy = this.height * 0.5F;
+        float x = vx + (rx - vx) * near;
+        float y = vy + (ry - vy) * near;
+        float w = cardW * near;
+        float h = cardH * near;
+        float k = near;
+
+        drawGlassButton(context, x, y, w, h, bh * 0.22F * k, 0.0F, a, GlassStyle.MENU);
+        float tx = x + pad * k;
+        float cursor = y + pad * k;
+        float hs = headSize * k;
+        int dim = RenderColor.multiplyAlpha(0xB0FFFFFF, a);
+        drawTracked(context, Fonts.MEDIUM, "ЧТО НОВОГО В 1.5", tx, cursor, hs, hs * 0.22F, dim);
+        cursor += headSize * 1.6F * k;
+        Render2D.drawRound(context, tx, cursor, w - pad * 2.0F * k, 1.0F, 0.0F, RenderColor.multiplyAlpha(0x40FFFFFF, a));
+        cursor += headSize * 0.8F * k;
+
+        int white = RenderColor.multiplyAlpha(0xFFFFFFFF, a);
+        for (List<String> lines : wrapped) {
+            float dot = textSize * 0.28F * k;
+            Render2D.drawRound(context, tx, cursor + (textSize * 0.5F) * k - dot * 0.5F, dot, dot, dot * 0.5F, white);
+            for (String line : lines) {
+                Fonts.REGULAR.drawString(context, line, tx + textSize * 1.1F * k, cursor, textSize * k, white);
+                cursor += lineH * k;
+            }
+            cursor += lineH * 0.35F * k;
+        }
     }
 
     private void renderLcSurvey(DrawContext context, float alpha, float[] first) {
@@ -488,6 +579,12 @@ public final class CustomMainMenuScreen extends Screen {
                 new Color(13, 16, 21, 100), new Color(17, 22, 30, 125),
                 new Color(255, 255, 255, 28), new Color(255, 255, 255, 50),
                 0.0015F, 0.0019F, 0.95F, 1.20F, 0.60F, 0.85F
+        ),
+        /** Liberty City main menu: light translucent gray glass, readable on any video frame. */
+        MENU(
+                new Color(128, 134, 146, 82), new Color(176, 182, 194, 118),
+                new Color(255, 255, 255, 64), new Color(255, 255, 255, 120),
+                0.0015F, 0.0019F, 1.00F, 1.30F, 0.70F, 1.00F
         ),
         CARD(
                 new Color(11, 14, 18, 115), new Color(14, 18, 24, 135),

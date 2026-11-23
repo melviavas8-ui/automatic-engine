@@ -64,7 +64,7 @@ public final class MenuBackgroundRenderer {
             ensureStillLoaded();
             if (stillFadeStartNs == 0L) stillFadeStartNs = System.nanoTime();
             // Without any video frame on screen there is nothing to fade over: show the still right away.
-            float blend = videoShown
+            float blend = videoShown && media.hasSession()
                     ? Math.min(1.0F, (System.nanoTime() - stillFadeStartNs) / (STILL_FADE_SECONDS * 1.0E9F))
                     : 1.0F;
             if (stillGlId > 0) {
