@@ -33,7 +33,14 @@ public final class ThemeManager {
    private static final List<ClientTheme> LIBERTY_THEMES = List.of(
       theme("Gray", 176, 181, 190, 30, 32, 36),
       theme("Red", 214, 52, 60, 40, 23, 25),
-      theme("Blue", 82, 134, 224, 22, 29, 42)
+      theme("Blue", 82, 134, 224, 22, 29, 42),
+      theme("Green", 84, 178, 112, 22, 34, 27),
+      theme("Orange", 232, 136, 54, 40, 29, 20),
+      theme("Purple", 154, 112, 222, 33, 26, 46),
+      theme("Cyan", 66, 192, 207, 20, 36, 40),
+      theme("Gold", 224, 186, 72, 39, 35, 20),
+      theme("Pink", 228, 102, 162, 42, 24, 34),
+      theme("White", 238, 240, 244, 26, 26, 28)
    );
    private static ClientTheme legacyCurrent = LEGACY_THEMES.get(1);
    private static ClientTheme libertyCurrent = LIBERTY_THEMES.get(0);

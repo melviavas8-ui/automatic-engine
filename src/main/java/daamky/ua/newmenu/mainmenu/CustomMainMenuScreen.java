@@ -221,7 +221,9 @@ public final class CustomMainMenuScreen extends Screen {
     // Liberty City main view: left button column over the menu video
     // =========================================================================
 
-    private static final float LC_ANIM_SECONDS = 0.95F;
+    /** Buttons fly in from the camera: they start close to the viewer (large) and settle smoothly, no bounce. */
+    private static final float LC_ANIM_SECONDS = 1.15F;
+    private static final float LC_NEAR_SCALE = 1.5F;
     private static final float LC_STAGGER_SECONDS = 0.09F;
     private static final int LC_SLOT_MULTIPLAYER = 0;
     private static final int LC_SLOT_SINGLEPLAYER = 1;
@@ -244,6 +246,21 @@ public final class CustomMainMenuScreen extends Screen {
     private float lcProgress(int slot) {
         float t = lcClock() - MenuMedia.BUTTONS_AT_SECONDS - slot * LC_STAGGER_SECONDS;
         return Math.clamp(t / LC_ANIM_SECONDS, 0.0F, 1.0F);
+    }
+
+    private static float easeOutQuint(float t) {
+        float u = 1.0F - Math.clamp(t, 0.0F, 1.0F);
+        return 1.0F - u * u * u * u * u;
+    }
+
+    private static float smoothstep(float t) {
+        float c = Math.clamp(t, 0.0F, 1.0F);
+        return c * c * (3.0F - 2.0F * c);
+    }
+
+    /** Scale of an element at animation progress p: LC_NEAR_SCALE (near the camera) down to 1. */
+    private static float lcNearScale(float p) {
+        return 1.0F + (LC_NEAR_SCALE - 1.0F) * (1.0F - easeOutQuint(p));
     }
 
     private static float elasticOut(float t) {
@@ -294,14 +311,21 @@ public final class CustomMainMenuScreen extends Screen {
         float x0 = first[0];
         float logoSize = Math.clamp(h * 0.082F, 16.0F, 40.0F);
         float logoY = Math.max(10.0F, first[1] - logoSize * 2.35F);
-        float logoAlpha = alpha * Math.max(lcProgress(0), 0.0F);
+        float logoP = lcProgress(0);
+        float logoAlpha = alpha * smoothstep(logoP * 1.6F);
 
-        // Logo: "<_ daamky."
+        // Logo: "<_ daamky." (also flies in from the camera)
         if (logoAlpha > 0.01F) {
-            float markW = Fonts.BOLD.getWidth("<_", logoSize);
+            float near = lcNearScale(logoP);
+            float vx = this.width * 0.5F;
+            float vy = this.height * 0.5F;
+            float lx = vx + (x0 - vx) * near;
+            float ly = vy + (logoY - vy) * near;
+            float size = logoSize * near;
+            float markW = Fonts.BOLD.getWidth("<_", size);
             int white = RenderColor.multiplyAlpha(0xFFFFFFFF, logoAlpha);
-            Fonts.BOLD.drawString(context, "<_", x0, logoY, logoSize, white);
-            Fonts.BOLD.drawString(context, "daamky.", x0 + markW + logoSize * 0.3F, logoY, logoSize, white);
+            Fonts.BOLD.drawString(context, "<_", lx, ly, size, white);
+            Fonts.BOLD.drawString(context, "daamky.", lx + markW + size * 0.3F, ly, size, white);
         }
 
         if (lcSurvey) {
@@ -345,14 +369,17 @@ public final class CustomMainMenuScreen extends Screen {
     private void drawLcButton(DrawContext context, int slot, String label, Identifier icon, int iconTexture,
                               boolean exitIcon, String rightHint, float alpha) {
         float p = lcProgress(slot);
-        float a = alpha * Math.clamp(p * 2.5F, 0.0F, 1.0F);
+        float a = alpha * smoothstep(p * 1.6F);
         if (a <= 0.01F) return;
         float[] r = lcRect(slot);
-        float slide = (1.0F - elasticOut(p)) * (r[0] + r[2] + 16.0F);
-        float x = r[0] - slide;
-        float y = r[1];
-        float w = r[2];
-        float bh = r[3];
+        float near = lcNearScale(p);
+        float vx = this.width * 0.5F;
+        float vy = this.height * 0.5F;
+        // Scaling about the screen center moves the button toward the viewer's side of the screen as well.
+        float x = vx + (r[0] - vx) * near;
+        float y = vy + (r[1] - vy) * near;
+        float w = r[2] * near;
+        float bh = r[3] * near;
         float hover = lcHover[slot];
 
         drawGlassButton(context, x, y, w, bh, bh * 0.22F, hover, a, GlassStyle.SECONDARY);
@@ -385,16 +412,20 @@ public final class CustomMainMenuScreen extends Screen {
 
     private void drawLcProxyButton(DrawContext context, float alpha) {
         float p = lcProgress(LC_SLOT_ACCOUNTS);
-        float a = alpha * Math.clamp(p * 2.5F, 0.0F, 1.0F);
+        float a = alpha * smoothstep(p * 1.6F);
         if (a <= 0.01F) return;
         float[] r = lcRect(LC_SLOT_PROXY);
-        float slide = (1.0F - elasticOut(p)) * (r[0] + r[2] + 16.0F);
-        float x = r[0] - slide;
+        float near = lcNearScale(p);
+        float vx = this.width * 0.5F;
+        float vy = this.height * 0.5F;
+        float x = vx + (r[0] - vx) * near;
+        float y = vy + (r[1] - vy) * near;
+        float size = r[2] * near;
         float hover = lcHover[LC_SLOT_PROXY];
-        drawGlassButton(context, x, r[1], r[2], r[3], r[3] * 0.22F, hover, a, GlassStyle.SECONDARY);
+        drawGlassButton(context, x, y, size, size, size * 0.22F, hover, a, GlassStyle.SECONDARY);
         int tint = RenderColor.multiplyAlpha(RenderColor.interpolate(0xFFB9BDC4, 0xFFFFFFFF, hover), a);
-        float iconSize = r[3] * 0.40F;
-        drawMenuIcon(context, ICON_PROXY, 128, x + (r[2] - iconSize) * 0.5F, r[1] + (r[3] - iconSize) * 0.5F, iconSize, tint);
+        float iconSize = size * 0.40F;
+        drawMenuIcon(context, ICON_PROXY, 128, x + (size - iconSize) * 0.5F, y + (size - iconSize) * 0.5F, iconSize, tint);
     }
 
     private void renderLcSurvey(DrawContext context, float alpha, float[] first) {
