@@ -58,17 +58,17 @@ public final class GuiStyle {
 
     /** True for any of the client's own ClickGUI screens, whatever style is selected. */
     public static boolean isClientGui(Screen screen) {
-        return screen instanceof DaamkyClickGui || screen instanceof DaamkyDropDownGui || screen instanceof LC_Window;
+        return screen instanceof DaamkyClickGui || screen instanceof DaamkyDropDownGui
+                || screen instanceof LC_Window || screen instanceof LC_Dropdown;
     }
 
     /**
      * Creates the ClickGUI screen for the selected style and type.
-     * Liberty City opens LC_Window (also for the CS type, until CS gets its own screen) and,
-     * until LC_Dropdown is added in a later stage, the classic DropDown screen.
+     * Liberty City opens LC_Dropdown or LC_Window (the CS type uses LC_Window until CS gets its own screen).
      */
     public static Screen create() {
         if (UiStyle.isLiberty()) {
-            return isDropDown() ? new DaamkyDropDownGui() : new LC_Window();
+            return isDropDown() ? new LC_Dropdown() : new LC_Window();
         }
         return isDropDown() ? new DaamkyDropDownGui() : new DaamkyClickGui();
     }
