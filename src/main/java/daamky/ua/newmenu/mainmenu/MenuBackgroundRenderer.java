@@ -29,6 +29,7 @@ public final class MenuBackgroundRenderer {
     private int bgGlId = 0;
     private int blurredBgGlId = 0;
     private boolean loadAttempted = false;
+    private float videoFade = 0.0F;
 
     private void ensureLoaded() {
         if (loadAttempted) return;
@@ -149,7 +150,13 @@ public final class MenuBackgroundRenderer {
         float drawX = (screenWidth - drawW) * 0.5F + shiftX;
         float drawY = (screenHeight - drawH) * 0.5F + shiftY;
 
+        MenuVideo video = MenuVideo.getInstance();
+        int videoGlId = video.frameGlId();
+        if (videoGlId > 0) videoFade = Math.min(1.0F, videoFade + dt * 2.2F);
+
         // 1. Draw the night-village background with balanced photographic blur
+        // (only until the menu video has faded in; it is also the fallback if the video cannot be played)
+        if (videoFade < 1.0F) {
         ensureLoaded();
         int baseTint = RenderColor.multiplyAlpha(0xFFFFFFFF, alpha);
         if (bgGlId > 0) {
@@ -165,10 +172,29 @@ public final class MenuBackgroundRenderer {
             Render2D.drawRoundTexture(context, blurredBgGlId, drawX, drawY, drawW, drawH, 0.0F,
                     RenderColor.multiplyAlpha(0x90FFFFFF, alpha));
         }
+        }
+
+        // Menu video: cover-fitted, no zoom drift, cross-fades in over the static background
+        if (videoGlId > 0 && videoFade > 0.001F) {
+            float videoAspect = video.aspect();
+            float vw;
+            float vh;
+            if (screenAspect > videoAspect) {
+                vw = screenWidth;
+                vh = screenWidth / videoAspect;
+            } else {
+                vh = screenHeight;
+                vw = screenHeight * videoAspect;
+            }
+            Render2D.drawRoundTexture(context, videoGlId, (screenWidth - vw) * 0.5F, (screenHeight - vh) * 0.5F, vw, vh, 0.0F,
+                    RenderColor.multiplyAlpha(0xFFFFFFFF, alpha * videoFade));
+        }
 
         // 2. Soft atmospheric vignette preserving warm lantern glow and night sky
-        int overlayTop = RenderColor.multiplyAlpha(0x60060A12, alpha);
-        int overlayBottom = RenderColor.multiplyAlpha(0x9006080E, alpha);
+        int overlayTopAlpha = 0x60 - (int) (0x28 * videoFade);
+        int overlayBottomAlpha = 0x90 - (int) (0x18 * videoFade);
+        int overlayTop = RenderColor.multiplyAlpha((overlayTopAlpha << 24) | 0x060A12, alpha);
+        int overlayBottom = RenderColor.multiplyAlpha((overlayBottomAlpha << 24) | 0x06080E, alpha);
         Render2D.drawGradientRoundTB(context, 0, 0, screenWidth, screenHeight, 0.0F, overlayTop, overlayBottom);
 
         // 3. Ambient soft star/dust particles in background

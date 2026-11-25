@@ -136,6 +136,37 @@ public final class CustomMainMenuScreen extends Screen {
     private float modalSaveHover = 0.0F;
     private float modalCancelHover = 0.0F;
 
+    // -------------------------------------------------------------
+    // Intro animation of the main menu: elements fly in one after another,
+    // starting larger (as if close to the camera) and receding to their place.
+    // -------------------------------------------------------------
+    private static final float INTRO_DURATION = 0.62F;
+    private static final float INTRO_EXTRA_SCALE = 0.55F;
+    private final long introStart = System.currentTimeMillis();
+
+    private float introProgress(float delaySeconds) {
+        float t = (System.currentTimeMillis() - introStart) / 1000.0F - delaySeconds;
+        return Math.clamp(t / INTRO_DURATION, 0.0F, 1.0F);
+    }
+
+    private float introScale(float progress) {
+        return 1.0F + INTRO_EXTRA_SCALE * (1.0F - easeOutQuart(progress));
+    }
+
+    private float introAlpha(float progress) {
+        return Math.clamp(progress * 2.4F, 0.0F, 1.0F);
+    }
+
+    /** Position of an element's origin moved away from the vanishing point by the intro scale. */
+    private float introPos(float pos, float vanish, float progress) {
+        return vanish + (pos - vanish) * (1.0F + 0.28F * (1.0F - easeOutQuart(progress)));
+    }
+
+    /** New top-left coordinate of a box of the given size scaled by s around the vanishing point. */
+    private float introBoxPos(float pos, float size, float s, float vanish) {
+        return vanish + (pos + size * 0.5F - vanish) * s - size * s * 0.5F;
+    }
+
     public CustomMainMenuScreen() {
         super(Text.of("daamky"));
     }
@@ -148,6 +179,7 @@ public final class CustomMainMenuScreen extends Screen {
         lastAccountClickTime = 0L;
         lastClickedAccount = "";
         isExiting = false;
+        MenuMusic.start();
     }
 
     @Override
@@ -234,22 +266,28 @@ public final class CustomMainMenuScreen extends Screen {
         // -------------------------------------------------------------
         // A. Top Identity: F Mark + Username Pill [Shonus ∨]
         // -------------------------------------------------------------
+        float vx = centerX;
+        float vy = baseCenterY;
         float logoY = (float) Math.round(baseCenterY - 100.0F);
-        drawWatermarkMark(context, centerX, logoY, alpha, now);
+        float pLogo = introProgress(0.00F);
+        drawWatermarkMark(context, centerX, introPos(logoY, vy, pLogo), alpha * introAlpha(pLogo), now);
 
         String activeUser = AccountManager.getInstance().getActiveAccount();
         float badgeW = usernameBadgeWidth(activeUser);
         float badgeH = 20.0F;
         float badgeX = (float) Math.round(centerX - badgeW * 0.5F);
         float badgeY = (float) Math.round(logoY + 28.0F);
-        drawUsernameBadge(context, activeUser, badgeX, badgeY, badgeW, badgeH, alpha, hoverTopBadge);
+        float pBadge = introProgress(0.05F);
+        drawUsernameBadge(context, activeUser, badgeX, introPos(badgeY, vy, pBadge), badgeW, badgeH,
+                alpha * introAlpha(pBadge), hoverTopBadge);
 
         // -------------------------------------------------------------
         // B. Title "daamky" + Subtitle (Normalized Vertical Rhythm)
         // -------------------------------------------------------------
         float titleY = (float) Math.round(badgeY + 34.0F);
-        Fonts.SEMIBOLD.drawCenteredString(context, "daamky", centerX, titleY, 23.0F,
-                RenderColor.multiplyAlpha(0xFFFFFFFF, alpha));
+        float pTitle = introProgress(0.10F);
+        Fonts.SEMIBOLD.drawCenteredString(context, "daamky", centerX, introPos(titleY, vy, pTitle), 23.0F,
+                RenderColor.multiplyAlpha(0xFFFFFFFF, alpha * introAlpha(pTitle)));
 
         // Subtitles rotation with smooth cross-fade
         if (subtitleIndex < 0) {
@@ -268,14 +306,15 @@ public final class CustomMainMenuScreen extends Screen {
         }
         float subtitleBlend = Math.clamp((now - subtitleSwitchAt) / 450.0F, 0.0F, 1.0F);
         float subY = (float) Math.round(titleY + 29.0F);
+        float aSub = alpha * introAlpha(introProgress(0.16F));
         if (previousSubtitleIndex >= 0 && subtitleBlend < 1.0F) {
             Fonts.REGULAR.drawCenteredString(context, MAIN_SUBTITLES[previousSubtitleIndex], centerX,
                     subY, 9.5F,
-                    RenderColor.multiplyAlpha(0xFFA0B2C6, alpha * (1.0F - subtitleBlend)));
+                    RenderColor.multiplyAlpha(0xFFA0B2C6, aSub * (1.0F - subtitleBlend)));
         }
         Fonts.REGULAR.drawCenteredString(context, MAIN_SUBTITLES[subtitleIndex], centerX,
                 subY, 9.5F,
-                RenderColor.multiplyAlpha(0xFFA0B2C6, alpha * subtitleBlend));
+                RenderColor.multiplyAlpha(0xFFA0B2C6, aSub * subtitleBlend));
 
         // -------------------------------------------------------------
         // C. Row 1: [▶ Одиночная]  [👥 Мультиплеер]
@@ -290,16 +329,22 @@ public final class CustomMainMenuScreen extends Screen {
         float btnMultiX = (float) Math.round(btnSingleX + halfW + gap);
 
         // Button 1: Singleplayer (GLASS_PRIMARY - Stronger material presence)
-        drawGroupButton(context, btnSingleX, r1Y, halfW, btnH, 8.0F,
-                hoverSingleplayer, alpha, GlassStyle.PRIMARY,
-                ICON_SINGLEPLAYER, 100, 13.0F, "Одиночная",
-                Fonts.MEDIUM, 10.5F, 7.0F, 0xFFCBD5E1, 0xFFE2E8F0);
+        float pSingle = introProgress(0.22F);
+        float sSingle = introScale(pSingle);
+        drawGroupButton(context, introBoxPos(btnSingleX, halfW, sSingle, vx), introBoxPos(r1Y, btnH, sSingle, vy),
+                halfW * sSingle, btnH * sSingle, 8.0F * sSingle,
+                hoverSingleplayer, alpha * introAlpha(pSingle), GlassStyle.PRIMARY,
+                ICON_SINGLEPLAYER, 100, 13.0F * sSingle, "Одиночная",
+                Fonts.MEDIUM, 10.5F * sSingle, 7.0F * sSingle, 0xFFCBD5E1, 0xFFE2E8F0);
 
         // Button 2: Multiplayer (GLASS_PRIMARY - Stronger material presence)
-        drawGroupButton(context, btnMultiX, r1Y, halfW, btnH, 8.0F,
-                hoverMultiplayer, alpha, GlassStyle.PRIMARY,
-                ICON_MULTIPLAYER, 100, 13.0F, "Мультиплеер",
-                Fonts.MEDIUM, 10.5F, 7.0F, 0xFFCBD5E1, 0xFFE2E8F0);
+        float pMulti = introProgress(0.30F);
+        float sMulti = introScale(pMulti);
+        drawGroupButton(context, introBoxPos(btnMultiX, halfW, sMulti, vx), introBoxPos(r1Y, btnH, sMulti, vy),
+                halfW * sMulti, btnH * sMulti, 8.0F * sMulti,
+                hoverMultiplayer, alpha * introAlpha(pMulti), GlassStyle.PRIMARY,
+                ICON_MULTIPLAYER, 100, 13.0F * sMulti, "Мультиплеер",
+                Fonts.MEDIUM, 10.5F * sMulti, 7.0F * sMulti, 0xFFCBD5E1, 0xFFE2E8F0);
 
         // -------------------------------------------------------------
         // D. Row 2: Secondary Icon Buttons: [ 👤 ] [ ⚙ ] [ ⚡ ] [ 🚪 ]
@@ -312,39 +357,52 @@ public final class CustomMainMenuScreen extends Screen {
         float startRow2X = (float) Math.round(centerX - (iconBtnSize * 4.0F + iconGap * 3.0F) * 0.5F);
 
         // Button 1: Accounts (👤) - 13.5px optical normalization
-        drawIconSquareButton(context, startRow2X, r2Y, iconBtnSize, iconBtnSize,
-                ICON_ACCOUNTS, 128, 13.5F, hoverBtnAccounts, alpha, 0xFFCAD4DF);
+        float pAcc = introProgress(0.40F);
+        float sAcc = introScale(pAcc);
+        drawIconSquareButton(context, introBoxPos(startRow2X, iconBtnSize, sAcc, vx), introBoxPos(r2Y, iconBtnSize, sAcc, vy),
+                iconBtnSize * sAcc, iconBtnSize * sAcc,
+                ICON_ACCOUNTS, 128, 13.5F * sAcc, hoverBtnAccounts, alpha * introAlpha(pAcc), 0xFFCAD4DF);
 
         // Button 2: Options / Settings (⚙) - 13.0px optical normalization
-        drawIconSquareButton(context, startRow2X + iconBtnSize + iconGap, r2Y, iconBtnSize, iconBtnSize,
-                ICON_SETTINGS, 128, 13.0F, hoverBtnSettings, alpha, 0xFFCAD4DF);
+        float pSet = introProgress(0.46F);
+        float sSet = introScale(pSet);
+        drawIconSquareButton(context, introBoxPos(startRow2X + iconBtnSize + iconGap, iconBtnSize, sSet, vx),
+                introBoxPos(r2Y, iconBtnSize, sSet, vy), iconBtnSize * sSet, iconBtnSize * sSet,
+                ICON_SETTINGS, 128, 13.0F * sSet, hoverBtnSettings, alpha * introAlpha(pSet), 0xFFCAD4DF);
 
         // Button 3: Proxy (⚡) - 13.0px optical normalization
-        drawIconSquareButton(context, startRow2X + (iconBtnSize + iconGap) * 2.0F, r2Y, iconBtnSize, iconBtnSize,
-                ICON_PROXY, 128, 13.0F, hoverBtnProxy, alpha, 0xFFCAD4DF);
+        float pProxy = introProgress(0.52F);
+        float sProxy = introScale(pProxy);
+        drawIconSquareButton(context, introBoxPos(startRow2X + (iconBtnSize + iconGap) * 2.0F, iconBtnSize, sProxy, vx),
+                introBoxPos(r2Y, iconBtnSize, sProxy, vy), iconBtnSize * sProxy, iconBtnSize * sProxy,
+                ICON_PROXY, 128, 13.0F * sProxy, hoverBtnProxy, alpha * introAlpha(pProxy), 0xFFCAD4DF);
 
         // Button 4: Exit Button (🚪) - 13.0px vector door logout icon with muted red
-        drawExitSquareButton(context, startRow2X + (iconBtnSize + iconGap) * 3.0F, r2Y, iconBtnSize, iconBtnSize,
-                hoverBtnExit, alpha);
+        float pExit = introProgress(0.58F);
+        float sExit = introScale(pExit);
+        drawExitSquareButton(context, introBoxPos(startRow2X + (iconBtnSize + iconGap) * 3.0F, iconBtnSize, sExit, vx),
+                introBoxPos(r2Y, iconBtnSize, sExit, vy), iconBtnSize * sExit, iconBtnSize * sExit,
+                hoverBtnExit, alpha * introAlpha(pExit));
 
         // -------------------------------------------------------------
         // E. Top-Right Window Controls: [ — ]  [ ✕ ]
         // -------------------------------------------------------------
+        float aCtl = alpha * introAlpha(introProgress(0.50F));
         float winX = (float) Math.round(this.width - 48.0F);
         float winY = 12.0F;
         Fonts.REGULAR.drawString(context, "—", winX, winY, 11.0F,
-                RenderColor.multiplyAlpha(RenderColor.interpolate(0x6094A3B8, 0xFFFFFFFF, hoverWinMin), alpha));
+                RenderColor.multiplyAlpha(RenderColor.interpolate(0x6094A3B8, 0xFFFFFFFF, hoverWinMin), aCtl));
         Fonts.REGULAR.drawString(context, "✕", winX + 16.0F, winY, 11.0F,
-                RenderColor.multiplyAlpha(RenderColor.interpolate(0x6094A3B8, 0xFFF87171, hoverWinClose), alpha));
+                RenderColor.multiplyAlpha(RenderColor.interpolate(0x6094A3B8, 0xFFF87171, hoverWinClose), aCtl));
 
         // -------------------------------------------------------------
         // F. Footer Text (Clean Centered, subtle & crisp typography)
         // -------------------------------------------------------------
         float footerY = (float) Math.round(this.height - 28.0F);
         Fonts.REGULAR.drawCenteredString(context, "Продукты daamky не связаны с Mojang.", centerX, footerY, 8.0F,
-                RenderColor.multiplyAlpha(0x70FFFFFF, alpha));
+                RenderColor.multiplyAlpha(0x70FFFFFF, aCtl));
         Fonts.REGULAR.drawCenteredString(context, "Политика конфиденциальности  ·  Условия использования", centerX, footerY + 11.0F, 7.8F,
-                RenderColor.multiplyAlpha(0x50FFFFFF, alpha));
+                RenderColor.multiplyAlpha(0x50FFFFFF, aCtl));
     }
 
     /**
