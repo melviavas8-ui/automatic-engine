@@ -5,6 +5,7 @@ import java.io.DataInputStream;
 import java.io.InputStream;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicReference;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.texture.GlTexture;
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
