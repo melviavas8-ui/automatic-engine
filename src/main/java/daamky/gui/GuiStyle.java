@@ -19,7 +19,8 @@ import java.util.List;
 public final class GuiStyle {
     public static final String WINDOW = "Window";
     public static final String DROPDOWN = "DropDown";
-    public static final List<String> NAMES = List.of(WINDOW, DROPDOWN);
+    public static final String RADIAL = "Radial";
+    public static final List<String> NAMES = List.of(WINDOW, DROPDOWN, RADIAL);
 
     private static final Gson GSON = new Gson();
     private static final String FILE = "gui.daamky";
@@ -30,6 +31,8 @@ public final class GuiStyle {
     public static String current() { return current; }
 
     public static boolean isDropDown() { return DROPDOWN.equals(current); }
+
+    public static boolean isRadial() { return RADIAL.equals(current); }
 
     /** Returns the canonical style name for the input, or the current style when it is unknown. */
     public static String find(String name) {
@@ -47,11 +50,12 @@ public final class GuiStyle {
 
     /** True for any of the client's own ClickGUI screens, whatever style is selected. */
     public static boolean isClientGui(Screen screen) {
-        return screen instanceof DaamkyClickGui || screen instanceof DaamkyDropDownGui;
+        return screen instanceof DaamkyClickGui || screen instanceof DaamkyDropDownGui || screen instanceof DaamkyRadialGui;
     }
 
     /** Creates the ClickGUI screen for the selected style. */
     public static Screen create() {
+        if (isRadial()) return new DaamkyRadialGui();
         return isDropDown() ? new DaamkyDropDownGui() : new DaamkyClickGui();
     }
 

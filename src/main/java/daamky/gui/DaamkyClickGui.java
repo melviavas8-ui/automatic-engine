@@ -276,9 +276,9 @@ public class DaamkyClickGui extends Screen {
     public void tick() {
         super.tick();
         if (closing && openT <= 0f) super.close();
-        else if (!closing && GuiStyle.isDropDown()) {
-            // The Type setting was switched to DropDown.
-            if (client != null) client.setScreen(new DaamkyDropDownGui());
+        else if (!closing && !GuiStyle.WINDOW.equals(GuiStyle.current())) {
+            // The Type setting was switched to another style.
+            if (client != null) client.setScreen(GuiStyle.create());
         }
     }
 

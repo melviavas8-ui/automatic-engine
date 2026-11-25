@@ -2,10 +2,10 @@ package daamky.ua.api.settings.impl;
 
 import daamky.gui.GuiStyle;
 
-/** ClickGUI "Type" switch: Window or DropDown. Stored in system/gui.daamky, not in module configs. */
+/** ClickGUI "Type" switch: Window, DropDown or Radial. Stored in system/gui.daamky, not in module configs. */
 public final class GuiTypeSetting extends ModeSetting {
     public GuiTypeSetting() {
-        super("Type", "ClickGUI style: Window or DropDown.", false, GuiStyle.current(), GuiStyle.NAMES.toArray(String[]::new));
+        super("Type", "ClickGUI style: Window, DropDown or Radial.", false, GuiStyle.current(), GuiStyle.NAMES.toArray(String[]::new));
         this.addListener((setting, oldValue, newValue) -> GuiStyle.select(newValue));
     }
 
