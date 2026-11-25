@@ -3,6 +3,7 @@ package daamky.ua.newmenu.mainmenu;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.InputStream;
+import java.io.IOException;
 import java.util.concurrent.atomic.AtomicReference;
 import net.minecraft.client.texture.GlTexture;
 import net.minecraft.client.texture.NativeImage;
@@ -20,6 +21,8 @@ import net.minecraft.client.texture.NativeImageBackedTexture;
  */
 public final class MenuVideo {
     private static final String RESOURCE = "/assets/daamkymenu/mainmenu/menu_video.bin";
+    private static final net.minecraft.util.Identifier RESOURCE_ID =
+            net.minecraft.util.Identifier.of("daamkymenu", "mainmenu/menu_video.bin");
     /** The worker stops (and frees the pack) when the menu has not asked for a frame for this long. */
     private static final long IDLE_FREE_NANOS = 20_000_000_000L;
     /** Decoding is paused when the menu is not drawn (other screens are open). */
@@ -65,6 +68,22 @@ public final class MenuVideo {
         return currentGlId;
     }
 
+
+    /**
+     * Load from the mod classpath first, then from Minecraft's resource manager.
+     * The second path also works when the resource is supplied by the active resource pack.
+     */
+    private InputStream openVideoResource() throws IOException {
+        InputStream stream = MenuVideo.class.getResourceAsStream(RESOURCE);
+        if (stream != null) return stream;
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc != null && mc.getResourceManager() != null) {
+            return mc.getResourceManager().open(RESOURCE_ID);
+        }
+        throw new IOException("Video resource not found: " + RESOURCE_ID);
+    }
+
     private void upload(NativeImage image) {
         NativeImageBackedTexture texture = null;
         try {
@@ -88,8 +107,7 @@ public final class MenuVideo {
     private void run() {
         try {
             byte[] data;
-            try (InputStream in = MenuVideo.class.getResourceAsStream(RESOURCE)) {
-                if (in == null) throw new IllegalStateException(RESOURCE + " not found");
+            try (InputStream in = openVideoResource()) {
                 data = in.readAllBytes();
             }
             DataInputStream header = new DataInputStream(new ByteArrayInputStream(data));
@@ -133,6 +151,7 @@ public final class MenuVideo {
         } catch (Throwable throwable) {
             failed = true;
             System.err.println("[Daamky] Menu video disabled: " + throwable);
+            throwable.printStackTrace();
         } finally {
             NativeImage leftover = pending.getAndSet(null);
             if (leftover != null) leftover.close();
