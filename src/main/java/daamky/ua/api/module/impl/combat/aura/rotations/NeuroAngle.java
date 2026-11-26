@@ -91,10 +91,47 @@ public class NeuroAngle extends RotateConstructor {
             targetAngle.getYaw(), targetAngle.getPitch(),
             yawDelta, pitchDelta,
             Math.hypot(yawDelta, pitchDelta),
-            mc.player.distanceTo(entity), // Исправлено: используем mc из параметров
+            mc.player.distanceTo(entity),
             0.5, 
             entity.getVelocity().length(),
             entity.getVelocity().horizontalLength(),
             0, 0, 
             true, 
-            1
+            1.0, 1.0, 1.0, 1.0, 1.0, 
+            0, 0, 
+            new double[0], new double[0], 
+            0, 0, 0, 0, 0, 
+            yawDelta, pitchDelta, 
+            yawDelta, pitchDelta  
+        );
+    }
+
+    private void predictNextMove(float currentYaw, float currentPitch, Angle targetAngle) {
+        yawHistory.add(currentYaw);
+        pitchHistory.add(currentPitch);
+        if (yawHistory.size() > 10) {
+            yawHistory.remove(0);
+            pitchHistory.remove(0);
+        }
+
+        float avgYawChange = 0;
+        float avgPitchChange = 0;
+        for (int i = 1; i < yawHistory.size(); i++) {
+            avgYawChange += MathHelper.wrapDegrees(yawHistory.get(i) - yawHistory.get(i - 1));
+            avgPitchChange += pitchHistory.get(i) - pitchHistory.get(i - 1);
+        }
+        
+        if (yawHistory.size() > 1) {
+            avgYawChange /= (yawHistory.size() - 1);
+            avgPitchChange /= (pitchHistory.size() - 1);
+        }
+
+        this.predictedYaw = currentYaw + avgYawChange * 1.5f;
+        this.predictedPitch = currentPitch + avgPitchChange * 1.5f;
+    }
+
+    @Override
+    public Vec3d randomValue() {
+        return Vec3d.ZERO;
+    }
+}
