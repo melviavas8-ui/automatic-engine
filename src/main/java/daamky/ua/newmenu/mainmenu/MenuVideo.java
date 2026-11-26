@@ -17,6 +17,8 @@ import net.minecraft.client.texture.NativeImageBackedTexture;
  * Frames are decoded on a background thread (STB, through {@link NativeImage}) and uploaded on the render thread.
  * The frame is chosen by time, so the video never slows down: if the PC is slow, frames are just skipped.
  *
+ * <p>Frames are decoded as RGBA on purpose: a plain JPEG decodes to RGB, and the GPU texture upload only accepts RGBA.
+ *
  * <p>Pack format (big endian): "DMV1", int fps, int frameCount, int width, int height,
  * int[frameCount + 1] offsets, then the JPEG data.
  */
@@ -102,6 +104,11 @@ public final class MenuVideo {
         } catch (RuntimeException exception) {
             if (texture != null) texture.close();
             else image.close();
+            if (!failed) {
+                failed = true;
+                System.err.println("[Daamky] Menu video disabled (frame upload failed): " + exception);
+                exception.printStackTrace();
+            }
         }
     }
 
@@ -142,7 +149,7 @@ public final class MenuVideo {
                 }
                 int from = base + offsets[target];
                 int length = offsets[target + 1] - offsets[target];
-                NativeImage image = NativeImage.read(new ByteArrayInputStream(data, from, length));
+                NativeImage image = NativeImage.read(NativeImage.Format.RGBA, new ByteArrayInputStream(data, from, length));
                 NativeImage old = pending.getAndSet(image);
                 if (old != null) old.close();
                 last = target;

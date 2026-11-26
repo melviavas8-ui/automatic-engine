@@ -142,29 +142,43 @@ public final class CustomMainMenuScreen extends Screen {
     // -------------------------------------------------------------
     private static final float INTRO_DURATION = 0.62F;
     private static final float INTRO_EXTRA_SCALE = 0.55F;
-    private final long introStart = System.currentTimeMillis();
+    /**
+     * The clock starts on the first frame the menu is really visible. On game start the loading overlay
+     * covers the menu for a few seconds, and the whole intro used to play unseen underneath it.
+     */
+    private long introStart = -1L;
 
     private float introProgress(float delaySeconds) {
+        if (introStart < 0L) {
+            if (this.client != null && this.client.getOverlay() != null) return 0.0F;
+            introStart = System.currentTimeMillis();
+        }
         float t = (System.currentTimeMillis() - introStart) / 1000.0F - delaySeconds;
         return Math.clamp(t / INTRO_DURATION, 0.0F, 1.0F);
     }
 
+    /** Buttons keep their size while flying in; the motion is a rise from below with a small spring overshoot. */
     private float introScale(float progress) {
-        return 1.0F + INTRO_EXTRA_SCALE * (1.0F - easeOutQuart(progress));
+        return 1.0F;
     }
 
     private float introAlpha(float progress) {
         return Math.clamp(progress * 2.4F, 0.0F, 1.0F);
     }
 
-    /** Position of an element's origin moved away from the vanishing point by the intro scale. */
-    private float introPos(float pos, float vanish, float progress) {
-        return vanish + (pos - vanish) * (1.0F + 0.28F * (1.0F - easeOutQuart(progress)));
+    /** How far below its place an element starts, in GUI pixels. */
+    private static final float INTRO_FLY_DISTANCE = 46.0F;
+
+    private static float easeOutBack(float t) {
+        float c1 = 1.70158F;
+        float c3 = c1 + 1.0F;
+        float u = t - 1.0F;
+        return 1.0F + c3 * u * u * u + c1 * u * u;
     }
 
-    /** New top-left coordinate of a box of the given size scaled by s around the vanishing point. */
-    private float introBoxPos(float pos, float size, float s, float vanish) {
-        return vanish + (pos + size * 0.5F - vanish) * s - size * s * 0.5F;
+    /** Y of an element during the fly-in (the vanish argument is no longer used, kept for the existing calls). */
+    private float introPos(float pos, float vanish, float progress) {
+        return pos + INTRO_FLY_DISTANCE * (1.0F - easeOutBack(progress));
     }
 
     public CustomMainMenuScreen() {
@@ -331,7 +345,7 @@ public final class CustomMainMenuScreen extends Screen {
         // Button 1: Singleplayer (GLASS_PRIMARY - Stronger material presence)
         float pSingle = introProgress(0.22F);
         float sSingle = introScale(pSingle);
-        drawGroupButton(context, introBoxPos(btnSingleX, halfW, sSingle, vx), introBoxPos(r1Y, btnH, sSingle, vy),
+        drawGroupButton(context, btnSingleX, introPos(r1Y, vy, pSingle),
                 halfW * sSingle, btnH * sSingle, 8.0F * sSingle,
                 hoverSingleplayer, alpha * introAlpha(pSingle), GlassStyle.PRIMARY,
                 ICON_SINGLEPLAYER, 100, 13.0F * sSingle, "Одиночная",
@@ -340,7 +354,7 @@ public final class CustomMainMenuScreen extends Screen {
         // Button 2: Multiplayer (GLASS_PRIMARY - Stronger material presence)
         float pMulti = introProgress(0.30F);
         float sMulti = introScale(pMulti);
-        drawGroupButton(context, introBoxPos(btnMultiX, halfW, sMulti, vx), introBoxPos(r1Y, btnH, sMulti, vy),
+        drawGroupButton(context, btnMultiX, introPos(r1Y, vy, pMulti),
                 halfW * sMulti, btnH * sMulti, 8.0F * sMulti,
                 hoverMultiplayer, alpha * introAlpha(pMulti), GlassStyle.PRIMARY,
                 ICON_MULTIPLAYER, 100, 13.0F * sMulti, "Мультиплеер",
@@ -359,29 +373,29 @@ public final class CustomMainMenuScreen extends Screen {
         // Button 1: Accounts (👤) - 13.5px optical normalization
         float pAcc = introProgress(0.40F);
         float sAcc = introScale(pAcc);
-        drawIconSquareButton(context, introBoxPos(startRow2X, iconBtnSize, sAcc, vx), introBoxPos(r2Y, iconBtnSize, sAcc, vy),
+        drawIconSquareButton(context, startRow2X, introPos(r2Y, vy, pAcc),
                 iconBtnSize * sAcc, iconBtnSize * sAcc,
                 ICON_ACCOUNTS, 128, 13.5F * sAcc, hoverBtnAccounts, alpha * introAlpha(pAcc), 0xFFCAD4DF);
 
         // Button 2: Options / Settings (⚙) - 13.0px optical normalization
         float pSet = introProgress(0.46F);
         float sSet = introScale(pSet);
-        drawIconSquareButton(context, introBoxPos(startRow2X + iconBtnSize + iconGap, iconBtnSize, sSet, vx),
-                introBoxPos(r2Y, iconBtnSize, sSet, vy), iconBtnSize * sSet, iconBtnSize * sSet,
+        drawIconSquareButton(context, startRow2X + iconBtnSize + iconGap,
+                introPos(r2Y, vy, pSet), iconBtnSize * sSet, iconBtnSize * sSet,
                 ICON_SETTINGS, 128, 13.0F * sSet, hoverBtnSettings, alpha * introAlpha(pSet), 0xFFCAD4DF);
 
         // Button 3: Proxy (⚡) - 13.0px optical normalization
         float pProxy = introProgress(0.52F);
         float sProxy = introScale(pProxy);
-        drawIconSquareButton(context, introBoxPos(startRow2X + (iconBtnSize + iconGap) * 2.0F, iconBtnSize, sProxy, vx),
-                introBoxPos(r2Y, iconBtnSize, sProxy, vy), iconBtnSize * sProxy, iconBtnSize * sProxy,
+        drawIconSquareButton(context, startRow2X + (iconBtnSize + iconGap) * 2.0F,
+                introPos(r2Y, vy, pProxy), iconBtnSize * sProxy, iconBtnSize * sProxy,
                 ICON_PROXY, 128, 13.0F * sProxy, hoverBtnProxy, alpha * introAlpha(pProxy), 0xFFCAD4DF);
 
         // Button 4: Exit Button (🚪) - 13.0px vector door logout icon with muted red
         float pExit = introProgress(0.58F);
         float sExit = introScale(pExit);
-        drawExitSquareButton(context, introBoxPos(startRow2X + (iconBtnSize + iconGap) * 3.0F, iconBtnSize, sExit, vx),
-                introBoxPos(r2Y, iconBtnSize, sExit, vy), iconBtnSize * sExit, iconBtnSize * sExit,
+        drawExitSquareButton(context, startRow2X + (iconBtnSize + iconGap) * 3.0F,
+                introPos(r2Y, vy, pExit), iconBtnSize * sExit, iconBtnSize * sExit,
                 hoverBtnExit, alpha * introAlpha(pExit));
 
         // -------------------------------------------------------------
