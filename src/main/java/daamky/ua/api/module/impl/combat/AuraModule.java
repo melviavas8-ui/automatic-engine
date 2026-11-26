@@ -108,75 +108,75 @@ public class AuraModule extends Module {
 
     public final ModeSetting presetSelector = this.register(
         new ModeSetting(
-            "Preset ",  "Ready-made Aura configs ",  "Not Selected ",
-            "Not Selected ",  "SpookyTime ",  "FunTime ",  "ReallyWorld ",  "HypeMC ", 
-            "SpaceTimes Test", "SkyTime Test" // <-- Новые пресеты
+            "Preset",  "Ready-made Aura configs",  "Not Selected",
+            "Not Selected",  "SpookyTime",  "FunTime",  "ReallyWorld",  "HypeMC", 
+            "SpaceTimes Test","SkyTime Test" // <-- Новые пресеты
         )
     );
 
     public final ButtonSetting applyPresetButton = this.register(
-        new ButtonSetting( "Load Config ",  "Applies the selected preset to Aura only ", this::applySelectedPreset)
+        new ButtonSetting( "Load Config",  "Applies the selected preset to Aura only", this::applySelectedPreset)
     );
 
     public final ModeSetting mode = this.register(
         new ModeSetting(
-            "Mode ",  "Aura rotation mode. ",  "MatrixNew ",  
-            "MatrixNew ",  "Snap ",  "Legit ",  "Legit Snap ",  "FunTime ",  "SpookyTime ",  "SpookyTime2 ",  "SpookyTime3 ",  
-            "ReallyWorld ",  "Byram ",  "HolyWorld ", "Shard", "Neuro" // <-- Новые режимы
+            "Mode",  "Aura rotation mode.",  "MatrixNew",  
+            "MatrixNew",  "Snap",  "Legit",  "Legit Snap",  "FunTime",  "SpookyTime",  "SpookyTime2",  "SpookyTime3",  
+            "ReallyWorld",  "Byram",  "HolyWorld", "Shard","Neuro" // <-- Новые режимы
         )
     );
 
-    public final NumberSetting timeOnTick = this.register(new NumberSetting( "Snap Hold ",  " ", 50.0, 1.0, 300.0, 1.0));
-    public final NumberSetting speedValue = this.register(new NumberSetting( "Snap Speed ",  " ", 50.0, 15.0, 180.0, 1.0));
-    public final NumberSetting legitSpeed = this.register(new NumberSetting( "Legit Speed ",  "Legit yaw blend speed. ", 0.08, 0.02, 0.4, 0.01));
-    public final NumberSetting aimAssistSpeed = new NumberSetting( "AimAssist Speed ",  " ", 14.0, 0.5, 20.0, 0.1);
-    public final NumberSetting aimAssistSmoothness = new NumberSetting( "AimAssist Smoothness ",  " ", 6.0, 1.0, 10.0, 0.1);
+    public final NumberSetting timeOnTick = this.register(new NumberSetting( "Snap Hold",  "", 50.0, 1.0, 300.0, 1.0));
+    public final NumberSetting speedValue = this.register(new NumberSetting( "Snap Speed",  "", 50.0, 15.0, 180.0, 1.0));
+    public final NumberSetting legitSpeed = this.register(new NumberSetting( "Legit Speed",  "Legit yaw blend speed.", 0.08, 0.02, 0.4, 0.01));
+    public final NumberSetting aimAssistSpeed = new NumberSetting( "AimAssist Speed",  "", 14.0, 0.5, 20.0, 0.1);
+    public final NumberSetting aimAssistSmoothness = new NumberSetting( "AimAssist Smoothness",  "", 6.0, 1.0, 10.0, 0.1);
 
-    public final BooleanSetting neuroDatasetCapture = this.register(new BooleanSetting( "Neuro Dataset ",  " ", false));
-    public final ModeSetting neuroDatasetFormat = this.register(new ModeSetting( "Neuro Format ",  " ",  "JSONL ",  "JSONL ",  "CSV "));
-    public final BooleanSetting neuroHumanDatasetCapture = this.register(new BooleanSetting( "Neuro Human Dataset ",  " ", false));
-    public final ModeSetting neuroHumanDatasetFormat = this.register(new ModeSetting( "Neuro Human Format ",  " ",  "JSONL ",  "JSONL ",  "CSV "));
-    public final BooleanSetting neuroModelInference = this.register(new BooleanSetting( "Neuro Inference ",  " ", false));
-    public final StringSetting neuroModelPath = this.register(new StringSetting( "Neuro Model ",  " ",  "daamky/models/neuro_reward_model.json ", 256));
-    public final NumberSetting neuroModelBlend = this.register(new NumberSetting( "Neuro Blend ",  " ", 0.65, 0.0, 1.0, 0.05));
-    public final BooleanSetting neuroHumanInference = this.register(new BooleanSetting( "Neuro Human Inference ",  " ", false));
-    public final StringSetting neuroHumanModelPath = this.register(new StringSetting( "Neuro Human Model ",  " ",  "daamky/models/neuro_human_model.json ", 256));
-    public final NumberSetting neuroHumanBlend = this.register(new NumberSetting( "Neuro Human Blend ",  " ", 0.75, 0.0, 1.0, 0.05));
+    public final BooleanSetting neuroDatasetCapture = this.register(new BooleanSetting( "Neuro Dataset",  "", false));
+    public final ModeSetting neuroDatasetFormat = this.register(new ModeSetting( "Neuro Format",  "",  "JSONL",  "JSONL",  "CSV"));
+    public final BooleanSetting neuroHumanDatasetCapture = this.register(new BooleanSetting( "Neuro Human Dataset",  "", false));
+    public final ModeSetting neuroHumanDatasetFormat = this.register(new ModeSetting( "Neuro Human Format",  "",  "JSONL",  "JSONL",  "CSV"));
+    public final BooleanSetting neuroModelInference = this.register(new BooleanSetting( "Neuro Inference",  "", false));
+    public final StringSetting neuroModelPath = this.register(new StringSetting( "Neuro Model",  "",  "daamky/models/neuro_reward_model.json", 256));
+    public final NumberSetting neuroModelBlend = this.register(new NumberSetting( "Neuro Blend",  "", 0.65, 0.0, 1.0, 0.05));
+    public final BooleanSetting neuroHumanInference = this.register(new BooleanSetting( "Neuro Human Inference",  "", false));
+    public final StringSetting neuroHumanModelPath = this.register(new StringSetting( "Neuro Human Model",  "",  "daamky/models/neuro_human_model.json", 256));
+    public final NumberSetting neuroHumanBlend = this.register(new NumberSetting( "Neuro Human Blend",  "", 0.75, 0.0, 1.0, 0.05));
 
-    public final NumberSetting attackRange = this.register(new NumberSetting( "Range ",  " ", 3.0, 2.5, 6.0, 0.1));
-    public final NumberSetting lookRange = this.register(new NumberSetting( "Look Range ",  " ", 1.5, 0.5, 10.0, 0.1));
-    public final NumberSetting keepTargetRange = this.register(new NumberSetting( "Keep Range ",  " ", 6.0, 2.5, 12.0, 0.1));
+    public final NumberSetting attackRange = this.register(new NumberSetting( "Range",  "", 3.0, 2.5, 6.0, 0.1));
+    public final NumberSetting lookRange = this.register(new NumberSetting( "Look Range",  "", 1.5, 0.5, 10.0, 0.1));
+    public final NumberSetting keepTargetRange = this.register(new NumberSetting( "Keep Range",  "", 6.0, 2.5, 12.0, 0.1));
 
     public final MultiModeSetting targetType = this.register(
-        new MultiModeSetting( "Targets ",  " ", new String[]{ "Players ",  "Friends ",  "Mobs ",  "Animals ",  "Armor Stands ",  "Naked Players "},  "Players ",  "Invisible ")
+        new MultiModeSetting( "Targets",  "", new String[]{ "Players",  "Friends",  "Mobs",  "Animals",  "Armor Stands",  "Naked Players"},  "Players",  "Invisible")
     );
-    public final ModeSetting targetPriority = this.register(new ModeSetting( "Priority ",  " ",  "Distance ",  "Distance ",  "Health ",  "Armor ",  "FOV ",  "Combined "));
+    public final ModeSetting targetPriority = this.register(new ModeSetting( "Priority",  "",  "Distance",  "Distance",  "Health",  "Armor",  "FOV",  "Combined"));
     
     public final MultiModeSetting options = this.register(
         new MultiModeSetting(
-            "Options ",
-            " ",
-            new String[]{ "Pause While Using ",  "Ignore Walls ",  "Release Shield ",  "Sync TPS ",  "Hit in container "},
-            "Pause While Using ",
-            "Multi Points "
+            "Options",
+            "",
+            new String[]{ "Pause While Using",  "Ignore Walls",  "Release Shield",  "Sync TPS",  "Hit in container"},
+            "Pause While Using",
+            "Multi Points"
         )
     );
 
-    public final ModeSetting moveFix = this.register(new ModeSetting( "Move Fix ",  " ",  "Focused ",  "Focused ",  "Free ",  "Chase ",  "Target "));
-    public final BooleanSetting onlyCriticals = this.register(new BooleanSetting( "Only Crits ",  " ", true));
-    public final BooleanSetting smartCriticals = this.register(new BooleanSetting( "Smart Crits ",  " ", false));
+    public final ModeSetting moveFix = this.register(new ModeSetting( "Move Fix",  "",  "Focused",  "Focused",  "Free",  "Chase",  "Target"));
+    public final BooleanSetting onlyCriticals = this.register(new BooleanSetting( "Only Crits",  "", true));
+    public final BooleanSetting smartCriticals = this.register(new BooleanSetting( "Smart Crits",  "", false));
     public final BooleanSetting criticalBalance = this.register(
-        new BooleanSetting( "Critical Balance ",  "Uses a stricter randomized attack cooldown for critical hits. ", false)
+        new BooleanSetting( "Critical Balance",  "Uses a stricter randomized attack cooldown for critical hits.", false)
     );
-    public final ModeSetting hitMoment = this.register(new ModeSetting( "Hit Moment ",  "Critical fall-distance timing. ",  "Legit ",  "Static ",  "Legit ",  "Random "));
-    public final NumberSetting randomFallMin = this.register(new NumberSetting( "Random Fall Min ",  " ", 0.0, 0.0, 1.5, 0.01));
-    public final NumberSetting randomFallMax = this.register(new NumberSetting( "Random Fall Max ",  " ", 0.25, 0.0, 1.5, 0.01));
-    public final NumberSetting staticFall = this.register(new NumberSetting( "Static Fall ",  " ", 0.0, 0.0, 1.5, 0.01));
-    public final BooleanSetting maxDamage = this.register(new BooleanSetting( "Max Damage ",  "Temporarily equips a damage talisman for Aura attacks. ", false));
+    public final ModeSetting hitMoment = this.register(new ModeSetting( "Hit Moment",  "Critical fall-distance timing.",  "Legit",  "Static",  "Legit",  "Random"));
+    public final NumberSetting randomFallMin = this.register(new NumberSetting( "Random Fall Min",  "", 0.0, 0.0, 1.5, 0.01));
+    public final NumberSetting randomFallMax = this.register(new NumberSetting( "Random Fall Max",  "", 0.25, 0.0, 1.5, 0.01));
+    public final NumberSetting staticFall = this.register(new NumberSetting( "Static Fall",  "", 0.0, 0.0, 1.5, 0.01));
+    public final BooleanSetting maxDamage = this.register(new BooleanSetting( "Max Damage",  "Temporarily equips a damage talisman for Aura attacks.", false));
     
-    private final ModeSetting firstItem = this.register(new ModeSetting( "First Item ",  "First offhand item. ",  "Totem ",  "Totem ",  "Head ",  "GApple ",  "Shield "));
-    private final ModeSetting secondItem = this.register(new ModeSetting( "Second Item ",  "Second offhand item. ",  "Totem ",  "Totem ",  "Head ",  "GApple ",  "Shield "));
-    public final BooleanSetting legitfov = this.register(new BooleanSetting( "Draw Circle ",  " ", true));
+    private final ModeSetting firstItem = this.register(new ModeSetting( "First Item",  "First offhand item.",  "Totem",  "Totem",  "Head",  "GApple",  "Shield"));
+    private final ModeSetting secondItem = this.register(new ModeSetting( "Second Item",  "Second offhand item.",  "Totem",  "Totem",  "Head",  "GApple",  "Shield"));
+    public final BooleanSetting legitfov = this.register(new BooleanSetting( "Draw Circle",  "", true));
 
     private final LegitAngle legitAngle = new LegitAngle();
     private float cachedDynamicFov = 33.0F;
@@ -207,22 +207,22 @@ public class AuraModule extends Module {
     private int previousHumanInputMask;
 
     public AuraModule() {
-        super( "Aura ",  "Automatically attacks nearby targets. ", ModuleCategory.COMBAT);
+        super( "Aura",  "Automatically attacks nearby targets.", ModuleCategory.COMBAT);
         
-        this.timeOnTick.visibleWhen(() -> this.mode.is( "Snap "));
-        this.speedValue.visibleWhen(() -> this.mode.is( "Snap "));
-        this.legitSpeed.visibleWhen(() -> this.mode.is( "Legit "));
+        this.timeOnTick.visibleWhen(() -> this.mode.is( "Snap"));
+        this.speedValue.visibleWhen(() -> this.mode.is( "Snap"));
+        this.legitSpeed.visibleWhen(() -> this.mode.is( "Legit"));
         
-        this.neuroDatasetCapture.visibleWhen(() -> this.mode.is( "Neuro "));
-        this.neuroDatasetFormat.visibleWhen(() -> this.mode.is( "Neuro ") && this.neuroDatasetCapture.getValue());
-        this.neuroHumanDatasetCapture.visibleWhen(() -> this.mode.is( "Neuro "));
-        this.neuroHumanDatasetFormat.visibleWhen(() -> this.mode.is( "Neuro ") && this.neuroHumanDatasetCapture.getValue());
-        this.neuroModelInference.visibleWhen(() -> this.mode.is( "Neuro "));
-        this.neuroModelPath.visibleWhen(() -> this.mode.is( "Neuro ") && this.neuroModelInference.getValue());
-        this.neuroModelBlend.visibleWhen(() -> this.mode.is( "Neuro ") && this.neuroModelInference.getValue());
-        this.neuroHumanInference.visibleWhen(() -> this.mode.is( "Neuro "));
-        this.neuroHumanModelPath.visibleWhen(() -> this.mode.is( "Neuro ") && this.neuroHumanInference.getValue());
-        this.neuroHumanBlend.visibleWhen(() -> this.mode.is( "Neuro ") && this.neuroHumanInference.getValue());
+        this.neuroDatasetCapture.visibleWhen(() -> this.mode.is( "Neuro"));
+        this.neuroDatasetFormat.visibleWhen(() -> this.mode.is( "Neuro") && this.neuroDatasetCapture.getValue());
+        this.neuroHumanDatasetCapture.visibleWhen(() -> this.mode.is( "Neuro"));
+        this.neuroHumanDatasetFormat.visibleWhen(() -> this.mode.is( "Neuro") && this.neuroHumanDatasetCapture.getValue());
+        this.neuroModelInference.visibleWhen(() -> this.mode.is( "Neuro"));
+        this.neuroModelPath.visibleWhen(() -> this.mode.is( "Neuro") && this.neuroModelInference.getValue());
+        this.neuroModelBlend.visibleWhen(() -> this.mode.is( "Neuro") && this.neuroModelInference.getValue());
+        this.neuroHumanInference.visibleWhen(() -> this.mode.is( "Neuro"));
+        this.neuroHumanModelPath.visibleWhen(() -> this.mode.is( "Neuro") && this.neuroHumanInference.getValue());
+        this.neuroHumanBlend.visibleWhen(() -> this.mode.is( "Neuro") && this.neuroHumanInference.getValue());
 
         this.mode.addListener((setting, oldValue, newValue) -> this.syncSpookyMoveFix());
         this.moveFix.addListener((setting, oldValue, newValue) -> this.syncSpookyMoveFix());
@@ -231,13 +231,13 @@ public class AuraModule extends Module {
         this.smartCriticals.visibleWhen(this.onlyCriticals::getValue);
         this.criticalBalance.visibleWhen(this.onlyCriticals::getValue);
         this.hitMoment.visibleWhen(this.onlyCriticals::getValue);
-        this.randomFallMin.visibleWhen(() -> this.onlyCriticals.getValue() && this.hitMoment.is( "Random "));
-        this.randomFallMax.visibleWhen(() -> this.onlyCriticals.getValue() && this.hitMoment.is( "Random "));
-        this.staticFall.visibleWhen(() -> this.onlyCriticals.getValue() && this.hitMoment.is( "Static "));
+        this.randomFallMin.visibleWhen(() -> this.onlyCriticals.getValue() && this.hitMoment.is( "Random"));
+        this.randomFallMax.visibleWhen(() -> this.onlyCriticals.getValue() && this.hitMoment.is( "Random"));
+        this.staticFall.visibleWhen(() -> this.onlyCriticals.getValue() && this.hitMoment.is( "Static"));
         this.maxDamage.visibleWhen(this::supportsMaxDamage);
         this.firstItem.visibleWhen(() -> this.maxDamage.getValue());
         this.secondItem.visibleWhen(() -> this.maxDamage.getValue());
-        this.legitfov.visibleWhen(() -> this.mode.is( "Legit Snap "));
+        this.legitfov.visibleWhen(() -> this.mode.is( "Legit Snap"));
         
         instance = this;
     }
@@ -251,7 +251,7 @@ public class AuraModule extends Module {
             case "HypeMC" -> AuraConfig.applyHypeMC(this);
             case "SpaceTimes Test" -> AuraConfig.applySpaceTimesTest(this); // <-- Новый пресет
             case "SkyTime Test" -> AuraConfig.applySkyTimeTest(this);       // <-- Новый пресет
-            default -> ChatMessage.brandmessage("Aura preset: Not Selected ");
+            default -> ChatMessage.brandmessage("Aura preset: Not Selected");
         }
     }
 
@@ -265,6 +265,11 @@ public class AuraModule extends Module {
 
     public String getMaxDamageSecondItem() {
         return this.secondItem.getValue();
+    }
+
+    public void setMaxDamageItems(String first, String second) {
+        this.firstItem.setValue(first);
+        this.secondItem.setValue(second);
     }
 
     private boolean supportsMaxDamage() {
@@ -448,13 +453,13 @@ public class AuraModule extends Module {
                             boolean inWater = client.player.isTouchingWater() || client.player.isSubmergedInWater();
                             StrikeManager attackHandler = this.getAttackHandlerRaw();
                             attackHandler.syncShieldState();
-                            boolean targetFix = this.moveFix.is( "Target ");
-                            boolean chaseFix = this.moveFix.is( "Chase ");
-                            boolean focusedFixSelected = this.moveFix.is( "Focused ");
+                            boolean targetFix = this.moveFix.is( "Target");
+                            boolean chaseFix = this.moveFix.is( "Chase");
+                            boolean focusedFixSelected = this.moveFix.is( "Focused");
                             StrikerConstructor.AttackPerpetratorConfigurable config = this.getConfig();
                             float targetDistance = client.player.distanceTo(target);
                             boolean shouldPrepareAttack = attackHandler.canAttack(config, 1) && targetDistance <= this.attackDistance() && !inWater;
-                            boolean hitInContainer = this.options.isSelected( "Hit in container ");
+                            boolean hitInContainer = this.options.isSelected( "Hit in container");
                             boolean containerScreen = client.currentScreen instanceof InventoryScreen || client.currentScreen instanceof ClickGuiScreen || GuiStyle.isClientGui(client.currentScreen);
                             
                             if (client.currentScreen == null || !containerScreen || hitInContainer) {
@@ -859,7 +864,7 @@ public class AuraModule extends Module {
                 case "Snap" -> new SnapAngle();
                 case "FunTime" -> new FunTimeSnapAngle();
                 case "FunTime New" -> new FTProfileAngle();
-                case "FT", "FTAngle" -> new FTAngle();
+                case "FT","FTAngle" -> new FTAngle();
                 case "SpookyTime"  -> new SpookyTimeAngle();
                 case "SpookyTime2" -> new SpookyTime2Angle();
                 case "SpookyTime3" -> new SpookyTime3Angle();
@@ -882,15 +887,15 @@ public class AuraModule extends Module {
     private void applyTargetOrChaseCorrection(InputEvent event, MinecraftClient client) {
         LivingEntity currentTarget = target;
         if (currentTarget != null && currentTarget.isAlive() && !client.player.isTouchingWater() && !client.player.isSubmergedInWater()) {
-            if (this.moveFix.is( "Target ") || this.moveFix.is( "Chase ") || this.moveFix.is( "Focused ")) {
+            if (this.moveFix.is( "Target") || this.moveFix.is( "Chase") || this.moveFix.is( "Focused")) {
                 StrikeManager attackHandler = this.getAttackHandlerRaw();
                 if (attackHandler != null) {
                     boolean attackReady = attackHandler.canAttack(this.getConfig(), 1) && client.player.distanceTo(currentTarget) <= this.attackDistance();
-                    if (this.moveFix.is( "Focused ")) {
+                    if (this.moveFix.is( "Focused")) {
                         if (attackReady) {
                             event.setDirectionalLow(false, false, false, false);
                         }
-                    } else if (this.moveFix.is( "Target ")) {
+                    } else if (this.moveFix.is( "Target")) {
                         this.moveToward(event, client.player.getEntityPos(), currentTarget.getEntityPos(), AngleConnection.INSTANCE.getMoveRotation().getYaw());
                     } else {
                         PlayerInput input = event.getInput();
@@ -1273,14 +1278,14 @@ public class AuraModule extends Module {
     }
 
     private boolean shouldApplyRotationOnRelease() {
-        return this.mode.is( "Snap ")
-            || this.mode.is( "SpookyTime ")
-            || this.mode.is( "FTAngle ")
-            || this.mode.is( "HolyWorld ")
-            || this.mode.is( "Neuro ")
-            || this.mode.is( "AiNew ")
-            || this.mode.is( "AimAssist ")
-            || this.mode.is( "MatrixNew ");
+        return this.mode.is( "Snap")
+            || this.mode.is( "SpookyTime")
+            || this.mode.is( "FTAngle")
+            || this.mode.is( "HolyWorld")
+            || this.mode.is( "Neuro")
+            || this.mode.is( "AiNew")
+            || this.mode.is( "AimAssist")
+            || this.mode.is( "MatrixNew");
     }
 
     private void rotateToTarget(StrikerConstructor.AttackPerpetratorConfigurable config) {
