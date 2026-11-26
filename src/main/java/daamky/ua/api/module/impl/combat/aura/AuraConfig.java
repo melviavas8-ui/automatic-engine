@@ -1,44 +1,4 @@
-package daamky.ua.api.module.impl.combat.aura;
-
-import daamky.ua.api.module.impl.combat.AuraModule;
-import daamky.ua.utils.string.chat.ChatMessage;
-
-public class AuraConfig {
-
-    public static void applySpookyTime(AuraModule aura) {
-        aura.mode.setValue("SpookyTime2");
-        aura.attackRange.setValue(3.5);
-        aura.lookRange.setValue(1.0);
-        aura.moveFix.setValue("Focused");
-        aura.onlyCriticals.setValue(true);
-        ChatMessage.brandmessage("Applied SpookyTime Preset");
-    }
-
-    public static void applyFunTime(AuraModule aura) {
-        aura.mode.setValue("FunTime");
-        aura.attackRange.setValue(3.2);
-        aura.lookRange.setValue(1.2);
-        aura.moveFix.setValue("Free");
-        ChatMessage.brandmessage("Applied FunTime Preset");
-    }
-
-    public static void applyReallyWorld(AuraModule aura) {
-        aura.mode.setValue("ReallyWorld");
-        aura.attackRange.setValue(3.4);
-        aura.lookRange.setValue(0.8);
-        aura.moveFix.setValue("Chase");
-        ChatMessage.brandmessage("Applied ReallyWorld Preset");
-    }
-
-    public static void applyHypeMC(AuraModule aura) {
-        aura.mode.setValue("SpookyTime2");
-        aura.attackRange.setValue(3.8);
-        aura.lookRange.setValue(1.0);
-        aura.moveFix.setValue("Chase");
-        ChatMessage.brandmessage("Applied HypeMC Preset");
-    }
-
-    public static void applySpaceTimesTest(AuraModule aura) {
+public static void applySpaceTimesTest(AuraModule aura) {
         aura.mode.setValue("Shard");
         aura.attackRange.setValue(3.1);
         aura.lookRange.setValue(0.9);
@@ -87,4 +47,3 @@ public class AuraConfig {
         
         ChatMessage.brandmessage("Applied SkyTime Test Preset");
     }
-}

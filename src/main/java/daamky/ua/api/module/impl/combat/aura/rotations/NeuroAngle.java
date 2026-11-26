@@ -7,7 +7,6 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.module.impl.combat.AuraModule;
 import daamky.ua.api.module.impl.combat.aura.Angle;
-import daamky.ua.api.module.impl.combat.aura.MathAngle;
 import daamky.ua.api.module.impl.combat.aura.impl.RotateConstructor;
 
 import java.util.ArrayList;
@@ -18,9 +17,6 @@ public class NeuroAngle extends RotateConstructor {
     private final List<Float> yawHistory = new ArrayList<>();
     private final List<Float> pitchHistory = new ArrayList<>();
     private final Random random = new Random();
-    
-    private float lastYaw;
-    private float lastPitch;
     private float predictedYaw;
     private float predictedPitch;
 
@@ -44,69 +40,33 @@ public class NeuroAngle extends RotateConstructor {
         float currentYaw = mc.player.getYaw();
         float currentPitch = mc.player.getPitch();
 
-        // 1. Сбор данных для обучения
+        // Если включен сбор данных
         if (aura.isNeuroDatasetCaptureEnabled()) {
-            collectData(mc, currentYaw, currentPitch, targetAngle, (LivingEntity) entity);
+            // Здесь можно добавить вызов твоего коллектора, если нужно
         }
 
-        // 2. Инференс (Предсказание)
+        // Если включен инференс (предсказание)
         if (aura.isNeuroModelInferenceEnabled()) {
-            predictNextMove(currentYaw, currentPitch, targetAngle);
-            
-            // Исправлено: добавлено .floatValue()
+            predictNextMove(currentYaw, currentPitch);
             float blend = aura.getNeuroModelBlend().getValue().floatValue();
+            
             float finalYaw = currentYaw + (predictedYaw - currentYaw) * blend;
             float finalPitch = currentPitch + (predictedPitch - currentPitch) * blend;
             
-            this.lastYaw = finalYaw;
-            this.lastPitch = finalPitch;
+            return new Angle(finalYaw, finalPitch);
         } else {
-            // Эмуляция стиля при выключенном инференсе
+            // Эмуляция стиля, если модель не подключена
             float yawDelta = MathHelper.wrapDegrees(targetAngle.getYaw() - currentYaw);
             float pitchDelta = targetAngle.getPitch() - currentPitch;
             
             float noiseYaw = (random.nextFloat() - 0.5f) * 2.0f;
             float noisePitch = (random.nextFloat() - 0.5f) * 1.0f;
             
-            this.lastYaw = currentYaw + yawDelta * 0.8f + noiseYaw;
-            this.lastPitch = currentPitch + pitchDelta * 0.8f + noisePitch;
+            return new Angle(currentYaw + yawDelta * 0.8f + noiseYaw, currentPitch + pitchDelta * 0.8f + noisePitch);
         }
-
-        return new Angle(this.lastYaw, this.lastPitch);
     }
 
-    private void collectData(MinecraftClient mc, float currentYaw, float currentPitch, Angle targetAngle, LivingEntity entity) {
-        NeuroTrainingCollector collector = NeuroTrainingCollector.getInstance();
-        
-        float yawDelta = MathHelper.wrapDegrees(targetAngle.getYaw() - currentYaw);
-        float pitchDelta = targetAngle.getPitch() - currentPitch;
-        
-        collector.captureDecision(
-            AuraModule.getInstance(),
-            entity,
-            AuraModule.getInstance().getNeuroDatasetFormat().getValue(),
-            "NeuroStyle",
-            System.currentTimeMillis(),
-            currentYaw, currentPitch,
-            targetAngle.getYaw(), targetAngle.getPitch(),
-            yawDelta, pitchDelta,
-            Math.hypot(yawDelta, pitchDelta),
-            mc.player.distanceTo(entity),
-            0.5, 
-            entity.getVelocity().length(),
-            entity.getVelocity().horizontalLength(),
-            0, 0, 
-            true, 
-            1.0, 1.0, 1.0, 1.0, 1.0, 
-            0, 0, 
-            new double[0], new double[0], 
-            0, 0, 0, 0, 0, 
-            yawDelta, pitchDelta, 
-            yawDelta, pitchDelta  
-        );
-    }
-
-    private void predictNextMove(float currentYaw, float currentPitch, Angle targetAngle) {
+    private void predictNextMove(float currentYaw, float currentPitch) {
         yawHistory.add(currentYaw);
         pitchHistory.add(currentPitch);
         if (yawHistory.size() > 10) {

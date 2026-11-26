@@ -197,6 +197,17 @@ public final class MenuBackgroundRenderer {
         int overlayBottom = RenderColor.multiplyAlpha((overlayBottomAlpha << 24) | 0x06080E, alpha);
         Render2D.drawGradientRoundTB(context, 0, 0, screenWidth, screenHeight, 0.0F, overlayTop, overlayBottom);
 
+        // Temporary note: only appears when the video does not start, so the reason is visible on screen
+        if (video.needsAttention()) {
+            MinecraftClient mc = MinecraftClient.getInstance();
+            if (mc != null && mc.textRenderer != null) {
+                String text = "Daamky видео: " + video.status();
+                int maxChars = Math.max(20, screenWidth / 6);
+                if (text.length() > maxChars) text = text.substring(0, maxChars);
+                context.drawTextWithShadow(mc.textRenderer, text, 6, screenHeight - 12, 0xFFFF8A8A);
+            }
+        }
+
         // 3. Ambient soft star/dust particles in background
         for (Particle p : particles) {
             p.update(dt, random);

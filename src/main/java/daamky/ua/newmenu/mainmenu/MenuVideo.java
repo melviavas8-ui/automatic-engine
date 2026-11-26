@@ -1,10 +1,12 @@
 package daamky.ua.newmenu.mainmenu;
 
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.InputStream;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.imageio.ImageIO;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.texture.GlTexture;
 import net.minecraft.client.texture.NativeImage;
@@ -17,7 +19,8 @@ import net.minecraft.client.texture.NativeImageBackedTexture;
  * Frames are decoded on a background thread (STB, through {@link NativeImage}) and uploaded on the render thread.
  * The frame is chosen by time, so the video never slows down: if the PC is slow, frames are just skipped.
  *
- * <p>Frames are decoded as RGBA on purpose: a plain JPEG decodes to RGB, and the GPU texture upload only accepts RGBA.
+ * <p>Decoding goes through {@link NativeImage} (STB) first. If Minecraft refuses to read JPEG on this device, the worker
+ * switches to {@link ImageIO} for the rest of the session. {@link #status()} says what is happening, for the on-screen note.
  *
  * <p>Pack format (big endian): "DMV1", int fps, int frameCount, int width, int height,
  * int[frameCount + 1] offsets, then the JPEG data.
@@ -37,6 +40,11 @@ public final class MenuVideo {
     private volatile boolean failed;
     private volatile long lastUsedNanos;
     private volatile float aspect = 16.0F / 9.0F;
+    private volatile String status = "ожидание";
+    private volatile long firstAskNanos;
+    private volatile boolean useImageIo;
+    private volatile int framesDecoded;
+    private volatile int framesShown;
 
     private NativeImageBackedTexture current;
     private NativeImageBackedTexture retired;
@@ -53,12 +61,24 @@ public final class MenuVideo {
         return aspect;
     }
 
+    /** Short human-readable state of the video: loading, playing or the reason it does not play. */
+    public String status() {
+        return status;
+    }
+
+    /** True when the video failed, or nothing has been shown a few seconds after the first request. */
+    public boolean needsAttention() {
+        if (failed) return true;
+        return firstAskNanos != 0L && currentGlId == 0 && System.nanoTime() - firstAskNanos > 4_000_000_000L;
+    }
+
     /**
      * Call from the render thread every frame the background is drawn.
      * Returns the GL id of the current video frame, or 0 while nothing is ready (or the video is unavailable).
      */
     public int frameGlId() {
         lastUsedNanos = System.nanoTime();
+        if (firstAskNanos == 0L) firstAskNanos = lastUsedNanos;
         if (failed) return 0;
         if (!started) {
             started = true;
@@ -98,26 +118,67 @@ public final class MenuVideo {
                 retired = current;
                 current = texture;
                 currentGlId = glTexture.getGlId();
+                framesShown++;
+                status = "играет, кадров показано: " + framesShown + (useImageIo ? " (ImageIO)" : " (NativeImage)");
             } else {
+                String type = texture.getGlTexture() == null ? "null" : texture.getGlTexture().getClass().getName();
                 texture.close();
+                if (!failed) {
+                    failed = true;
+                    status = "ОШИБКА: текстура кадра не GlTexture (" + type + ")";
+                    System.err.println("[Daamky] Menu video disabled: " + status);
+                }
             }
         } catch (RuntimeException exception) {
             if (texture != null) texture.close();
             else image.close();
             if (!failed) {
                 failed = true;
+                status = "ОШИБКА загрузки кадра: " + exception;
                 System.err.println("[Daamky] Menu video disabled (frame upload failed): " + exception);
                 exception.printStackTrace();
             }
         }
     }
 
+    /** Decodes one JPEG frame to an RGBA image. */
+    private NativeImage decode(byte[] data, int from, int length) throws IOException {
+        if (!useImageIo) {
+            try {
+                return NativeImage.read(NativeImage.Format.RGBA, new ByteArrayInputStream(data, from, length));
+            } catch (IOException | RuntimeException exception) {
+                useImageIo = true;
+                System.err.println("[Daamky] NativeImage cannot read the video frames, switching to ImageIO: " + exception);
+            }
+        }
+        BufferedImage frame = ImageIO.read(new ByteArrayInputStream(data, from, length));
+        if (frame == null) throw new IOException("ImageIO has no JPEG reader on this device");
+        int w = frame.getWidth();
+        int h = frame.getHeight();
+        int[] argb = frame.getRGB(0, 0, w, h, null, 0, w);
+        NativeImage image = new NativeImage(NativeImage.Format.RGBA, w, h, true);
+        try {
+            for (int y = 0; y < h; y++) {
+                int row = y * w;
+                for (int x = 0; x < w; x++) {
+                    image.setColorArgb(x, y, argb[row + x] | 0xFF000000);
+                }
+            }
+        } catch (RuntimeException exception) {
+            image.close();
+            throw exception;
+        }
+        return image;
+    }
+
     private void run() {
         try {
+            status = "читаю видео-пак";
             byte[] data;
             try (InputStream in = openVideoResource()) {
                 data = in.readAllBytes();
             }
+            status = "пак прочитан: " + (data.length / 1024) + " КБ, декодирую";
             DataInputStream header = new DataInputStream(new ByteArrayInputStream(data));
             if (header.readInt() != 0x444D5631) throw new IllegalStateException("bad video pack header");
             int fps = header.readInt();
@@ -149,7 +210,9 @@ public final class MenuVideo {
                 }
                 int from = base + offsets[target];
                 int length = offsets[target + 1] - offsets[target];
-                NativeImage image = NativeImage.read(NativeImage.Format.RGBA, new ByteArrayInputStream(data, from, length));
+                NativeImage image = decode(data, from, length);
+                framesDecoded++;
+                if (framesShown == 0) status = "кадров декодировано: " + framesDecoded + ", жду загрузку в GPU";
                 NativeImage old = pending.getAndSet(image);
                 if (old != null) old.close();
                 last = target;
@@ -158,6 +221,7 @@ public final class MenuVideo {
             Thread.currentThread().interrupt();
         } catch (Throwable throwable) {
             failed = true;
+            status = "ОШИБКА: " + throwable;
             System.err.println("[Daamky] Menu video disabled: " + throwable);
             throwable.printStackTrace();
         } finally {

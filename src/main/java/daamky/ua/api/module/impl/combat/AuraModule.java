@@ -3,8 +3,8 @@ package daamky.ua.api.module.impl.combat;
 import daamky.gui.GuiStyle;
 import java.util.HashMap;
 import daamky.ua.api.module.impl.combat.aura.rotations.SpookyTime3Angle;
-import daamky.ua.api.module.impl.combat.aura.rotations.ShardAngle;
-import daamky.ua.api.module.impl.combat.aura.rotations.NeuroAngle;
+import daamky.ua.api.module.impl.combat.aura.rotations.ShardAngle; // <-- Импорт Shard
+import daamky.ua.api.module.impl.combat.aura.rotations.NeuroAngle; // <-- Импорт Neuro
 import java.util.List;
 import java.util.Map;
 import daamky.ua.api.module.impl.combat.aura.AuraConfig;
@@ -110,7 +110,7 @@ public class AuraModule extends Module {
         new ModeSetting(
             "Preset ",  "Ready-made Aura configs ",  "Not Selected ",
             "Not Selected ",  "SpookyTime ",  "FunTime ",  "ReallyWorld ",  "HypeMC ", 
-            "SpaceTimes Test", "SkyTime Test"
+            "SpaceTimes Test", "SkyTime Test" // <-- Новые пресеты
         )
     );
 
@@ -122,7 +122,7 @@ public class AuraModule extends Module {
         new ModeSetting(
             "Mode ",  "Aura rotation mode. ",  "MatrixNew ",  
             "MatrixNew ",  "Snap ",  "Legit ",  "Legit Snap ",  "FunTime ",  "SpookyTime ",  "SpookyTime2 ",  "SpookyTime3 ",  
-            "ReallyWorld ",  "Byram ",  "HolyWorld ", "Shard", "Neuro"
+            "ReallyWorld ",  "Byram ",  "HolyWorld ", "Shard", "Neuro" // <-- Новые режимы
         )
     );
 
@@ -249,8 +249,8 @@ public class AuraModule extends Module {
             case "FunTime" -> AuraConfig.applyFunTime(this);
             case "ReallyWorld" -> AuraConfig.applyReallyWorld(this);
             case "HypeMC" -> AuraConfig.applyHypeMC(this);
-            case "SpaceTimes Test" -> AuraConfig.applySpaceTimesTest(this);
-            case "SkyTime Test" -> AuraConfig.applySkyTimeTest(this);
+            case "SpaceTimes Test" -> AuraConfig.applySpaceTimesTest(this); // <-- Новый пресет
+            case "SkyTime Test" -> AuraConfig.applySkyTimeTest(this);       // <-- Новый пресет
             default -> ChatMessage.brandmessage("Aura preset: Not Selected ");
         }
     }
@@ -866,8 +866,8 @@ public class AuraModule extends Module {
                 case "Legit" -> this.legitAngle;
                 case "HolyWorld" -> HWangle.INSTANCE;
                 case "Legit Snap" -> new LegitSnap();
-                case "Neuro" -> new NeuroAngle(); // <-- Обновленный Neuro
-                case "Shard" -> new ShardAngle(); // <-- Новый Shard
+                case "Neuro" -> new NeuroAngle(); // <-- Подключен новый Neuro
+                case "Shard" -> new ShardAngle(); // <-- Подключен новый Shard
                 case "Ai" -> new Ai();
                 case "AimAssist" -> new AimAssistAngle();
                 case "ReallyWorld" -> new ReallyWorld();
