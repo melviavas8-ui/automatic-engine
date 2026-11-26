@@ -29,9 +29,9 @@ public final class NoRotateAngle extends RotateConstructor {
             if (ElytraTarget.isTargetingActive() && elytra != null) {
                 Vec3d center = living.getBoundingBox().getCenter();
                 Vec3d targetMotion = new Vec3d(
-                    living.getX() - living.prevX,
-                    living.getY() - living.prevY,
-                    living.getZ() - living.prevZ
+                    living.getVelocity().x,
+                    living.getVelocity().y,
+                    living.getVelocity().z
                 );
                 double forward = (double)((int)elytra.getForward());
                 Vec3d predictedOffset = living.getRotationVector().normalize().multiply(forward * 0.6)
@@ -41,7 +41,7 @@ public final class NoRotateAngle extends RotateConstructor {
                 double blend = Math.min(1.0, distance / 10.0);
                 targetPoint = center.lerp(predicted, blend).add(0.0, (double)living.getHeight() * 0.3, 0.0);
             } else {
-                targetPoint = living.getPos().add(0.0, (double)living.getHeight() * 0.6, 0.0);
+                targetPoint = living.getEntityPos().add(0.0, (double)living.getHeight() * 0.6, 0.0);
             }
             return lookAt(client.player.getEyePos(), targetPoint).adjustSensitivity();
         }

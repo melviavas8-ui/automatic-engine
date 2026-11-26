@@ -24,7 +24,7 @@ public final class MatrixFastAngle extends RotateConstructor {
 
         Vec3d targetPoint;
         if (entity instanceof LivingEntity living) {
-            targetPoint = living.getPos().add(0.0, (double)living.getHeight() * 0.6, 0.0);
+            targetPoint = living.getEntityPos().add(0.0, (double)living.getHeight() * 0.6, 0.0);
             if (client.player.isGliding() && living.isGliding() && ElytraTarget.isTargetingActive()) {
                 ElytraTarget elytra = ElytraTarget.getInstance();
                 if (elytra != null) {
