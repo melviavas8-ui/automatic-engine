@@ -3,8 +3,11 @@ package daamky.ua.api.module.impl.combat;
 import daamky.gui.GuiStyle;
 import java.util.HashMap;
 import daamky.ua.api.module.impl.combat.aura.rotations.SpookyTime3Angle;
-import daamky.ua.api.module.impl.combat.aura.rotations.ShardAngle; // <-- Импорт Shard
-import daamky.ua.api.module.impl.combat.aura.rotations.NeuroAngle; // <-- Импорт Neuro
+import daamky.ua.api.module.impl.combat.aura.rotations.MatrixFastAngle;
+import daamky.ua.api.module.impl.combat.aura.rotations.NoRotateAngle;
+import daamky.ua.api.module.impl.combat.aura.rotations.ShardAngle;
+import daamky.ua.api.module.impl.combat.aura.rotations.ShardSnapAngle;
+import daamky.ua.api.module.impl.combat.aura.rotations.WhiteRiseAngle;
 import java.util.List;
 import java.util.Map;
 import daamky.ua.api.module.impl.combat.aura.AuraConfig;
@@ -58,7 +61,6 @@ import daamky.ua.api.module.impl.combat.aura.rotations.LegitAngle;
 import daamky.ua.api.module.impl.combat.aura.rotations.LegitSnap;
 import daamky.ua.api.module.impl.combat.aura.rotations.MLSAC;
 import daamky.ua.api.module.impl.combat.aura.rotations.Matrix;
-import daamky.ua.api.module.impl.combat.aura.rotations.Neuro;
 import daamky.ua.api.module.impl.combat.aura.rotations.NeuroAimPointFeatures;
 import daamky.ua.api.module.impl.combat.aura.rotations.NeuroHumanDatasetLogger;
 import daamky.ua.api.module.impl.combat.aura.rotations.NeuroTrainingCollector;
@@ -122,7 +124,7 @@ public class AuraModule extends Module {
         new ModeSetting(
             "Mode",  "Aura rotation mode.",  "MatrixNew",  
             "MatrixNew",  "Snap",  "Legit",  "Legit Snap",  "FunTime",  "SpookyTime",  "SpookyTime2",  "SpookyTime3",  
-            "ReallyWorld",  "Byram",  "HolyWorld", "Shard","Neuro" // <-- Новые режимы
+            "ReallyWorld",  "Byram",  "HolyWorld", "Shard", "Matrix/Fast 2", "WhiteRise", "NoRotate"
         )
     );
 
@@ -131,6 +133,9 @@ public class AuraModule extends Module {
     public final NumberSetting legitSpeed = this.register(new NumberSetting( "Legit Speed",  "Legit yaw blend speed.", 0.08, 0.02, 0.4, 0.01));
     public final NumberSetting aimAssistSpeed = new NumberSetting( "AimAssist Speed",  "", 14.0, 0.5, 20.0, 0.1);
     public final NumberSetting aimAssistSmoothness = new NumberSetting( "AimAssist Smoothness",  "", 6.0, 1.0, 10.0, 0.1);
+    public final ModeSetting shardModel = this.register(
+        new ModeSetting("Shard Model", "Aspect Shard rotation profile.", "Shard-2.0", "Shard-2.0", "Snap-1.0")
+    );
 
     public final BooleanSetting neuroDatasetCapture = this.register(new BooleanSetting( "Neuro Dataset",  "", false));
     public final ModeSetting neuroDatasetFormat = this.register(new ModeSetting( "Neuro Format",  "",  "JSONL",  "JSONL",  "CSV"));
@@ -212,6 +217,7 @@ public class AuraModule extends Module {
         this.timeOnTick.visibleWhen(() -> this.mode.is( "Snap"));
         this.speedValue.visibleWhen(() -> this.mode.is( "Snap"));
         this.legitSpeed.visibleWhen(() -> this.mode.is( "Legit"));
+        this.shardModel.visibleWhen(() -> this.mode.is("Shard"));
         
         this.neuroDatasetCapture.visibleWhen(() -> this.mode.is( "Neuro"));
         this.neuroDatasetFormat.visibleWhen(() -> this.mode.is( "Neuro") && this.neuroDatasetCapture.getValue());
@@ -311,6 +317,9 @@ public class AuraModule extends Module {
 
     @Override
     protected void onDisable() {
+        ShardAngle.reset();
+        ShardSnapAngle.reset();
+        WhiteRiseAngle.reset();
         if (RotationController.isRotating()) {
             RotationController.hardReset();
         }
@@ -855,7 +864,9 @@ public class AuraModule extends Module {
     public RotateConstructor getSmoothMode() {
         MinecraftClient client = MinecraftClient.getInstance();
         ElytraTarget elytraTarget = ElytraTarget.getInstance();
-        if (client.player != null && client.player.isGliding() && elytraTarget != null && elytraTarget.isEnabled()) {
+        if (client.player != null && client.player.isGliding() && elytraTarget != null && elytraTarget.isEnabled()
+            && !this.mode.is("Shard") && !this.mode.is("Matrix/Fast 2")
+            && !this.mode.is("WhiteRise") && !this.mode.is("NoRotate")) {
             return new LinearConstructor();
         } else {
             String var3 = this.mode.getValue();
@@ -871,8 +882,10 @@ public class AuraModule extends Module {
                 case "Legit" -> this.legitAngle;
                 case "HolyWorld" -> HWangle.INSTANCE;
                 case "Legit Snap" -> new LegitSnap();
-                case "Neuro" -> new NeuroAngle(); // <-- Подключен новый Neuro
-                case "Shard" -> new ShardAngle(); // <-- Подключен новый Shard
+                case "Shard" -> this.shardModel.is("Snap-1.0") ? new ShardSnapAngle() : new ShardAngle();
+                case "Matrix/Fast 2" -> new MatrixFastAngle();
+                case "WhiteRise" -> new WhiteRiseAngle();
+                case "NoRotate" -> new NoRotateAngle();
                 case "Ai" -> new Ai();
                 case "AimAssist" -> new AimAssistAngle();
                 case "ReallyWorld" -> new ReallyWorld();
@@ -1181,7 +1194,7 @@ public class AuraModule extends Module {
     }
 
     public boolean isMatrixMode() {
-        return this.mode.is("Matrix") || this.mode.is("MatrixNew");
+        return this.mode.is("Matrix") || this.mode.is("MatrixNew") || this.mode.is("Matrix/Fast 2");
     }
 
     public boolean isLegitPitchCorrecting() {
@@ -1319,6 +1332,10 @@ public class AuraModule extends Module {
         int performed = attackHandler.getCount() - before;
         if (performed > 0) {
             this.reducedHitboxAttackCounter += performed;
+            if (this.mode.is("Shard")) {
+                ShardAngle.onAttack();
+                ShardSnapAngle.onAttack();
+            }
         }
     }
 

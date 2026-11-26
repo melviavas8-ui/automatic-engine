@@ -95,6 +95,7 @@ public final class AuraConfig {
 
     public static void applySpaceTimesTest(AuraModule aura) {
         aura.mode.setValue("Shard");
+        aura.shardModel.setValue("Shard-2.0");
         aura.attackRange.setValue(3.1);
         aura.lookRange.setValue(0.9);
         aura.keepTargetRange.setValue(4.4);
@@ -127,6 +128,7 @@ public final class AuraConfig {
 
     public static void applySkyTimeTest(AuraModule aura) {
         aura.mode.setValue("Shard");
+        aura.shardModel.setValue("Shard-2.0");
         aura.attackRange.setValue(3.1);
         aura.lookRange.setValue(0.9);
         aura.keepTargetRange.setValue(4.4);
