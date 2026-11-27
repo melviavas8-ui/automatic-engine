@@ -32,8 +32,12 @@ jobs:
           distribution: temurin
           java-version: "25"
 
-      - name: Setup Gradle
+      # Install Gradle 9.8.0 for the 26.3 build. The 1.21.11 build below
+      # still invokes ./gradlew, so it continues using its pinned 9.5.1 wrapper.
+      - name: Setup Gradle 9.8.0
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.8.0"
 
       - name: Grant execute permission
         run: chmod +x gradlew mc26/prepare.sh
@@ -43,12 +47,14 @@ jobs:
         run: |
           JAVA_HOME="$JAVA_HOME_21_X64" ./gradlew --no-daemon build
 
+      # Loom 1.19.6 requires Gradle 9.8.0+. Use the installed Gradle
+      # directly here rather than the repository's 9.5.1 wrapper.
       - name: Build 26.3
         continue-on-error: true
         shell: bash
         run: |
           ./mc26/prepare.sh
-          JAVA_HOME="$JAVA_HOME_25_X64" ./gradlew --no-daemon -p mc26 build 2>&1 | tee build-26.3-log.txt
+          JAVA_HOME="$JAVA_HOME_25_X64" gradle --no-daemon -p mc26 build 2>&1 | tee build-26.3-log.txt
 
       - name: Collect jars
         if: always()
