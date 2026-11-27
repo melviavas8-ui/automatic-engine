@@ -18,8 +18,10 @@ repositories {
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    // Daamky uses official Mojang class names; configure mappings for this target.
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
     // как и в основной сборке: эти jar лежат в ресурсах (jar-in-jar), для компиляции нужны на classpath
     compileOnly fileTree(dir: '../src/main/resources/META-INF/jars', include: ['*.jar'])
