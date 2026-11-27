@@ -15,6 +15,7 @@ public final class SoundManager {
    public static final SoundEvent MOAN4 = sound("moan4");
    public static final SoundEvent CRIME = sound("crime");
    public static final SoundEvent METALLIC = sound("metallic");
+   public static final SoundEvent PHOTO = sound("photo");
    public static final SoundEvent MODULE_ENABLE = sound("module_enable");
    public static final SoundEvent MODULE_DISABLE = sound("module_disable");
    public static final SoundEvent ON = sound("on");
@@ -38,6 +39,8 @@ public final class SoundManager {
    public static final SoundEvent KILL_V2 = sound("kill_effect_v2");
    public static final SoundEvent TOTEM_V1 = sound("totem_effect_v1");
    public static final SoundEvent TOTEM_V2 = sound("totem_effect_v2");
+   public static final SoundEvent TOTEM_NOTHING1 = sound("totem_effect_nothing1");
+   public static final SoundEvent TOTEM_NOTHING2 = sound("totem_effect_nothing2");
    private static boolean initialized;
 
    private SoundManager() {
@@ -52,6 +55,7 @@ public final class SoundManager {
          register(MOAN4);
          register(CRIME);
          register(METALLIC);
+         register(PHOTO);
          register(MODULE_ENABLE);
          register(MODULE_DISABLE);
          register(ON);
@@ -75,6 +79,8 @@ public final class SoundManager {
          register(KILL_V2);
          register(TOTEM_V1);
          register(TOTEM_V2);
+         register(TOTEM_NOTHING1);
+         register(TOTEM_NOTHING2);
       }
    }
 

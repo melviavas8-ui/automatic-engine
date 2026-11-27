@@ -78,7 +78,7 @@ public class KillEffect extends Module {
    );
    private final ColorSetting totemColor = this.register(new ColorSetting("Totem Color", "Totem effect color.", new Color(255, 214, 90, 255)));
    private final BooleanSetting totemSelf = this.register(new BooleanSetting("Totem Self", "Also show the totem effect on yourself.", false));
-   private final ModeSetting totemSound = this.register(new ModeSetting("Totem Sound", "Sound on totem pop (other players only).", "Totem 1", "None", "Totem 1", "Totem 2"));
+   private final ModeSetting totemSound = this.register(new ModeSetting("Totem Sound", "Sound on totem pop (other players only).", "Totem 1", "None", "Totem 1", "Totem 2", "Nothing 1", "Nothing 2"));
    private final NumberSetting totemVolume = this.register(new NumberSetting("Totem Volume", "Totem sound volume.", 100.0, 0.0, 100.0, 1.0));
    private final NumberSetting speed = this.register(new NumberSetting("Speed", "Controls effect playback speed.", 100.0, 25.0, 200.0, 1.0));
    private final ColorSetting effectColor = this.register(new ColorSetting("Color", "Primary kill effect color.", new Color(-50116, true)));
@@ -217,7 +217,12 @@ public class KillEffect extends Module {
          return;
       }
       if (!self && !this.totemSound.is("None")) {
-         SoundEvent sound = this.totemSound.is("Totem 2") ? SoundManager.TOTEM_V2 : SoundManager.TOTEM_V1;
+         SoundEvent sound = switch (this.totemSound.getValue()) {
+            case "Totem 2" -> SoundManager.TOTEM_V2;
+            case "Nothing 1" -> SoundManager.TOTEM_NOTHING1;
+            case "Nothing 2" -> SoundManager.TOTEM_NOTHING2;
+            default -> SoundManager.TOTEM_V1;
+         };
          SoundManager.playSoundDirect(sound, (float)(this.totemVolume.getValue() / 100.0), 1.0F);
       }
       if (this.totemMode.is("None") || self && !this.totemSelf.getValue()) {

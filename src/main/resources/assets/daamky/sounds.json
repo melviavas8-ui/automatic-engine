@@ -19,6 +19,21 @@
       "daamky:other/totem_effect/totem_v2"
     ]
   },
+  "photo": {
+    "sounds": [
+      "daamky:hit_sounds/photo"
+    ]
+  },
+  "totem_effect_nothing1": {
+    "sounds": [
+      "daamky:other/totem_effect/nothing_1"
+    ]
+  },
+  "totem_effect_nothing2": {
+    "sounds": [
+      "daamky:other/totem_effect/nothing_2"
+    ]
+  },
   "kolokolnia_kill": {
     "sounds": [
       "daamky:other/kill_effect/kolokolnia_kill"

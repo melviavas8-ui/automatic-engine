@@ -11,7 +11,7 @@ import daamky.ua.api.settings.impl.NumberSetting;
 import daamky.ua.utils.sounds.SoundManager;
 
 public class HitSound extends Module {
-   private final ModeSetting soundType = this.register(new ModeSetting("Sound", "Hit sound type.", "Moans", "Moans", "Metallic", "Crime"));
+   private final ModeSetting soundType = this.register(new ModeSetting("Sound", "Hit sound type.", "Moans", "Moans", "Metallic", "Crime", "Photo"));
    private final NumberSetting volume = this.register(new NumberSetting("Volume", "Sound volume.", 1.0, 0.1, 2.0, 0.1));
 
    public HitSound() {
@@ -31,6 +31,8 @@ public class HitSound extends Module {
          SoundManager.playSound(SoundManager.METALLIC, vol, 1.0F);
       } else if (this.soundType.is("Crime")) {
          SoundManager.playSound(SoundManager.CRIME, vol, 1.0F);
+      } else if (this.soundType.is("Photo")) {
+         SoundManager.playSound(SoundManager.PHOTO, vol, 1.0F);
       } else {
          switch (ThreadLocalRandom.current().nextInt(4)) {
             case 0:
