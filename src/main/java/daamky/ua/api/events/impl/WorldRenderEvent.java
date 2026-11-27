@@ -1,10 +1,10 @@
 package daamky.ua.api.events.impl;
 
-import net.minecraft.client.util.math.MatrixStack;
+import com.mojang.blaze3d.vertex.PoseStack;
 import daamky.ua.api.events.Event;
 
-public record WorldRenderEvent(MatrixStack poseStack, float tickDelta) implements Event {
-   public MatrixStack getStack() {
+public record WorldRenderEvent(PoseStack poseStack, float tickDelta) implements Event {
+   public PoseStack getStack() {
       return this.poseStack;
    }
 

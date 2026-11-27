@@ -8,7 +8,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 final class NeuroDatasetLogger {
    private static final NeuroDatasetLogger INSTANCE = new NeuroDatasetLogger();
@@ -144,9 +144,9 @@ final class NeuroDatasetLogger {
    }
 
    private Path resolveDatasetDirectory() {
-      MinecraftClient client = MinecraftClient.getInstance();
-      return client != null && client.runDirectory != null
-         ? client.runDirectory.toPath().resolve("daamky").resolve("datasets").resolve("neuro")
+      Minecraft client = Minecraft.getInstance();
+      return client != null && client.gameDirectory != null
+         ? client.gameDirectory.toPath().resolve("daamky").resolve("datasets").resolve("neuro")
          : Path.of("daamky", "datasets", "neuro");
    }
 

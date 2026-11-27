@@ -13,10 +13,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.Camera;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.config.ConfigManager;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.DrawEvent;
@@ -26,7 +26,7 @@ import daamky.ua.utils.repository.RepositoryStorage;
 public final class WayRepository {
    private static final WayRepository INSTANCE = new WayRepository();
    private final List<Way> wayList = new ArrayList<>();
-   private final MinecraftClient mc = MinecraftClient.getInstance();
+   private final Minecraft mc = Minecraft.getInstance();
    private final WayRenderer renderer = new WayRenderer();
 
    private WayRepository() {
@@ -224,23 +224,23 @@ public final class WayRepository {
    }
 
    public String getCurrentServer() {
-      return this.mc.getNetworkHandler() != null && this.mc.getNetworkHandler().getServerInfo() != null
-         ? normalizeServer(this.mc.getNetworkHandler().getServerInfo().address)
+      return this.mc.getConnection() != null && this.mc.getConnection().getServerData() != null
+         ? normalizeServer(this.mc.getConnection().getServerData().ip)
          : "";
    }
 
    @SubscribeEvent
    private void onDraw(DrawEvent event) {
-      if (this.mc.player != null && this.mc.world != null && this.mc.gameRenderer != null && this.mc.getWindow() != null) {
+      if (this.mc.player != null && this.mc.level != null && this.mc.gameRenderer != null && this.mc.getWindow() != null) {
          String server = this.getCurrentServer();
          if (!server.isBlank() && !this.wayList.isEmpty()) {
             EspGeometry.ProjectionContext context = EspGeometry.createProjectionContext(this.mc, event.getPartialTicks());
             if (context != null) {
-               Vec3d playerPos = this.mc.player.getLerpedPos(event.getPartialTicks());
+               Vec3 playerPos = this.mc.player.getPosition(event.getPartialTicks());
                this.renderer.beginFrame();
 
                for (Way way : this.getWaysForServer(server)) {
-                  Vec3d worldPos = way.pos().toCenterPos();
+                  Vec3 worldPos = way.pos().getCenter();
                   if (this.isInFrontOfCamera(worldPos)) {
                      EspGeometry.ScreenPoint screen = EspGeometry.projectWorldToScreenSpace(worldPos, context);
                      if (screen != null) {
@@ -255,16 +255,16 @@ public final class WayRepository {
       }
    }
 
-   private boolean isInFrontOfCamera(Vec3d worldPos) {
-      Camera camera = this.mc.gameRenderer.getCamera();
-      if (camera != null && camera.isReady()) {
-         Vec3d cameraPos = camera.getCameraPos();
-         Vec3d toPoint = worldPos.subtract(cameraPos);
-         double yaw = Math.toRadians((double)camera.getYaw());
-         double pitch = Math.toRadians((double)camera.getPitch());
+   private boolean isInFrontOfCamera(Vec3 worldPos) {
+      Camera camera = this.mc.gameRenderer.getMainCamera();
+      if (camera != null && camera.isInitialized()) {
+         Vec3 cameraPos = camera.position();
+         Vec3 toPoint = worldPos.subtract(cameraPos);
+         double yaw = Math.toRadians((double)camera.yRot());
+         double pitch = Math.toRadians((double)camera.xRot());
          double cosPitch = Math.cos(pitch);
-         Vec3d look = new Vec3d(-Math.sin(yaw) * cosPitch, -Math.sin(pitch), Math.cos(yaw) * cosPitch);
-         return look.dotProduct(toPoint) > 0.0;
+         Vec3 look = new Vec3(-Math.sin(yaw) * cosPitch, -Math.sin(pitch), Math.cos(yaw) * cosPitch);
+         return look.dot(toPoint) > 0.0;
       } else {
          return false;
       }

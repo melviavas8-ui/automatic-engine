@@ -1,16 +1,16 @@
 package daamky.ua.api.module.impl.combat.aura;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.Vec2f;
-import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.module.impl.combat.aura.impl.RotateConstructor;
 import daamky.ua.api.module.impl.combat.aura.rotations.FunTimeSnapAngle;
 import daamky.ua.api.module.impl.combat.aura.rotations.funtime.FunTimeResetAngle;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 
 public class AngleConstructor {
    private final Angle angle;
-   private final Vec3d vec3d;
+   private final Vec3 vec3d;
    private final Entity entity;
    private final RotateConstructor angleSmooth;
    private final int ticksUntilReset;
@@ -21,7 +21,7 @@ public class AngleConstructor {
 
    public AngleConstructor(
       Angle angle,
-      Vec3d vec3d,
+      Vec3 vec3d,
       Entity entity,
       RotateConstructor angleSmooth,
       int ticksUntilReset,
@@ -40,9 +40,9 @@ public class AngleConstructor {
    }
 
    public Angle nextRotation(Angle fromAngle, boolean isResetting) {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (isResetting && client != null && client.player != null) {
-         Vec2f rotationVector = client.player.getRotationClient();
+         Vec2 rotationVector = client.player.getRotationVector();
          RotateConstructor resetSmooth = (RotateConstructor)(this.angleSmooth instanceof FunTimeSnapAngle ? FunTimeResetAngle.INSTANCE : this.angleSmooth);
          return resetSmooth.limitAngleChange(fromAngle, MathAngle.fromVec2f(rotationVector));
       } else {
@@ -54,7 +54,7 @@ public class AngleConstructor {
       return this.angle;
    }
 
-   public Vec3d getVec3d() {
+   public Vec3 getVec3d() {
       return this.vec3d;
    }
 

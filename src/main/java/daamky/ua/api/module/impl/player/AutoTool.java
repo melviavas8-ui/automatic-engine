@@ -1,11 +1,11 @@
 package daamky.ua.api.module.impl.player;
 
 import java.util.Comparator;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.level.block.state.BlockState;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.BlockBreakingEvent;
 import daamky.ua.api.events.impl.HotBarScrollEvent;
@@ -68,8 +68,8 @@ public final class AutoTool extends Module {
 
    @SubscribeEvent
    private void onBlockBreaking(BlockBreakingEvent event) {
-      final MinecraftClient client = MinecraftClient.getInstance();
-      if (client.player != null && client.world != null) {
+      final Minecraft client = Minecraft.getInstance();
+      if (client.player != null && client.level != null) {
          if (!mainHandReserved) {
             this.breaking.reset();
             this.lastBreakPos = event.blockPos();
@@ -95,12 +95,12 @@ public final class AutoTool extends Module {
                      });
                   } else {
                      this.pendingInventorySwapSlot = bestSlot;
-                     InventoryTask.swapHand(bestSlot, Hand.MAIN_HAND, false, true);
+                     InventoryTask.swapHand(bestSlot, InteractionHand.MAIN_HAND, false, true);
                      this.swapBackScript.cleanup().addTickStep(0, new AutoTool.ScriptActionAdapter() {
                         @Override
                         public void perform() {
                            if (AutoTool.this.pendingInventorySwapSlot != null) {
-                              InventoryTask.swapHand(AutoTool.this.pendingInventorySwapSlot, Hand.MAIN_HAND, false, true);
+                              InventoryTask.swapHand(AutoTool.this.pendingInventorySwapSlot, InteractionHand.MAIN_HAND, false, true);
                               AutoTool.this.pendingInventorySwapSlot = null;
                            }
                         }
@@ -116,8 +116,8 @@ public final class AutoTool extends Module {
 
    @SubscribeEvent
    private void onTick(TickEvent.Post event) {
-      MinecraftClient client = event.getClient();
-      if (client.player != null && client.world != null) {
+      Minecraft client = event.getClient();
+      if (client.player != null && client.level != null) {
          if (mainHandReserved) {
             this.restoreMainHandNow();
          } else {
@@ -146,7 +146,7 @@ public final class AutoTool extends Module {
          }
 
          if (this.pendingInventorySwapSlot != null) {
-            InventoryTask.swapHand(this.pendingInventorySwapSlot, Hand.MAIN_HAND, false, true);
+            InventoryTask.swapHand(this.pendingInventorySwapSlot, InteractionHand.MAIN_HAND, false, true);
             this.pendingInventorySwapSlot = null;
          }
 
@@ -156,10 +156,10 @@ public final class AutoTool extends Module {
    }
 
    private Slot findBestTool(BlockPos blockPos) {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       Slot mainHandSlot = InventoryTask.mainHandSlot();
-      if (client.player != null && client.world != null && blockPos != null) {
-         BlockState state = client.world.getBlockState(blockPos);
+      if (client.player != null && client.level != null && blockPos != null) {
+         BlockState state = client.level.getBlockState(blockPos);
          if (state.isAir()) {
             return mainHandSlot;
          } else {
@@ -167,9 +167,9 @@ public final class AutoTool extends Module {
             double bestHotbarSpeed = 0.0;
 
             for (int i = 0; i < 9; i++) {
-               Slot hotbarSlot = client.player.playerScreenHandler.getSlot(36 + i);
-               if (hotbarSlot != null && !hotbarSlot.getStack().isEmpty()) {
-                  double speed = (double)hotbarSlot.getStack().getMiningSpeedMultiplier(state);
+               Slot hotbarSlot = client.player.inventoryMenu.getSlot(36 + i);
+               if (hotbarSlot != null && !hotbarSlot.getItem().isEmpty()) {
+                  double speed = (double)hotbarSlot.getItem().getDestroySpeed(state);
                   if (speed != 1.0 && speed > bestHotbarSpeed) {
                      bestHotbarSpeed = speed;
                      bestHotbarTool = hotbarSlot;
@@ -180,12 +180,12 @@ public final class AutoTool extends Module {
             return bestHotbarTool != null && bestHotbarSpeed > 1.0
                ? bestHotbarTool
                : client.player
-                  .playerScreenHandler
+                  .inventoryMenu
                   .slots
                   .stream()
-                  .filter(slot -> !slot.getStack().isEmpty())
-                  .filter(slot -> slot.getStack().getMiningSpeedMultiplier(state) != 1.0F)
-                  .max(Comparator.comparingDouble(slot -> (double)slot.getStack().getMiningSpeedMultiplier(state)))
+                  .filter(slot -> !slot.getItem().isEmpty())
+                  .filter(slot -> slot.getItem().getDestroySpeed(state) != 1.0F)
+                  .max(Comparator.comparingDouble(slot -> (double)slot.getItem().getDestroySpeed(state)))
                   .orElse(mainHandSlot);
          }
       } else {

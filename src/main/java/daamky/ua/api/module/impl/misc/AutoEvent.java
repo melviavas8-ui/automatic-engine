@@ -35,7 +35,7 @@ public final class AutoEvent extends Module {
 
    @SubscribeEvent
    private void onTick(TickEvent event) {
-      if (mc.player != null && mc.world != null && mc.player.networkHandler != null) {
+      if (mc.player != null && mc.level != null && mc.player.connection != null) {
          int currentAnarchy = Network.getAnarchyMode();
          boolean enteredAnarchy = currentAnarchy > 0 && (this.lastAnarchy <= 0 || currentAnarchy != this.lastAnarchy);
          if (enteredAnarchy) {
@@ -48,7 +48,7 @@ public final class AutoEvent extends Module {
          }
 
          if (this.pendingCommand && this.enterWatch.finished(this.triggerDelayMs.getValue()) && this.sendCooldown.finished(1000.0)) {
-            mc.player.networkHandler.sendChatCommand("event delay");
+            mc.player.connection.sendCommand("event delay");
             this.pendingCommand = false;
             this.sendCooldown.reset();
          }

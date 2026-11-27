@@ -1,7 +1,7 @@
 package daamky.ua.api.module.impl.combat;
 
 import java.util.concurrent.ThreadLocalRandom;
-import net.minecraft.entity.LivingEntity;
+import net.minecraft.world.entity.LivingEntity;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.AttackEvent;
 import daamky.ua.api.module.Module;

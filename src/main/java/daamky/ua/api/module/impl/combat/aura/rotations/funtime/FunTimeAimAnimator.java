@@ -2,14 +2,14 @@ package daamky.ua.api.module.impl.combat.aura.rotations.funtime;
 
 import java.lang.ref.WeakReference;
 import java.util.concurrent.ConcurrentHashMap;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.util.Mth;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 
 public final class FunTimeAimAnimator {
    private static final ConcurrentHashMap<Class<?>, FunTimeAimAnimator> REGISTRY = new ConcurrentHashMap<>();
-   private static final MinecraftClient MC = MinecraftClient.getInstance();
+   private static final Minecraft MC = Minecraft.getInstance();
    private static final long STALE_RESET_NANOS = 90000000L;
    private static final float REBASE_YAW_THRESHOLD = 25.0F;
    private static final float REBASE_PITCH_THRESHOLD = 12.0F;
@@ -18,7 +18,7 @@ public final class FunTimeAimAnimator {
    private boolean initialized;
    private boolean pitchInitialized;
    private long lastApplyNanos;
-   private WeakReference<ClientWorld> lastLevel = new WeakReference<>(null);
+   private WeakReference<ClientLevel> lastLevel = new WeakReference<>(null);
 
    private FunTimeAimAnimator(FunTimeAimAnimator.Axis yaw, FunTimeAimAnimator.Axis pitch) {
       this.yaw = yaw;
@@ -63,7 +63,7 @@ public final class FunTimeAimAnimator {
    }
 
    public Angle apply(Angle current, float targetYaw, float targetPitch) {
-      ClientWorld currentLevel = MC.world;
+      ClientLevel currentLevel = MC.level;
       long now = System.nanoTime();
       if (this.lastLevel.get() != currentLevel) {
          this.initialized = false;
@@ -77,18 +77,18 @@ public final class FunTimeAimAnimator {
       }
 
       this.lastApplyNanos = now;
-      float normalizedTargetYaw = this.yaw.getValue() + MathHelper.wrapDegrees(targetYaw - this.yaw.getValue());
+      float normalizedTargetYaw = this.yaw.getValue() + Mth.wrapDegrees(targetYaw - this.yaw.getValue());
       this.yaw.setTarget(normalizedTargetYaw);
-      this.pitch.setTarget(MathHelper.clamp(targetPitch, -90.0F, 90.0F));
+      this.pitch.setTarget(Mth.clamp(targetPitch, -90.0F, 90.0F));
       this.yaw.update();
       this.pitch.update();
       this.pitchInitialized = true;
-      return new Angle(this.yaw.getValue(), MathHelper.clamp(this.pitch.getValue(), -90.0F, 90.0F));
+      return new Angle(this.yaw.getValue(), Mth.clamp(this.pitch.getValue(), -90.0F, 90.0F));
    }
 
    public void forceValue(float yawValue, float pitchValue) {
       this.yaw.forceValue(yawValue);
-      this.pitch.forceValue(MathHelper.clamp(pitchValue, -90.0F, 90.0F));
+      this.pitch.forceValue(Mth.clamp(pitchValue, -90.0F, 90.0F));
       this.initialized = true;
       this.pitchInitialized = true;
       this.lastApplyNanos = System.nanoTime();
@@ -110,14 +110,14 @@ public final class FunTimeAimAnimator {
       if (current == null) {
          return false;
       } else {
-         float yawDifference = Math.abs(MathHelper.wrapDegrees(current.getYaw() - this.yaw.getValue()));
+         float yawDifference = Math.abs(Mth.wrapDegrees(current.getYaw() - this.yaw.getValue()));
          float pitchDifference = Math.abs(current.getPitch() - this.pitch.getValue());
          return yawDifference > 25.0F || pitchDifference > 12.0F;
       }
    }
 
    private Angle fallbackSeed(float targetYaw, float targetPitch) {
-      return MC.player == null ? new Angle(targetYaw, MathHelper.clamp(targetPitch, -90.0F, 90.0F)) : new Angle(MC.player.getYaw(), MC.player.getPitch());
+      return MC.player == null ? new Angle(targetYaw, Mth.clamp(targetPitch, -90.0F, 90.0F)) : new Angle(MC.player.getYRot(), MC.player.getXRot());
    }
 
    private interface Axis {

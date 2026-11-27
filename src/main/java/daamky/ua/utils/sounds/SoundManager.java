@@ -1,12 +1,12 @@
 package daamky.ua.utils.sounds;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.sound.PositionedSoundInstance;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
 
 public final class SoundManager {
    public static final SoundEvent MOAN1 = sound("moan1");
@@ -85,24 +85,24 @@ public final class SoundManager {
    }
 
    public static void playSound(SoundEvent sound, float volume, float pitch) {
-      MinecraftClient mc = MinecraftClient.getInstance();
-      if (mc.player != null && mc.world != null) {
-         mc.world.playSound(mc.player, mc.player.getBlockPos(), sound, SoundCategory.BLOCKS, volume, pitch);
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.player != null && mc.level != null) {
+         mc.level.playSound(mc.player, mc.player.blockPosition(), sound, SoundSource.BLOCKS, volume, pitch);
       }
    }
 
    public static void playSoundDirect(SoundEvent sound, float volume, float pitch) {
-      MinecraftClient mc = MinecraftClient.getInstance();
+      Minecraft mc = Minecraft.getInstance();
       if (mc.getSoundManager() != null) {
-         mc.getSoundManager().play(PositionedSoundInstance.ui(sound, pitch, volume));
+         mc.getSoundManager().play(SimpleSoundInstance.forUI(sound, pitch, volume));
       }
    }
 
    private static SoundEvent sound(String path) {
-      return SoundEvent.of(Identifier.of("daamky", path));
+      return SoundEvent.createVariableRangeEvent(Identifier.fromNamespaceAndPath("daamky", path));
    }
 
    private static void register(SoundEvent sound) {
-      Registry.register(Registries.SOUND_EVENT, sound.id(), sound);
+      Registry.register(BuiltInRegistries.SOUND_EVENT, sound.location(), sound);
    }
 }

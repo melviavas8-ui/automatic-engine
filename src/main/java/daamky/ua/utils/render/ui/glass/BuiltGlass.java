@@ -1,6 +1,6 @@
 package daamky.ua.utils.render.ui.glass;
 
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
 
 public record BuiltGlass(
    float x,
@@ -61,7 +61,7 @@ public record BuiltGlass(
       );
    }
 
-   public void render(DrawContext graphics) {
+   public void render(GuiGraphics graphics) {
       GlassRenderer.getInstance().draw(graphics, this);
    }
 

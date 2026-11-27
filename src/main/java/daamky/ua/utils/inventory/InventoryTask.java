@@ -8,21 +8,21 @@ import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.FoodComponent;
-import net.minecraft.component.type.PotionContentsComponent;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.entity.effect.StatusEffectCategory;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.CloseHandledScreenC2SPacket;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.text.Text;
-import net.minecraft.util.Hand;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectCategory;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.food.FoodProperties;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.alchemy.PotionContents;
 import daamky.ua.IMinecraft;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.utils.chat.ChatMessage;
@@ -59,7 +59,7 @@ public final class InventoryTask implements IMinecraft {
       if (from != to && from != -1) {
          int count = Math.toIntExact(slots().count()) - 10;
          if (from >= count && count == 36) {
-            Runnable action = () -> clickSlot(to, from - count, SlotActionType.SWAP, false);
+            Runnable action = () -> clickSlot(to, from - count, ClickType.SWAP, false);
             if (task) {
                InventoryFlowManager.addTask(action);
             } else {
@@ -76,22 +76,22 @@ public final class InventoryTask implements IMinecraft {
    }
 
    public static void moveItem(int from, int to, boolean updateInventory) {
-      clickSlot(from, 0, SlotActionType.SWAP, false);
-      clickSlot(to, 0, SlotActionType.SWAP, false);
-      clickSlot(from, 0, SlotActionType.SWAP, false);
+      clickSlot(from, 0, ClickType.SWAP, false);
+      clickSlot(to, 0, ClickType.SWAP, false);
+      clickSlot(from, 0, ClickType.SWAP, false);
       if (updateInventory) {
          updateSlots();
       }
    }
 
-   public static void swapHand(Slot slot, Hand hand, boolean task) {
+   public static void swapHand(Slot slot, InteractionHand hand, boolean task) {
       swapHand(slot, hand, task, false);
    }
 
-   public static void swapHand(Slot slot, Hand hand, boolean task, boolean updateInventory) {
+   public static void swapHand(Slot slot, InteractionHand hand, boolean task, boolean updateInventory) {
       int slotId = getMenuSlotId(slot);
       if (slot != null && slotId != -1 && mc.player != null) {
-         int button = hand == Hand.MAIN_HAND ? mc.player.getInventory().getSelectedSlot() : 40;
+         int button = hand == InteractionHand.MAIN_HAND ? mc.player.getInventory().getSelectedSlot() : 40;
          Runnable action = () -> swap(slotId, button, updateInventory);
          if (task) {
             InventoryFlowManager.addTask(action);
@@ -102,7 +102,7 @@ public final class InventoryTask implements IMinecraft {
    }
 
    public static void swap(int slotId, int button, boolean updateInventory) {
-      clickSlot(slotId, button, SlotActionType.SWAP, false);
+      clickSlot(slotId, button, ClickType.SWAP, false);
       if (updateInventory && "FunTime".equals(getSelectedMode())) {
          updateSlots();
       }
@@ -128,7 +128,7 @@ public final class InventoryTask implements IMinecraft {
    public static void swapAndUse(Item item, boolean task, Angle angle) {
       Slot slot = getSlot(item);
       if (slot == null) {
-         ChatMessage.brandmessage(item.getName(item.getDefaultStack()).getString() + " - не найден!");
+         ChatMessage.brandmessage(item.getName(item.getDefaultInstance()).getString() + " - не найден!");
       } else {
          Runnable action = () -> swapAndUse(slot, angle);
          if (task) {
@@ -171,9 +171,9 @@ public final class InventoryTask implements IMinecraft {
       }
 
       SWAP_AND_USE_SCRIPT.cleanup()
-         .addTickStep(0, () -> swapHand(slot, Hand.MAIN_HAND, false))
-         .addTickStep(delay1, () -> PlayerInteractionHelper.interactItem(Hand.MAIN_HAND, angle))
-         .addTickStep(delay2, () -> swapHand(slot, Hand.MAIN_HAND, false, true));
+         .addTickStep(0, () -> swapHand(slot, InteractionHand.MAIN_HAND, false))
+         .addTickStep(delay1, () -> PlayerInteractionHelper.interactItem(InteractionHand.MAIN_HAND, angle))
+         .addTickStep(delay2, () -> swapHand(slot, InteractionHand.MAIN_HAND, false, true));
    }
 
    public static void useHotbarItem(int hotbarSlot, int previousSlot, boolean instant) {
@@ -191,13 +191,13 @@ public final class InventoryTask implements IMinecraft {
    }
 
    public static void useHotbarItem(int hotbarSlot, int previousSlot, int useDelay, int restoreDelay) {
-      if (mc.player != null && mc.interactionManager != null && hotbarSlot >= 0 && hotbarSlot <= 8) {
+      if (mc.player != null && mc.gameMode != null && hotbarSlot >= 0 && hotbarSlot <= 8) {
          int safeUseDelay = Math.max(0, useDelay);
          int safeRestoreDelay = Math.max(1, restoreDelay);
          HOTBAR_USE_SCRIPT.cleanup().addTickStep(0, () -> switchTo(hotbarSlot)).addTickStep(safeUseDelay, () -> {
             if (mc.player != null) {
-               PlayerInteractionHelper.interactItem(Hand.MAIN_HAND);
-               mc.player.swingHand(Hand.MAIN_HAND);
+               PlayerInteractionHelper.interactItem(InteractionHand.MAIN_HAND);
+               mc.player.swing(InteractionHand.MAIN_HAND);
             }
          }).addTickStep(safeUseDelay + safeRestoreDelay, () -> {
             if (previousSlot != hotbarSlot) {
@@ -208,26 +208,26 @@ public final class InventoryTask implements IMinecraft {
    }
 
    public static void updateSlots() {
-      if (mc.player != null && mc.interactionManager != null) {
-         mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, 0, 0, SlotActionType.PICKUP_ALL, mc.player);
+      if (mc.player != null && mc.gameMode != null) {
+         mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, 0, 0, ClickType.PICKUP_ALL, mc.player);
       }
    }
 
    public static void closeScreen(boolean packet) {
       if (mc.player != null) {
          if (packet) {
-            if (mc.getNetworkHandler() != null) {
-               mc.getNetworkHandler().sendPacket(new CloseHandledScreenC2SPacket(mc.player.currentScreenHandler.syncId));
+            if (mc.getConnection() != null) {
+               mc.getConnection().send(new ServerboundContainerClosePacket(mc.player.containerMenu.containerId));
             }
          } else {
-            mc.player.closeHandledScreen();
+            mc.player.closeContainer();
          }
       }
    }
 
-   public static void clickSlot(int id, int button, SlotActionType type) {
-      if (id != -1 && mc.interactionManager != null && mc.player != null) {
-         mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, id, button, type, mc.player);
+   public static void clickSlot(int id, int button, ClickType type) {
+      if (id != -1 && mc.gameMode != null && mc.player != null) {
+         mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, id, button, type, mc.player);
       }
    }
 
@@ -244,7 +244,7 @@ public final class InventoryTask implements IMinecraft {
    public static void swapSlot(Slot targetSlot, boolean task) {
       int slotId = getMenuSlotId(targetSlot);
       if (targetSlot != null && slotId != -1) {
-         int hotbarSlot = slotId >= 36 && slotId <= 44 ? slotId - 36 : targetSlot.id;
+         int hotbarSlot = slotId >= 36 && slotId <= 44 ? slotId - 36 : targetSlot.index;
          Runnable action = () -> switchTo(hotbarSlot);
          if (task) {
             InventoryFlowManager.addTask(action);
@@ -262,30 +262,30 @@ public final class InventoryTask implements IMinecraft {
       swapSlot(getSlot(item), task);
    }
 
-   public static void clickSlot(Slot slot, int button, SlotActionType ClickType, boolean silent) {
+   public static void clickSlot(Slot slot, int button, ClickType ClickType, boolean silent) {
       if (slot != null) {
          clickSlot(getMenuSlotId(slot), button, ClickType, silent);
       }
    }
 
-   public static void clickSlot(int slotId, int buttonId, SlotActionType ClickType, boolean silent) {
-      clickSlot(mc.player.currentScreenHandler.syncId, slotId, buttonId, ClickType, silent, false);
+   public static void clickSlot(int slotId, int buttonId, ClickType ClickType, boolean silent) {
+      clickSlot(mc.player.containerMenu.containerId, slotId, buttonId, ClickType, silent, false);
    }
 
-   public static void clickSlot(int slotId, int buttonId, SlotActionType ClickType, boolean silent, boolean task) {
-      clickSlot(mc.player.currentScreenHandler.syncId, slotId, buttonId, ClickType, silent, task);
+   public static void clickSlot(int slotId, int buttonId, ClickType ClickType, boolean silent, boolean task) {
+      clickSlot(mc.player.containerMenu.containerId, slotId, buttonId, ClickType, silent, task);
    }
 
-   public static void clickSlot(int windowId, int slotId, int buttonId, SlotActionType ClickType, boolean silent) {
+   public static void clickSlot(int windowId, int slotId, int buttonId, ClickType ClickType, boolean silent) {
       clickSlot(windowId, slotId, buttonId, ClickType, silent, false);
    }
 
-   public static void clickSlot(int windowId, int slotId, int buttonId, SlotActionType ClickType, boolean silent, boolean task) {
+   public static void clickSlot(int windowId, int slotId, int buttonId, ClickType ClickType, boolean silent, boolean task) {
       Runnable action = () -> {
-         if (mc.interactionManager != null && mc.player != null) {
-            mc.interactionManager.clickSlot(windowId, slotId, buttonId, ClickType, mc.player);
+         if (mc.gameMode != null && mc.player != null) {
+            mc.gameMode.handleInventoryMouseClick(windowId, slotId, buttonId, ClickType, mc.player);
             if (silent) {
-               mc.player.currentScreenHandler.onSlotClick(slotId, buttonId, ClickType, mc.player);
+               mc.player.containerMenu.clicked(slotId, buttonId, ClickType, mc.player);
             }
          }
       };
@@ -313,55 +313,55 @@ public final class InventoryTask implements IMinecraft {
    }
 
    public static Slot getSlot(Item item, Comparator<Slot> comparator, Predicate<Slot> filter) {
-      return slots().filter(slot -> slot.getStack().getItem().equals(item)).filter(filter).max(comparator).orElse(null);
+      return slots().filter(slot -> slot.getItem().getItem().equals(item)).filter(filter).max(comparator).orElse(null);
    }
 
    public static Slot getFoodMaxSaturationSlot() {
       return slots()
          .filter(slot -> {
-            FoodComponent food = (FoodComponent)slot.getStack().get(DataComponentTypes.FOOD);
+            FoodProperties food = (FoodProperties)slot.getItem().get(DataComponents.FOOD);
             return food != null && !food.canAlwaysEat();
          })
          .max(
             Comparator.comparingDouble(
-               slot -> (double)((FoodComponent)Objects.requireNonNull((FoodComponent)slot.getStack().get(DataComponentTypes.FOOD))).saturation()
+               slot -> (double)((FoodProperties)Objects.requireNonNull((FoodProperties)slot.getItem().get(DataComponents.FOOD))).saturation()
             )
          )
          .orElse(null);
    }
 
    public static Slot getSlot(List<Item> items) {
-      return slots().filter(slot -> items.contains(slot.getStack().getItem())).findFirst().orElse(null);
+      return slots().filter(slot -> items.contains(slot.getItem().getItem())).findFirst().orElse(null);
    }
 
-   public static Slot getPotion(RegistryEntry<StatusEffect> effect) {
+   public static Slot getPotion(Holder<MobEffect> effect) {
       return slots()
          .filter(
             slot -> {
-               PotionContentsComponent component = (PotionContentsComponent)slot.getStack().get(DataComponentTypes.POTION_CONTENTS);
+               PotionContents component = (PotionContents)slot.getItem().get(DataComponents.POTION_CONTENTS);
                return component == null
                   ? false
-                  : StreamSupport.<StatusEffectInstance>stream(component.getEffects().spliterator(), false)
-                     .anyMatch(instance -> instance.getEffectType().equals(effect));
+                  : StreamSupport.<MobEffectInstance>stream(component.getAllEffects().spliterator(), false)
+                     .anyMatch(instance -> instance.getEffect().equals(effect));
             }
          )
          .findFirst()
          .orElse(null);
    }
 
-   public static Slot getPotionFromCategory(StatusEffectCategory category) {
+   public static Slot getPotionFromCategory(MobEffectCategory category) {
       return slots()
          .filter(
             slot -> {
-               ItemStack stack = slot.getStack();
-               PotionContentsComponent component = (PotionContentsComponent)stack.get(DataComponentTypes.POTION_CONTENTS);
+               ItemStack stack = slot.getItem();
+               PotionContents component = (PotionContents)stack.get(DataComponents.POTION_CONTENTS);
                if (stack.getItem().equals(Items.SPLASH_POTION) && component != null) {
-                  StatusEffectCategory inverse = category == StatusEffectCategory.BENEFICIAL ? StatusEffectCategory.HARMFUL : StatusEffectCategory.BENEFICIAL;
-                  long matching = StreamSupport.<StatusEffectInstance>stream(component.getEffects().spliterator(), false)
-                     .filter(effect -> ((StatusEffect)effect.getEffectType().value()).getCategory() == category)
+                  MobEffectCategory inverse = category == MobEffectCategory.BENEFICIAL ? MobEffectCategory.HARMFUL : MobEffectCategory.BENEFICIAL;
+                  long matching = StreamSupport.<MobEffectInstance>stream(component.getAllEffects().spliterator(), false)
+                     .filter(effect -> ((MobEffect)effect.getEffect().value()).getCategory() == category)
                      .count();
-                  long opposite = StreamSupport.<StatusEffectInstance>stream(component.getEffects().spliterator(), false)
-                     .filter(effect -> ((StatusEffect)effect.getEffectType().value()).getCategory() == inverse)
+                  long opposite = StreamSupport.<MobEffectInstance>stream(component.getAllEffects().spliterator(), false)
+                     .filter(effect -> ((MobEffect)effect.getEffect().value()).getCategory() == inverse)
                      .count();
                   return matching >= opposite;
                } else {
@@ -376,9 +376,9 @@ public final class InventoryTask implements IMinecraft {
    public static int getInventoryCount(Item item) {
       return mc.player == null
          ? 0
-         : IntStream.range(0, mc.player.getInventory().size())
-            .filter(i -> mc.player.getInventory().getStack(i).getItem().equals(item))
-            .map(i -> mc.player.getInventory().getStack(i).getCount())
+         : IntStream.range(0, mc.player.getInventory().getContainerSize())
+            .filter(i -> mc.player.getInventory().getItem(i).getItem().equals(item))
+            .map(i -> mc.player.getInventory().getItem(i).getCount())
             .sum();
    }
 
@@ -387,7 +387,7 @@ public final class InventoryTask implements IMinecraft {
          return -1;
       } else {
          for (int i = 0; i < 9; i++) {
-            if (mc.player.getInventory().getStack(i).isEmpty()) {
+            if (mc.player.getInventory().getItem(i).isEmpty()) {
                return i;
             }
          }
@@ -401,7 +401,7 @@ public final class InventoryTask implements IMinecraft {
          return -1;
       } else {
          for (int i = 0; i < 9; i++) {
-            if (mc.player.getInventory().getStack(i).isOf(item)) {
+            if (mc.player.getInventory().getItem(i).is(item)) {
                return i;
             }
          }
@@ -415,7 +415,7 @@ public final class InventoryTask implements IMinecraft {
          return -1;
       } else {
          for (int i = 9; i < 36; i++) {
-            if (mc.player.getInventory().getStack(i).isOf(item)) {
+            if (mc.player.getInventory().getItem(i).is(item)) {
                return i;
             }
          }
@@ -425,14 +425,14 @@ public final class InventoryTask implements IMinecraft {
    }
 
    public static void swapSlots(int fromSlot, int toSlot) {
-      if (mc.interactionManager != null && mc.player != null) {
-         mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, fromSlot, toSlot, SlotActionType.SWAP, mc.player);
+      if (mc.gameMode != null && mc.player != null) {
+         mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, fromSlot, toSlot, ClickType.SWAP, mc.player);
       }
    }
 
    public static void swapSlots(int fromSlot, int toSlot, boolean task) {
-      if (mc.interactionManager != null && mc.player != null) {
-         Runnable action = () -> mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, fromSlot, toSlot, SlotActionType.SWAP, mc.player);
+      if (mc.gameMode != null && mc.player != null) {
+         Runnable action = () -> mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, fromSlot, toSlot, ClickType.SWAP, mc.player);
          if (task) {
             InventoryFlowManager.addTask(action);
          } else {
@@ -445,25 +445,25 @@ public final class InventoryTask implements IMinecraft {
       if (mc.player == null) {
          return null;
       } else {
-         return index >= 0 && index < mc.player.currentScreenHandler.slots.size() ? mc.player.currentScreenHandler.getSlot(index) : null;
+         return index >= 0 && index < mc.player.containerMenu.slots.size() ? mc.player.containerMenu.getSlot(index) : null;
       }
    }
 
    public static void useItemFromSlotMOMENTALNO(int slot) {
-      if (mc.player != null && mc.interactionManager != null) {
-         ItemStack stack = mc.player.getInventory().getStack(slot);
-         if (!stack.isEmpty() && !mc.player.getItemCooldownManager().isCoolingDown(stack)) {
+      if (mc.player != null && mc.gameMode != null) {
+         ItemStack stack = mc.player.getInventory().getItem(slot);
+         if (!stack.isEmpty() && !mc.player.getCooldowns().isOnCooldown(stack)) {
             int previousSlot = mc.player.getInventory().getSelectedSlot();
             InventoryUtils.syncSelectedHotbarSlot(slot);
-            PlayerInteractionHelper.interactItem(Hand.MAIN_HAND);
-            mc.player.swingHand(Hand.MAIN_HAND);
+            PlayerInteractionHelper.interactItem(InteractionHand.MAIN_HAND);
+            mc.player.swing(InteractionHand.MAIN_HAND);
             InventoryUtils.syncSelectedHotbarSlot(previousSlot);
          }
       }
    }
 
    public static int getHotbarItems(List<Item> items) {
-      return mc.player == null ? -1 : IntStream.range(0, 9).filter(i -> items.contains(mc.player.getInventory().getStack(i).getItem())).findFirst().orElse(-1);
+      return mc.player == null ? -1 : IntStream.range(0, 9).filter(i -> items.contains(mc.player.getInventory().getItem(i).getItem())).findFirst().orElse(-1);
    }
 
    public static int getHotbarSlotId(IntPredicate filter) {
@@ -471,7 +471,7 @@ public final class InventoryTask implements IMinecraft {
    }
 
    public static int getCount(Predicate<Slot> filter) {
-      return slots().filter(filter).mapToInt(slot -> slot.getStack().getCount()).sum();
+      return slots().filter(filter).mapToInt(slot -> slot.getItem().getCount()).sum();
    }
 
    public static Slot mainHandSlot() {
@@ -491,7 +491,7 @@ public final class InventoryTask implements IMinecraft {
    }
 
    public static Stream<Slot> slots() {
-      return mc.player == null ? Stream.empty() : mc.player.currentScreenHandler.slots.stream();
+      return mc.player == null ? Stream.empty() : mc.player.containerMenu.slots.stream();
    }
 
    public static void selectCompass() {
@@ -502,12 +502,12 @@ public final class InventoryTask implements IMinecraft {
             InventoryUtils.syncSelectedHotbarSlot(slotId - 36);
          } else {
             InventoryUtils.syncSelectedHotbarSlot(0);
-            swapHand(slot, Hand.MAIN_HAND, false, true);
+            swapHand(slot, InteractionHand.MAIN_HAND, false, true);
          }
       }
    }
 
-   public static String getCleanName(Text text) {
+   public static String getCleanName(Component text) {
       if (text == null) {
          return "";
       } else {
@@ -525,8 +525,8 @@ public final class InventoryTask implements IMinecraft {
    }
 
    public static int getMenuSlotId(Slot slot) {
-      if (slot != null && mc.player != null && mc.player.currentScreenHandler != null) {
-         List<Slot> slots = mc.player.currentScreenHandler.slots;
+      if (slot != null && mc.player != null && mc.player.containerMenu != null) {
+         List<Slot> slots = mc.player.containerMenu.slots;
 
          for (int i = 0; i < slots.size(); i++) {
             if (slots.get(i) == slot) {
@@ -534,7 +534,7 @@ public final class InventoryTask implements IMinecraft {
             }
          }
 
-         return slot.id;
+         return slot.index;
       } else {
          return -1;
       }

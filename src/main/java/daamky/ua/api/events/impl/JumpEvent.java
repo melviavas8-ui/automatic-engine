@@ -1,17 +1,17 @@
 package daamky.ua.api.events.impl;
 
-import net.minecraft.entity.player.PlayerEntity;
 import daamky.ua.api.events.CancellableEvent;
+import net.minecraft.world.entity.player.Player;
 
 public final class JumpEvent extends CancellableEvent {
-   private final PlayerEntity player;
+   private final Player player;
    private double motionMultiplier = 1.0;
 
-   public JumpEvent(PlayerEntity player) {
+   public JumpEvent(Player player) {
       this.player = player;
    }
 
-   public PlayerEntity getPlayer() {
+   public Player getPlayer() {
       return this.player;
    }
 

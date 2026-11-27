@@ -11,8 +11,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
 import daamky.ua.api.module.impl.combat.AuraModule;
 
 final class NeuroRuntimeModel {
@@ -107,8 +107,8 @@ final class NeuroRuntimeModel {
       if (path.isAbsolute()) {
          return path;
       } else {
-         MinecraftClient client = MinecraftClient.getInstance();
-         return client != null && client.runDirectory != null ? client.runDirectory.toPath().resolve(path).normalize() : path.toAbsolutePath().normalize();
+         Minecraft client = Minecraft.getInstance();
+         return client != null && client.gameDirectory != null ? client.gameDirectory.toPath().resolve(path).normalize() : path.toAbsolutePath().normalize();
       }
    }
 
@@ -240,7 +240,7 @@ final class NeuroRuntimeModel {
    }
 
    private double lerp(double from, double to, double alpha) {
-      double clamped = MathHelper.clamp(alpha, 0.0, 1.0);
+      double clamped = Mth.clamp(alpha, 0.0, 1.0);
       return from + (to - from) * clamped;
    }
 
@@ -260,7 +260,7 @@ final class NeuroRuntimeModel {
       ) {
          double jerk = Math.abs(candidateYaw - context.previousYawStep()) + Math.abs(candidatePitch - context.previousPitchStep());
          double normalizer = Math.max(1.0, Math.abs(context.yawDelta()) + Math.abs(context.pitchDelta()));
-         double jerkScore = MathHelper.clamp(jerk / normalizer, 0.0, 1.0);
+         double jerkScore = Mth.clamp(jerk / normalizer, 0.0, 1.0);
          int flips = 0;
          if (hasSignFlip(context.previousYawStep(), candidateYaw)) {
             flips++;
@@ -273,7 +273,7 @@ final class NeuroRuntimeModel {
          double signFlipScore = (double)flips / 2.0;
          double clampGap = Math.abs(unclampedYaw - candidateYaw) + Math.abs(unclampedPitch - candidatePitch);
          double clampNormalizer = Math.max(0.25, Math.abs(unclampedYaw) + Math.abs(unclampedPitch));
-         double clampGapScore = MathHelper.clamp(clampGap / clampNormalizer, 0.0, 1.0);
+         double clampGapScore = Mth.clamp(clampGap / clampNormalizer, 0.0, 1.0);
          return new NeuroRuntimeModel.CandidateMetrics(jerkScore, signFlipScore, clampGapScore);
       }
 

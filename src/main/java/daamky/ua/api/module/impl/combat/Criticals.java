@@ -1,14 +1,14 @@
 package daamky.ua.api.module.impl.combat;
 
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket.PositionAndOnGround;
-import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.JumpEvent;
 import daamky.ua.api.events.impl.TickEvent;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.settings.impl.ModeSetting;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.Pos;
+import net.minecraft.world.phys.Vec3;
 
 public class Criticals extends Module {
    private boolean funTimeWeakJump;
@@ -26,23 +26,23 @@ public class Criticals extends Module {
 
    @SubscribeEvent
    public void onTick(TickEvent.Post event) {
-      ClientPlayerEntity player = event.getClient().player;
+      LocalPlayer player = event.getClient().player;
       AuraModule aura = AuraModule.getInstance();
-      if (player != null && player.networkHandler != null && aura != null) {
+      if (player != null && player.connection != null && aura != null) {
          if (this.mode.is("Vanilla")) {
             if (!aura.canAttack(0)) {
                return;
             }
 
             if (player.fallDistance <= 0.0) {
-               player.networkHandler
-                  .sendPacket(new PositionAndOnGround(player.getX(), player.getY() + 0.0125, player.getZ(), false, player.horizontalCollision));
-               player.networkHandler.sendPacket(new PositionAndOnGround(player.getX(), player.getY(), player.getZ(), false, player.horizontalCollision));
+               player.connection
+                  .send(new Pos(player.getX(), player.getY() + 0.0125, player.getZ(), false, player.horizontalCollision));
+               player.connection.send(new Pos(player.getX(), player.getY(), player.getZ(), false, player.horizontalCollision));
             }
          }
 
          if (this.mode.is("Matrix") && aura.canAttack(0)) {
-            player.setVelocity(new Vec3d(0.0, -0.1, 0.0));
+            player.setDeltaMovement(new Vec3(0.0, -0.1, 0.0));
          }
       }
    }

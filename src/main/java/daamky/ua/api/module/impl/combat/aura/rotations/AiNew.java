@@ -2,10 +2,10 @@ package daamky.ua.api.module.impl.combat.aura.rotations;
 
 import java.security.SecureRandom;
 import java.util.concurrent.atomic.AtomicLong;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.module.impl.combat.AuraModule;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.api.module.impl.combat.aura.MathAngle;
@@ -26,7 +26,7 @@ public class AiNew extends RotateConstructor {
    }
 
    @Override
-   public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3d vec3d, Entity entity) {
+   public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3 vec3d, Entity entity) {
       Angle angleDelta = MathAngle.calculateDelta(currentAngle, targetAngle);
       float yawDelta = angleDelta.getYaw();
       float pitchDelta = angleDelta.getPitch();
@@ -43,8 +43,8 @@ public class AiNew extends RotateConstructor {
          boolean var10000 = false;
       }
 
-      float playerPitch1 = MinecraftClient.getInstance().player.getPitch();
-      float playerYaw = MinecraftClient.getInstance().player.getYaw();
+      float playerPitch1 = Minecraft.getInstance().player.getXRot();
+      float playerYaw = Minecraft.getInstance().player.getYRot();
       if (AuraModule.target == null) {
          if (this.время.get() == 0L) {
             this.время.set(System.currentTimeMillis());
@@ -55,21 +55,21 @@ public class AiNew extends RotateConstructor {
             float yaw = (float)(0.0 * Math.sin((double)((float)System.currentTimeMillis() / 3.0F)));
             Angle moveAngle = new Angle(currentAngle.getYaw(), currentAngle.getPitch());
             moveAngle.setYaw(currentAngle.getYaw() + yaw);
-            moveAngle.setPitch(MathHelper.clamp(currentAngle.getPitch() + pitch, -90.0F, 90.0F));
+            moveAngle.setPitch(Mth.clamp(currentAngle.getPitch() + pitch, -90.0F, 90.0F));
             return moveAngle;
          }
       } else {
          this.время.set(0L);
       }
 
-      float yawDeltaToTarget = MathHelper.wrapDegrees(targetAngle.getYaw() - currentAngle.getYaw());
+      float yawDeltaToTarget = Mth.wrapDegrees(targetAngle.getYaw() - currentAngle.getYaw());
       float pitchDeltaToTarget = targetAngle.getPitch() - currentAngle.getPitch();
-      float yawDeltaFromPlayer = MathHelper.wrapDegrees(playerYaw - currentAngle.getYaw());
+      float yawDeltaFromPlayer = Mth.wrapDegrees(playerYaw - currentAngle.getYaw());
       float yawSpeed = атака ? MathUtils.getRandom(55.0F, 100.0F) : MathUtils.getRandom(20.0F, 45.0F);
       float pitchSpeed = атака ? 12.0F : 3.0F;
-      float moveYawToTarget = MathHelper.clamp(yawDeltaToTarget, -yawSpeed, yawSpeed);
-      float movePitchToTarget = MathHelper.clamp(pitchDeltaToTarget, -pitchSpeed, pitchSpeed);
-      float playerYawInfluence = MathHelper.clamp(yawDeltaFromPlayer * 0.18F, -3.0F, 3.0F);
+      float moveYawToTarget = Mth.clamp(yawDeltaToTarget, -yawSpeed, yawSpeed);
+      float movePitchToTarget = Mth.clamp(pitchDeltaToTarget, -pitchSpeed, pitchSpeed);
+      float playerYawInfluence = Mth.clamp(yawDeltaFromPlayer * 0.18F, -3.0F, 3.0F);
       float randomYaw = MathUtils.getRandom(-0.8F, 0.8F);
       boolean aimed = Math.abs(yawDeltaToTarget) < 2.0F && Math.abs(pitchDeltaToTarget) < 2.0F;
       float shakeYaw = 0.0F;
@@ -82,13 +82,13 @@ public class AiNew extends RotateConstructor {
       float finalYaw = currentAngle.getYaw() + moveYawToTarget + playerYawInfluence + randomYaw + shakeYaw;
       float finalPitch = currentAngle.getPitch() + movePitchToTarget + shakePitch;
       Angle moveAngle = new Angle(currentAngle.getYaw(), currentAngle.getPitch());
-      moveAngle.setYaw(MathHelper.wrapDegrees(finalYaw));
-      moveAngle.setPitch(MathHelper.clamp(finalPitch, -90.0F, 90.0F));
+      moveAngle.setYaw(Mth.wrapDegrees(finalYaw));
+      moveAngle.setPitch(Mth.clamp(finalPitch, -90.0F, 90.0F));
       float playerPitchInfluence = 1.0F;
-      if (MinecraftClient.getInstance().player != null) {
-         float playerPitch = MinecraftClient.getInstance().player.getPitch();
-         float blendedPitch = MathHelper.lerp(1.0F, moveAngle.getPitch(), playerPitch);
-         moveAngle.setPitch(MathHelper.clamp(blendedPitch, -90.0F, 90.0F));
+      if (Minecraft.getInstance().player != null) {
+         float playerPitch = Minecraft.getInstance().player.getXRot();
+         float blendedPitch = Mth.lerp(1.0F, moveAngle.getPitch(), playerPitch);
+         moveAngle.setPitch(Mth.clamp(blendedPitch, -90.0F, 90.0F));
          return this.animate(currentAngle, moveAngle.getYaw(), moveAngle.getPitch(), MathUtils.getRandom(0.1F, 0.4F));
       } else {
          return currentAngle;
@@ -96,7 +96,7 @@ public class AiNew extends RotateConstructor {
    }
 
    private Angle animate(Angle from, float targetYaw, float targetPitch, float speed) {
-      float targetChangedYaw = Math.abs(MathHelper.wrapDegrees(targetYaw - this.lastTargetYaw));
+      float targetChangedYaw = Math.abs(Mth.wrapDegrees(targetYaw - this.lastTargetYaw));
       float targetChangedPitch = Math.abs(targetPitch - this.lastTargetPitch);
       if (this.animProgress >= 1.0F || targetChangedYaw > 6.0F || targetChangedPitch > 6.0F) {
          this.startYaw = from.getYaw();
@@ -106,12 +106,12 @@ public class AiNew extends RotateConstructor {
          this.animProgress = 0.0F;
       }
 
-      this.animProgress = MathHelper.clamp(this.animProgress + speed, 0.0F, 1.0F);
+      this.animProgress = Mth.clamp(this.animProgress + speed, 0.0F, 1.0F);
       float eased = this.easeOutBack(this.animProgress);
-      float yawDelta = MathHelper.wrapDegrees(this.lastTargetYaw - this.startYaw);
+      float yawDelta = Mth.wrapDegrees(this.lastTargetYaw - this.startYaw);
       float pitchDelta = this.lastTargetPitch - this.startPitch;
       float yaw = this.startYaw + yawDelta * eased;
-      float pitch = MathHelper.clamp(this.startPitch + pitchDelta * eased, -89.0F, 89.0F);
+      float pitch = Mth.clamp(this.startPitch + pitchDelta * eased, -89.0F, 89.0F);
       return new Angle(yaw, pitch);
    }
 
@@ -136,11 +136,11 @@ public class AiNew extends RotateConstructor {
    }
 
    private float randomLerp(float min, float max) {
-      return MathHelper.lerp(new SecureRandom().nextFloat(), min, max);
+      return Mth.lerp(new SecureRandom().nextFloat(), min, max);
    }
 
    @Override
-   public Vec3d randomValue() {
-      return new Vec3d(0.0, 0.0, 0.0);
+   public Vec3 randomValue() {
+      return new Vec3(0.0, 0.0, 0.0);
    }
 }

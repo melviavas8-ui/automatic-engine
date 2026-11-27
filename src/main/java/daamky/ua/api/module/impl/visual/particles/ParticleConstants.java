@@ -1,7 +1,7 @@
 package daamky.ua.api.module.impl.visual.particles;
 
-import net.minecraft.util.Identifier;
 import daamky.ua.utils.render.color.ColorUtil;
+import net.minecraft.resources.Identifier;
 
 final class ParticleConstants {
    static final String ROOT = "textures/features/particles/";
@@ -90,6 +90,6 @@ final class ParticleConstants {
    }
 
    private static ParticleTexture particle(String mode, String path) {
-      return new ParticleTexture(mode, Identifier.of("daamky", "textures/features/particles/" + path));
+      return new ParticleTexture(mode, Identifier.fromNamespaceAndPath("daamky", "textures/features/particles/" + path));
    }
 }

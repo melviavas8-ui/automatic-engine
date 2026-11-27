@@ -1,9 +1,9 @@
 package daamky.ua.mixin;
 
-import net.minecraft.client.render.entity.state.LivingEntityRenderState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import daamky.ua.access.SeeInvisibleRenderStateAccessor;
+import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 
 @Mixin({LivingEntityRenderState.class})
 public abstract class LivingEntityRenderStateMixin implements SeeInvisibleRenderStateAccessor {

@@ -1,17 +1,17 @@
 package daamky.ua.api.drag.core;
 
-import net.minecraft.client.MinecraftClient;
 import daamky.ua.utils.render.ui.Render2DCoordinateSpace;
+import net.minecraft.client.Minecraft;
 
 public record ElementScreen(float width, float height, float coordinateScale) {
    public static ElementScreen current() {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (client != null && client.getWindow() != null) {
          float scale = Render2DCoordinateSpace.guiIndependentScale();
          float safeScale = Math.max(1.0E-4F, scale);
          return new ElementScreen(
-            Math.max(1.0F, (float)client.getWindow().getScaledWidth() / safeScale),
-            Math.max(1.0F, (float)client.getWindow().getScaledHeight() / safeScale),
+            Math.max(1.0F, (float)client.getWindow().getGuiScaledWidth() / safeScale),
+            Math.max(1.0F, (float)client.getWindow().getGuiScaledHeight() / safeScale),
             scale
          );
       } else {

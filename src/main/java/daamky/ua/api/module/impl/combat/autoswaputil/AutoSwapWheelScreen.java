@@ -1,13 +1,5 @@
 package daamky.ua.api.module.impl.combat.autoswaputil;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.MathHelper;
 import org.lwjgl.glfw.GLFW;
 import daamky.ua.api.module.impl.combat.AutoSwap;
 import daamky.ua.utils.math.MathUtils;
@@ -16,6 +8,14 @@ import daamky.ua.utils.render.animation.modernfx.Direction;
 import daamky.ua.utils.render.item.RenderItem;
 import daamky.ua.utils.render.ui.Render2D;
 import daamky.ua.utils.render.ui.font.FontType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
+import net.minecraft.world.item.ItemStack;
 
 public class AutoSwapWheelScreen extends Screen {
    private static final int SECTORS = 3;
@@ -33,7 +33,7 @@ public class AutoSwapWheelScreen extends Screen {
    private boolean hoverSwapTriggered;
 
    public AutoSwapWheelScreen(AutoSwap autoSwap) {
-      super(Text.empty());
+      super(Component.empty());
       this.autoSwap = autoSwap;
    }
 
@@ -46,7 +46,7 @@ public class AutoSwapWheelScreen extends Screen {
       this.openAnimation.reset();
    }
 
-   public boolean shouldPause() {
+   public boolean isPauseScreen() {
       return false;
    }
 
@@ -54,7 +54,7 @@ public class AutoSwapWheelScreen extends Screen {
       return true;
    }
 
-   public void render(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
+   public void render(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
       super.render(context, mouseX, mouseY, deltaTicks);
       Render2D.beginFrame(context);
       RenderItem.beginFrame(context);
@@ -77,7 +77,7 @@ public class AutoSwapWheelScreen extends Screen {
       float constrainedMouseY = (float)mouseY;
       float dx = constrainedMouseX - centerX;
       float dy = constrainedMouseY - centerY;
-      float distance = MathHelper.sqrt(dx * dx + dy * dy);
+      float distance = Mth.sqrt(dx * dx + dy * dy);
       if (distance > outerRadius && distance > 0.001F) {
          float scale = outerRadius / distance;
          constrainedMouseX = centerX + dx * scale;
@@ -107,8 +107,8 @@ public class AutoSwapWheelScreen extends Screen {
          ItemStack stack = this.autoSwap.getWheelSlotStack(i);
          float midAngle = rotation + 56.1F;
          double radians = Math.toRadians((double)midAngle);
-         float iconX = centerX + MathHelper.cos((double)((float)radians)) * iconRadius - iconSize * 0.5F;
-         float iconY = centerY + MathHelper.sin((double)((float)radians)) * iconRadius - iconSize * 0.6F;
+         float iconX = centerX + Mth.cos((double)((float)radians)) * iconRadius - iconSize * 0.5F;
+         float iconY = centerY + Mth.sin((double)((float)radians)) * iconRadius - iconSize * 0.6F;
          if (!stack.isEmpty()) {
             RenderItem.item(stack, iconX, iconY, iconSize);
          } else {
@@ -163,20 +163,20 @@ public class AutoSwapWheelScreen extends Screen {
       Render2D.flush();
    }
 
-   private void renderDividerLine(DrawContext graphics, float centerX, float centerY, float angleDegrees, float innerRadius, float outerRadius, float progress) {
+   private void renderDividerLine(GuiGraphics graphics, float centerX, float centerY, float angleDegrees, float innerRadius, float outerRadius, float progress) {
       float lineWidth = 3.0F;
       float ringThickness = outerRadius - innerRadius;
       float lineLength = Math.max(24.0F, ringThickness * 0.42F) * progress;
       float lineRadius = innerRadius + ringThickness * 0.43F;
       float angleRadians = (float)Math.toRadians((double)angleDegrees);
-      float lineCenterX = centerX + MathHelper.cos((double)angleRadians) * lineRadius;
-      float lineCenterY = centerY + MathHelper.sin((double)angleRadians) * lineRadius;
+      float lineCenterX = centerX + Mth.cos((double)angleRadians) * lineRadius;
+      float lineCenterY = centerY + Mth.sin((double)angleRadians) * lineRadius;
       float rotationRadians = (float)Math.toRadians((double)(angleDegrees + 90.0F));
-      graphics.getMatrices().pushMatrix();
-      graphics.getMatrices().translate(lineCenterX, lineCenterY);
-      graphics.getMatrices().rotate(rotationRadians);
+      graphics.pose().pushMatrix();
+      graphics.pose().translate(lineCenterX, lineCenterY);
+      graphics.pose().rotate(rotationRadians);
       Render2D.rect(-lineWidth * 0.5F, -lineLength * 0.5F, lineWidth, lineLength, 0.0F, this.withAlphaScale(-855638017, progress));
-      graphics.getMatrices().popMatrix();
+      graphics.pose().popMatrix();
    }
 
    private int withAlphaScale(int color, float scale) {
@@ -186,40 +186,40 @@ public class AutoSwapWheelScreen extends Screen {
    }
 
    private void confineCursorToCircle(float guiX, float guiY) {
-      MinecraftClient minecraft = MinecraftClient.getInstance();
+      Minecraft minecraft = Minecraft.getInstance();
       if (minecraft != null && minecraft.getWindow() != null) {
-         double windowWidth = Math.max(1.0, (double)minecraft.getWindow().getFramebufferWidth());
-         double windowHeight = Math.max(1.0, (double)minecraft.getWindow().getFramebufferHeight());
-         double guiWidth = Math.max(1.0, (double)minecraft.getWindow().getScaledWidth());
-         double guiHeight = Math.max(1.0, (double)minecraft.getWindow().getScaledHeight());
+         double windowWidth = Math.max(1.0, (double)minecraft.getWindow().getWidth());
+         double windowHeight = Math.max(1.0, (double)minecraft.getWindow().getHeight());
+         double guiWidth = Math.max(1.0, (double)minecraft.getWindow().getGuiScaledWidth());
+         double guiHeight = Math.max(1.0, (double)minecraft.getWindow().getGuiScaledHeight());
          double windowX = (double)guiX * (windowWidth / guiWidth);
          double windowY = (double)guiY * (windowHeight / guiHeight);
-         GLFW.glfwSetCursorPos(minecraft.getWindow().getHandle(), windowX, windowY);
+         GLFW.glfwSetCursorPos(minecraft.getWindow().handle(), windowX, windowY);
       }
    }
 
-   public boolean keyPressed(KeyInput input) {
+   public boolean keyPressed(KeyEvent input) {
       if (input.key() == 256) {
-         this.close();
+         this.onClose();
          return true;
       } else {
          return super.keyPressed(input);
       }
    }
 
-   public boolean mouseClicked(Click click, boolean doubled) {
+   public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
       if (this.hoveredSlot < 0 || this.hoveredSlot >= 3) {
          return super.mouseClicked(click, doubled);
       } else if (click.button() == 0) {
          ItemStack stack = this.autoSwap.getWheelSlotStack(this.hoveredSlot);
-         this.close();
+         this.onClose();
          if (!stack.isEmpty()) {
             this.autoSwap.startSwapToItemStack(stack);
          }
 
          return true;
       } else if (click.button() == 1) {
-         this.close();
+         this.onClose();
          this.autoSwap.startSelectingItem(this.hoveredSlot);
          return true;
       } else {
@@ -237,7 +237,7 @@ public class AutoSwapWheelScreen extends Screen {
             ItemStack stack = this.autoSwap.getWheelSlotStack(this.hoveredSlot);
             if (!stack.isEmpty()) {
                this.hoverSwapTriggered = true;
-               this.close();
+               this.onClose();
                this.autoSwap.startSwapToItemStack(stack);
             }
          }
@@ -247,7 +247,7 @@ public class AutoSwapWheelScreen extends Screen {
    private int computeHoveredSlot(double mouseX, double mouseY, float centerX, float centerY, float innerRadius, float outerRadius) {
       float dx = (float)mouseX - centerX;
       float dy = (float)mouseY - centerY;
-      float distance = MathHelper.sqrt(dx * dx + dy * dy);
+      float distance = Mth.sqrt(dx * dx + dy * dy);
       if (!(distance < innerRadius) && !(distance > outerRadius)) {
          float angle = (float)Math.toDegrees(Math.atan2((double)dy, (double)dx));
          if (angle < 0.0F) {

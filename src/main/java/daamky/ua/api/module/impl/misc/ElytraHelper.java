@@ -3,13 +3,13 @@ package daamky.ua.api.module.impl.misc;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import net.minecraft.entity.player.ItemCooldownManager;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemCooldowns;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import daamky.ua.api.drag.impl.Notifications;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.HotBarScrollEvent;
@@ -68,11 +68,11 @@ public final class ElytraHelper extends Module {
 
    @SubscribeEvent
    private void onTick(TickEvent.Pre event) {
-      if (mc.player != null && mc.world != null) {
+      if (mc.player != null && mc.level != null) {
          this.updateFireworkUse();
          boolean swapPressed = InventoryBindHelper.isHeld(mc, this.swapBind);
          boolean fireworkPressed = InventoryBindHelper.isHeld(mc, this.fireworkBind);
-         if (mc.currentScreen != null) {
+         if (mc.screen != null) {
             this.lastSwapPressed = swapPressed;
             this.lastFireworkPressed = fireworkPressed;
          } else {
@@ -97,8 +97,8 @@ public final class ElytraHelper extends Module {
    private void onInput(InputEvent event) {
       if (mc.player != null) {
          if (this.autoTakeoff.getValue() && InventoryUtils.isElytraEquipped() && InventoryUtils.isElytraUsable()) {
-            event.setJumping(mc.player.age % 2 == 0);
-            if (!mc.player.isGliding()) {
+            event.setJumping(mc.player.tickCount % 2 == 0);
+            if (!mc.player.isFallFlying()) {
                this.autoFireworkTimer.reset();
             }
          }
@@ -107,7 +107,7 @@ public final class ElytraHelper extends Module {
 
    @SubscribeEvent
    private void onScroll(HotBarScrollEvent event) {
-      if (mc.player != null && mc.world != null && mc.currentScreen == null && !this.isBusy()) {
+      if (mc.player != null && mc.level != null && mc.screen == null && !this.isBusy()) {
          if (InventoryBindHelper.matchesScroll(event, this.swapBind)) {
             event.setCancelled(true);
             this.startArmorSwap();
@@ -159,10 +159,10 @@ public final class ElytraHelper extends Module {
 
    private int cooldownRemainingTicks(ItemStack stack) {
       if (mc.player != null && stack != null && !stack.isEmpty()) {
-         ItemCooldownManager cooldowns = mc.player.getItemCooldownManager();
+         ItemCooldowns cooldowns = mc.player.getCooldowns();
 
          try {
-            Identifier group = cooldowns.getGroup(stack);
+            Identifier group = cooldowns.getCooldownGroup(stack);
             Map<Identifier, ?> activeCooldowns = ((ItemCooldownsAccessor)cooldowns).daamky$getCooldowns();
             if (activeCooldowns.get(group) instanceof ItemCooldownInstanceAccessor accessor) {
                return Math.max(0, accessor.daamky$getEndTime() - ((ItemCooldownsAccessor)cooldowns).daamky$getTickCount());
@@ -170,7 +170,7 @@ public final class ElytraHelper extends Module {
          } catch (RuntimeException var7) {
          }
 
-         float progress = cooldowns.getCooldownProgress(stack, 0.0F);
+         float progress = cooldowns.getCooldownPercent(stack, 0.0F);
          return progress <= 0.0F ? -1 : Math.max(1, Math.round(progress * 20.0F));
       } else {
          return -1;
@@ -191,13 +191,13 @@ public final class ElytraHelper extends Module {
    private void useFirework() {
       if (mc.player != null && InventoryUtils.isElytraEquipped()) {
          if (this.fireworkUseTimer.finished(1.0)) {
-            ItemStack fireworkStack = Items.FIREWORK_ROCKET.getDefaultStack();
-            if (mc.player.getItemCooldownManager().isCoolingDown(fireworkStack)) {
+            ItemStack fireworkStack = Items.FIREWORK_ROCKET.getDefaultInstance();
+            if (mc.player.getCooldowns().isOnCooldown(fireworkStack)) {
                this.notifyItemCooldown("Фейерверк", fireworkStack);
             } else {
                this.previousHotbarSlot = mc.player.getInventory().getSelectedSlot();
                this.restoreInventorySlot = -1;
-               if (mc.player.getMainHandStack().isOf(Items.FIREWORK_ROCKET)) {
+               if (mc.player.getMainHandItem().is(Items.FIREWORK_ROCKET)) {
                   this.startFireworkPhase(ElytraHelper.FireworkPhase.USE, 0);
                } else {
                   int hotbarSlot = InventoryTask.findHotbarSlot(Items.FIREWORK_ROCKET);
@@ -222,7 +222,7 @@ public final class ElytraHelper extends Module {
 
    private void updateFireworkUse() {
       if (this.fireworkPhase != ElytraHelper.FireworkPhase.IDLE) {
-         if (mc.player == null || mc.interactionManager == null || mc.currentScreen != null) {
+         if (mc.player == null || mc.gameMode == null || mc.screen != null) {
             this.resetFireworkUse();
          } else if (this.fireworkPhaseTicks > 0) {
             this.fireworkPhaseTicks--;
@@ -239,9 +239,9 @@ public final class ElytraHelper extends Module {
                   this.startFireworkPhase(ElytraHelper.FireworkPhase.USE, 0);
                   break;
                case USE:
-                  if (mc.player.getMainHandStack().isOf(Items.FIREWORK_ROCKET)) {
-                     mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
-                     mc.player.swingHand(Hand.MAIN_HAND);
+                  if (mc.player.getMainHandItem().is(Items.FIREWORK_ROCKET)) {
+                     mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
+                     mc.player.swing(InteractionHand.MAIN_HAND);
                      this.notifyItemUsed("Фейерверк", false);
                      this.fireworkUseTimer.reset();
                   }
@@ -293,8 +293,8 @@ public final class ElytraHelper extends Module {
       if (mc.player != null) {
          if (!this.autoTakeoff.getValue() || !this.autoFirework.getValue()) {
             this.autoFireworkArmed = false;
-         } else if (this.autoFireworkArmed && mc.currentScreen == null && !this.isBusy()) {
-            if (InventoryUtils.isElytraEquipped() && mc.player.isGliding() && this.autoFireworkTimer.finished(75.0)) {
+         } else if (this.autoFireworkArmed && mc.screen == null && !this.isBusy()) {
+            if (InventoryUtils.isElytraEquipped() && mc.player.isFallFlying() && this.autoFireworkTimer.finished(75.0)) {
                this.useFirework();
                this.autoFireworkArmed = false;
                this.autoFireworkTimer.reset();

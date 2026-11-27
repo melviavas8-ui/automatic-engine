@@ -1,9 +1,9 @@
 package daamky.ua.api.module.impl.misc;
 
 import java.util.Locale;
-import net.minecraft.network.packet.s2c.play.DeathMessageS2CPacket;
-import net.minecraft.text.Text;
-import net.minecraft.text.ClickEvent.CopyToClipboard;
+import net.minecraft.network.chat.ClickEvent.CopyToClipboard;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundPlayerCombatKillPacket;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.PacketEvent;
 import daamky.ua.api.module.Module;
@@ -16,11 +16,11 @@ public final class DeathCoords extends Module {
 
    @SubscribeEvent
    private void onPacket(PacketEvent event) {
-      if (event.isReceive() && mc.player != null && mc.world != null) {
-         if (event.getPacket() instanceof DeathMessageS2CPacket) {
+      if (event.isReceive() && mc.player != null && mc.level != null) {
+         if (event.getPacket() instanceof ClientboundPlayerCombatKillPacket) {
             String coords = String.format(Locale.ROOT, "%.0f %.0f %.0f", mc.player.getX(), mc.player.getY(), mc.player.getZ());
-            Text text = Text.literal(coords).styled(style -> style.withClickEvent(new CopyToClipboard(coords)));
-            mc.player.sendMessage(text, false);
+            Component text = Component.literal(coords).withStyle(style -> style.withClickEvent(new CopyToClipboard(coords)));
+            mc.player.displayClientMessage(text, false);
          }
       }
    }

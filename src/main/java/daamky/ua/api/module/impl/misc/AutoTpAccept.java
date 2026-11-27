@@ -1,7 +1,7 @@
 package daamky.ua.api.module.impl.misc;
 
 import java.util.Locale;
-import net.minecraft.network.packet.s2c.play.GameMessageS2CPacket;
+import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.PacketEvent;
 import daamky.ua.api.events.impl.TickEvent;
@@ -33,7 +33,7 @@ public final class AutoTpAccept extends Module {
 
    @SubscribeEvent
    private void onPacket(PacketEvent event) {
-      if (event.isReceive() && event.getPacket() instanceof GameMessageS2CPacket packet) {
+      if (event.isReceive() && event.getPacket() instanceof ClientboundSystemChatPacket packet) {
          if (!this.isOverlay(packet)) {
             String message = packet.content().getString();
             String lower = message == null ? "" : message.toLowerCase(Locale.ROOT);
@@ -46,8 +46,8 @@ public final class AutoTpAccept extends Module {
 
    @SubscribeEvent
    private void onTick(TickEvent event) {
-      if (mc.player != null && mc.player.networkHandler != null && this.canAccept) {
-         mc.player.networkHandler.sendChatCommand("tpaccept");
+      if (mc.player != null && mc.player.connection != null && this.canAccept) {
+         mc.player.connection.sendCommand("tpaccept");
          this.canAccept = false;
       }
    }
@@ -72,7 +72,7 @@ public final class AutoTpAccept extends Module {
       return false;
    }
 
-   private boolean isOverlay(GameMessageS2CPacket packet) {
+   private boolean isOverlay(ClientboundSystemChatPacket packet) {
       try {
          return packet.overlay();
       } catch (Throwable var3) {

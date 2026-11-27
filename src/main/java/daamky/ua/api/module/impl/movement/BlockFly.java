@@ -1,9 +1,9 @@
 package daamky.ua.api.module.impl.movement;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.phys.Vec3;
 
 public final class BlockFly extends Module {
    private static final double MAX_GROUND_SPEED = 0.16779580771923064;
@@ -30,15 +30,15 @@ public final class BlockFly extends Module {
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
-      if (client.player != null && client.world != null) {
+   public void onTick(Minecraft client) {
+      if (client.player != null && client.level != null) {
          this.enableScaffold();
-         if (client.player.isOnGround()) {
-            Vec3d movement = client.player.getVelocity();
+         if (client.player.onGround()) {
+            Vec3 movement = client.player.getDeltaMovement();
             double horizontalSpeed = Math.hypot(movement.x, movement.z);
             if (!(horizontalSpeed <= 0.16779580771923064) && !(horizontalSpeed <= 1.0E-6)) {
                double scale = 0.16779580771923064 / horizontalSpeed;
-               client.player.setVelocity(movement.x * scale, movement.y, movement.z * scale);
+               client.player.setDeltaMovement(movement.x * scale, movement.y, movement.z * scale);
             }
          }
       }

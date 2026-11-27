@@ -1,28 +1,28 @@
 package daamky.ua.mixin.accessor;
 
-import net.minecraft.client.gui.hud.ChatHud.ChatState;
-import net.minecraft.client.network.ClientConfigurationNetworkHandler;
-import net.minecraft.client.network.ClientRegistries;
-import net.minecraft.client.resource.ClientDataPackManager;
-import net.minecraft.registry.DynamicRegistryManager.Immutable;
-import net.minecraft.resource.featuretoggle.FeatureSet;
+import net.minecraft.client.gui.components.ChatComponent.State;
+import net.minecraft.client.multiplayer.ClientConfigurationPacketListenerImpl;
+import net.minecraft.client.multiplayer.KnownPacksManager;
+import net.minecraft.client.multiplayer.RegistryDataCollector;
+import net.minecraft.core.RegistryAccess.Frozen;
+import net.minecraft.world.flag.FeatureFlagSet;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-@Mixin({ClientConfigurationNetworkHandler.class})
+@Mixin({ClientConfigurationPacketListenerImpl.class})
 public interface ClientConfigurationPacketListenerAccessor {
-   @Accessor("clientRegistries")
-   ClientRegistries daamky$getRegistryDataCollector();
+   @Accessor("registryDataCollector")
+   RegistryDataCollector daamky$getRegistryDataCollector();
 
-   @Accessor("registryManager")
-   Immutable daamky$getReceivedRegistries();
+   @Accessor("receivedRegistries")
+   Frozen daamky$getReceivedRegistries();
 
    @Accessor("enabledFeatures")
-   FeatureSet daamky$getEnabledFeatures();
+   FeatureFlagSet daamky$getEnabledFeatures();
 
-   @Accessor("dataPackManager")
-   ClientDataPackManager daamky$getKnownPacks();
+   @Accessor("knownPacks")
+   KnownPacksManager daamky$getKnownPacks();
 
    @Accessor("chatState")
-   ChatState daamky$getChatState();
+   State daamky$getChatState();
 }

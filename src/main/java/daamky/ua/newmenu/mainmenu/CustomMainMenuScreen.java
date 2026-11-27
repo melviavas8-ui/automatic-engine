@@ -10,18 +10,17 @@ import daamky.ua.newmenu.render.util.RenderColor;
 import daamky.ua.newmenu.render.util.ScissorStack;
 import java.awt.Color;
 import java.util.*;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.input.CharInput;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
-import net.minecraft.client.gui.screen.option.OptionsScreen;
-import net.minecraft.client.gui.screen.world.SelectWorldScreen;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
+import net.minecraft.client.gui.screens.options.OptionsScreen;
+import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import org.joml.Matrix3x2fStack;
 import org.lwjgl.glfw.GLFW;
 
@@ -40,16 +39,16 @@ public final class CustomMainMenuScreen extends Screen {
         SAVED
     }
 
-    private static final Identifier ICON_SINGLEPLAYER = Identifier.of("daamkymenu", "icons/singleplayer_download.png");
-    private static final Identifier ICON_MULTIPLAYER = Identifier.of("daamkymenu", "icons/multiplayer_download.png");
-    private static final Identifier ICON_SETTINGS = Identifier.of("daamkymenu", "icons/settings.png");
-    private static final Identifier ICON_ACCOUNTS = Identifier.of("daamkymenu", "icons/profile.png");
-    private static final Identifier ICON_ADD = Identifier.of("daamkymenu", "icons/add.png");
-    private static final Identifier ICON_SPARKLES = Identifier.of("daamkymenu", "icons/sparkles.png");
-    private static final Identifier ICON_TRASH = Identifier.of("daamkymenu", "icons/trash_preset.png");
-    private static final Identifier ICON_SEARCH = Identifier.of("daamkymenu", "icons/search.png");
-    private static final Identifier ICON_PROXY = Identifier.of("daamkymenu", "icons/zap.png");
-    private static final Identifier ICON_WATERMARK_LOGO = Identifier.of("daamkymenu", "mainmenu/daamky-mark.png");
+    private static final Identifier ICON_SINGLEPLAYER = Identifier.fromNamespaceAndPath("daamkymenu", "icons/singleplayer_download.png");
+    private static final Identifier ICON_MULTIPLAYER = Identifier.fromNamespaceAndPath("daamkymenu", "icons/multiplayer_download.png");
+    private static final Identifier ICON_SETTINGS = Identifier.fromNamespaceAndPath("daamkymenu", "icons/settings.png");
+    private static final Identifier ICON_ACCOUNTS = Identifier.fromNamespaceAndPath("daamkymenu", "icons/profile.png");
+    private static final Identifier ICON_ADD = Identifier.fromNamespaceAndPath("daamkymenu", "icons/add.png");
+    private static final Identifier ICON_SPARKLES = Identifier.fromNamespaceAndPath("daamkymenu", "icons/sparkles.png");
+    private static final Identifier ICON_TRASH = Identifier.fromNamespaceAndPath("daamkymenu", "icons/trash_preset.png");
+    private static final Identifier ICON_SEARCH = Identifier.fromNamespaceAndPath("daamkymenu", "icons/search.png");
+    private static final Identifier ICON_PROXY = Identifier.fromNamespaceAndPath("daamkymenu", "icons/zap.png");
+    private static final Identifier ICON_WATERMARK_LOGO = Identifier.fromNamespaceAndPath("daamkymenu", "mainmenu/daamky-mark.png");
 
     private static final String[] MAIN_SUBTITLES = {
             "Твой следующий мир уже ждёт.",
@@ -150,7 +149,7 @@ public final class CustomMainMenuScreen extends Screen {
 
     private float introProgress(float delaySeconds) {
         if (introStart < 0L) {
-            if (this.client != null && this.client.getOverlay() != null) return 0.0F;
+            if (this.minecraft != null && this.minecraft.getOverlay() != null) return 0.0F;
             introStart = System.currentTimeMillis();
         }
         float t = (System.currentTimeMillis() - introStart) / 1000.0F - delaySeconds;
@@ -176,7 +175,7 @@ public final class CustomMainMenuScreen extends Screen {
     }
 
     public CustomMainMenuScreen() {
-        super(Text.of("daamky"));
+        super(Component.nullToEmpty("daamky"));
     }
 
     @Override
@@ -196,12 +195,12 @@ public final class CustomMainMenuScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
+    public void renderBackground(GuiGraphics context, int mouseX, int mouseY, float delta) {
         // Handled by MenuBackgroundRenderer
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+    public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
         long now = System.currentTimeMillis();
         float dt = Math.min(0.1F, (now - lastFrameTime) / 1000.0F);
         lastFrameTime = now;
@@ -223,8 +222,8 @@ public final class CustomMainMenuScreen extends Screen {
 
         // Exit scheduling
         if (isExiting && now - exitTime > 320L) {
-            if (this.client != null) {
-                this.client.scheduleStop();
+            if (this.minecraft != null) {
+                this.minecraft.stop();
             }
             return;
         }
@@ -253,7 +252,7 @@ public final class CustomMainMenuScreen extends Screen {
     // 1. MAIN MENU VIEW
     // =========================================================================
 
-    private void renderMainMenuView(DrawContext context, int mouseX, int mouseY, float dt, float alpha) {
+    private void renderMainMenuView(GuiGraphics context, int mouseX, int mouseY, float dt, float alpha) {
         if (alpha <= 0.01F) return;
 
         long now = System.currentTimeMillis();
@@ -467,11 +466,11 @@ public final class CustomMainMenuScreen extends Screen {
         }
     }
 
-    private void drawGlassCard(DrawContext context, float x, float y, float w, float h, float radius, float alpha) {
+    private void drawGlassCard(GuiGraphics context, float x, float y, float w, float h, float radius, float alpha) {
         drawGlassCard(context, x, y, w, h, radius, alpha, GlassStyle.CARD);
     }
 
-    private void drawGlassCard(DrawContext context, float x, float y, float w, float h, float radius, float alpha, GlassStyle style) {
+    private void drawGlassCard(GuiGraphics context, float x, float y, float w, float h, float radius, float alpha, GlassStyle style) {
         if (alpha <= 0.01F) return;
         BlurRenderer.drawLiquidGlass(
                 context,
@@ -481,7 +480,7 @@ public final class CustomMainMenuScreen extends Screen {
         );
     }
 
-    private void drawGlassButton(DrawContext context, float x, float y, float w, float h, float radius,
+    private void drawGlassButton(GuiGraphics context, float x, float y, float w, float h, float radius,
                                  float hover, float alpha, GlassStyle style) {
         if (alpha <= 0.01F) return;
         Color tint = interpolateColor(style.idleTint, style.hoverTint, hover);
@@ -511,7 +510,7 @@ public final class CustomMainMenuScreen extends Screen {
      * Shared optical text centering helper:
      * Derives exact mathematical horizontal center and baseline-adjusted vertical center once.
      */
-    private void drawCenteredText(DrawContext context, MsdfFont font, String text,
+    private void drawCenteredText(GuiGraphics context, MsdfFont font, String text,
                                   float x, float y, float w, float h,
                                   float fontSize, int color) {
         if (text == null || text.isEmpty() || (color >>> 24) == 0) return;
@@ -525,7 +524,7 @@ public final class CustomMainMenuScreen extends Screen {
      * Shared icon + label button renderer:
      * Centers [ icon ][ gap ][ label ] as ONE coherent horizontal content group with matching vertical center.
      */
-    private void drawGroupButton(DrawContext context, float x, float y, float w, float h, float radius,
+    private void drawGroupButton(GuiGraphics context, float x, float y, float w, float h, float radius,
                                  float hover, float alpha, GlassStyle style,
                                  Identifier imageIcon, int iconTextureSize, float iconSize,
                                  String text, MsdfFont font, float fontSize, float gap,
@@ -569,7 +568,7 @@ public final class CustomMainMenuScreen extends Screen {
         }
     }
 
-    private void drawBackArrow(DrawContext context, float startX, float centerY, float width, int color) {
+    private void drawBackArrow(GuiGraphics context, float startX, float centerY, float width, int color) {
         float arrowLeft = (float) Math.round(startX);
         float arrowRight = (float) Math.round(startX + width);
         float arrowY = (float) Math.round(centerY);
@@ -580,7 +579,7 @@ public final class CustomMainMenuScreen extends Screen {
         Render2D.drawLine(context, arrowLeft, arrowY, arrowLeft + headSize, arrowY + headSize, stroke, color);
     }
 
-    private void drawBackButton(DrawContext context, float backX, float backY, float backW, float backH,
+    private void drawBackButton(GuiGraphics context, float backX, float backY, float backW, float backH,
                                 float hoverBack, float alpha) {
         if (alpha <= 0.01F) return;
 
@@ -611,7 +610,7 @@ public final class CustomMainMenuScreen extends Screen {
         Fonts.MEDIUM.drawString(context, "Назад", startX + arrowW + gap, textY, fontSize, color);
     }
 
-    private void drawExitSquareButton(DrawContext context, float x, float y, float w, float h,
+    private void drawExitSquareButton(GuiGraphics context, float x, float y, float w, float h,
                                       float hover, float alpha) {
         float radius = 8.0F;
         float bx = (float) Math.round(x);
@@ -637,7 +636,7 @@ public final class CustomMainMenuScreen extends Screen {
     /**
      * Draws a crisp vector Door with Exit Arrow icon.
      */
-    private void drawExitDoorIcon(DrawContext context, float centerX, float centerY, float size, int color) {
+    private void drawExitDoorIcon(GuiGraphics context, float centerX, float centerY, float size, int color) {
         if (context == null || (color >>> 24) == 0) return;
 
         float halfS = size * 0.5F;
@@ -673,7 +672,7 @@ public final class CustomMainMenuScreen extends Screen {
     /**
      * Draws a crisp vector 5-point Star icon.
      */
-    private void drawStarIcon(DrawContext context, float centerX, float centerY, float size, boolean filled, int color) {
+    private void drawStarIcon(GuiGraphics context, float centerX, float centerY, float size, boolean filled, int color) {
         if (context == null || (color >>> 24) == 0) return;
         float rOuter = size * 0.5F;
         float rInner = rOuter * 0.40F;
@@ -700,7 +699,7 @@ public final class CustomMainMenuScreen extends Screen {
         }
     }
 
-    private void drawFavoriteGroupButton(DrawContext context, float x, float y, float w, float h, float radius,
+    private void drawFavoriteGroupButton(GuiGraphics context, float x, float y, float w, float h, float radius,
                                          float hover, float alpha, GlassStyle style,
                                          boolean isFavorite,
                                          String text, MsdfFont font, float fontSize, float gap) {
@@ -742,7 +741,7 @@ public final class CustomMainMenuScreen extends Screen {
         }
     }
 
-    private void drawIconSquareButton(DrawContext context, float x, float y, float w, float h,
+    private void drawIconSquareButton(GuiGraphics context, float x, float y, float w, float h,
                                       Identifier imageIcon, int textureSize, float iconSize,
                                       float hover, float alpha, int iconColor) {
         float radius = 8.0F;
@@ -767,13 +766,13 @@ public final class CustomMainMenuScreen extends Screen {
                 iconSize, RenderColor.multiplyAlpha(activeIconCol, alpha));
     }
 
-    private void drawWatermarkMark(DrawContext context, float centerX, float y, float alpha, long now) {
+    private void drawWatermarkMark(GuiGraphics context, float centerX, float y, float alpha, long now) {
         float size = 22.0F;
         float drawX = (float) Math.round(centerX - size * 0.5F);
         float drawY = (float) Math.round(y);
 
-        if (context != null && context.getMatrices() != null) {
-            Matrix3x2fStack stack = context.getMatrices();
+        if (context != null && context.pose() != null) {
+            Matrix3x2fStack stack = context.pose();
             stack.pushMatrix();
             stack.translate(centerX, y + size * 0.5F);
             stack.rotate((float) Math.toRadians(-7.0f));
@@ -792,7 +791,7 @@ public final class CustomMainMenuScreen extends Screen {
         }
     }
 
-    private void drawUsernameBadge(DrawContext context, String username, float x, float y,
+    private void drawUsernameBadge(GuiGraphics context, String username, float x, float y,
                                    float width, float height, float alpha, float hover) {
         if (alpha <= 0.01F) return;
         String label = username == null || username.isBlank() ? "Player" : username;
@@ -834,17 +833,17 @@ public final class CustomMainMenuScreen extends Screen {
         return (float) Math.round(textW + gap + chevW + 20.0F);
     }
 
-    private void drawMenuIcon(DrawContext context, Identifier icon, int textureSize,
+    private void drawMenuIcon(GuiGraphics context, Identifier icon, int textureSize,
                               float x, float y, float size, int color) {
         if (icon == null || textureSize <= 0 || (color >>> 24) == 0) return;
         int drawSize = Math.max(1, Math.round(size));
         int drawX = Math.round(x);
         int drawY = Math.round(y);
-        context.drawTexture(RenderPipelines.GUI_TEXTURED, icon, drawX, drawY,
+        context.blit(RenderPipelines.GUI_TEXTURED, icon, drawX, drawY,
                 0.0F, 0.0F, drawSize, drawSize, textureSize, textureSize, textureSize, textureSize, color);
     }
 
-    private void drawBadge(DrawContext context, String text, float x, float y, int bg, int textColor, float h, float alpha) {
+    private void drawBadge(GuiGraphics context, String text, float x, float y, int bg, int textColor, float h, float alpha) {
         float fontSize = 7.8F;
         float textW = Fonts.MEDIUM.getWidth(text, fontSize);
         float w = (float) Math.round(textW + 10.0F);
@@ -872,7 +871,7 @@ public final class CustomMainMenuScreen extends Screen {
     // 2. ACCOUNTS VIEW
     // =========================================================================
 
-    private void renderAccountsView(DrawContext context, int mouseX, int mouseY, float dt, float alpha) {
+    private void renderAccountsView(GuiGraphics context, int mouseX, int mouseY, float dt, float alpha) {
         if (alpha <= 0.01F) return;
 
         long now = System.currentTimeMillis();
@@ -1148,7 +1147,7 @@ public final class CustomMainMenuScreen extends Screen {
     // 3. PROXY VIEW
     // =========================================================================
 
-    private void renderProxyView(DrawContext context, int mouseX, int mouseY, float dt, float alpha) {
+    private void renderProxyView(GuiGraphics context, int mouseX, int mouseY, float dt, float alpha) {
         if (alpha <= 0.01F) return;
 
         float centerX = (float) Math.round(this.width * 0.5F);
@@ -1377,7 +1376,7 @@ public final class CustomMainMenuScreen extends Screen {
         drawBottomActionCard(context, act3X, actRowY, actBtnW, actBtnH, "🗄 Проверить все", proxyCheckAllHover, alpha);
     }
 
-    private void drawCategoryPill(DrawContext context, float x, float y, float w, float h,
+    private void drawCategoryPill(GuiGraphics context, float x, float y, float w, float h,
                                   String label, boolean isSelected, int mouseX, int mouseY, float alpha) {
         boolean hov = mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
         GlassStyle style = isSelected ? GlassStyle.ACTIVE_CARD : (hov ? GlassStyle.PRIMARY : GlassStyle.SECONDARY);
@@ -1388,7 +1387,7 @@ public final class CustomMainMenuScreen extends Screen {
         drawCenteredText(context, Fonts.MEDIUM, label, x, y, w, h, fontSize, RenderColor.multiplyAlpha(textColor, alpha));
     }
 
-    private void drawBottomActionCard(DrawContext context, float x, float y, float w, float h,
+    private void drawBottomActionCard(GuiGraphics context, float x, float y, float w, float h,
                                       String label, float hover, float alpha) {
         drawGlassButton(context, x, y, w, h, 5.0F, hover, alpha, GlassStyle.SECONDARY);
         float fontSize = 8.8F;
@@ -1400,7 +1399,7 @@ public final class CustomMainMenuScreen extends Screen {
     // 4. ADD PROXY MODAL DIALOG
     // =========================================================================
 
-    private void renderAddProxyModal(DrawContext context, int mouseX, int mouseY, float dt, float alpha) {
+    private void renderAddProxyModal(GuiGraphics context, int mouseX, int mouseY, float dt, float alpha) {
         if (alpha <= 0.01F) return;
 
         Render2D.drawRound(context, 0, 0, this.width, this.height, 0.0F,
@@ -1472,11 +1471,11 @@ public final class CustomMainMenuScreen extends Screen {
     // MOUSE & KEYBOARD INPUT HANDLING
     // =========================================================================
 
-    private Click daamky$click;
+    private MouseButtonEvent daamky$click;
     private boolean daamky$doubled;
 
     @Override
-    public boolean mouseClicked(Click click, boolean doubled) {
+    public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
         this.daamky$click = click;
         this.daamky$doubled = doubled;
         return handleMouseClicked(click.x(), click.y(), click.button());
@@ -1545,11 +1544,11 @@ public final class CustomMainMenuScreen extends Screen {
                 return true;
             }
             if (isSingleplayerHovered(mouseX, mouseY)) {
-                if (this.client != null) this.client.setScreen(new SelectWorldScreen(this));
+                if (this.minecraft != null) this.minecraft.setScreen(new SelectWorldScreen(this));
                 return true;
             }
             if (isMultiplayerHovered(mouseX, mouseY)) {
-                if (this.client != null) this.client.setScreen(new MultiplayerScreen(this));
+                if (this.minecraft != null) this.minecraft.setScreen(new JoinMultiplayerScreen(this));
                 return true;
             }
             if (isBtnAccountsHovered(mouseX, mouseY)) {
@@ -1559,7 +1558,7 @@ public final class CustomMainMenuScreen extends Screen {
                 return true;
             }
             if (isBtnSettingsHovered(mouseX, mouseY)) {
-                if (this.client != null) this.client.setScreen(new OptionsScreen(this, this.client.options));
+                if (this.minecraft != null) this.minecraft.setScreen(new OptionsScreen(this, this.minecraft.options));
                 return true;
             }
             if (isBtnProxyHovered(mouseX, mouseY)) {
@@ -1849,8 +1848,8 @@ public final class CustomMainMenuScreen extends Screen {
             float act2X = act1X + actBtnW + actGap;
             if (isProxyExportHovered(mouseX, mouseY, act2X, actRowY, actBtnW, 24.0F)) {
                 ProxyManager.ProxyItem active = ProxyManager.getInstance().getActiveProxy();
-                if (active != null && this.client != null && this.client.keyboard != null) {
-                    this.client.keyboard.setClipboard(active.getCombinedString());
+                if (active != null && this.minecraft != null && this.minecraft.keyboardHandler != null) {
+                    this.minecraft.keyboardHandler.setClipboard(active.getCombinedString());
                     showToast("Прокси скопирован в буфер 📋", 0xFF52D68A);
                 } else {
                     showToast("Нет активного прокси", 0xFFFF5C6C);
@@ -1913,12 +1912,12 @@ public final class CustomMainMenuScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(KeyInput input) {
+    public boolean keyPressed(KeyEvent input) {
         this.daamky$key = input;
         return handleKeyPressed(input.key(), input.scancode(), input.modifiers());
     }
 
-    private KeyInput daamky$key;
+    private KeyEvent daamky$key;
 
     private boolean handleKeyPressed(int keyCode, int scanCode, int modifiers) {
         if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
@@ -1997,12 +1996,12 @@ public final class CustomMainMenuScreen extends Screen {
     }
 
     @Override
-    public boolean charTyped(CharInput input) {
+    public boolean charTyped(CharacterEvent input) {
         this.daamky$char = input;
-        return handleCharTyped(input.isValidChar() && !input.asString().isEmpty() ? input.asString().charAt(0) : (char)0, input.modifiers());
+        return handleCharTyped(input.isAllowedChatCharacter() && !input.codepointAsString().isEmpty() ? input.codepointAsString().charAt(0) : (char)0, input.modifiers());
     }
 
-    private CharInput daamky$char;
+    private CharacterEvent daamky$char;
 
     private boolean handleCharTyped(char chr, int modifiers) {
         if (chr >= 32 && chr != 127) {
@@ -2029,8 +2028,8 @@ public final class CustomMainMenuScreen extends Screen {
     }
 
     private void pasteClipboard(java.util.function.Consumer<String> consumer) {
-        if (this.client != null && this.client.keyboard != null) {
-            String clip = this.client.keyboard.getClipboard();
+        if (this.minecraft != null && this.minecraft.keyboardHandler != null) {
+            String clip = this.minecraft.keyboardHandler.getClipboard();
             if (clip != null && !clip.isBlank()) {
                 consumer.accept(clip.trim());
             }
@@ -2197,14 +2196,14 @@ public final class CustomMainMenuScreen extends Screen {
     // UTILITIES
     // =========================================================================
 
-    private void drawAccountHead(DrawContext context, String nickname, float x, float y, float size) {
+    private void drawAccountHead(GuiGraphics context, String nickname, float x, float y, float size) {
         try {
             String clean = nickname == null || nickname.isBlank() ? "Player" : nickname;
             Identifier skinTexture = skinCache.get(clean);
             if (skinTexture == null) {
                 UUID uuid = UUID.nameUUIDFromBytes(("OfflinePlayer:" + clean).getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 boolean slim = (uuid.hashCode() & 1) == 1;
-                skinTexture = Identifier.ofVanilla(slim ? "textures/entity/player/wide/alex.png" : "textures/entity/player/wide/steve.png");
+                skinTexture = Identifier.withDefaultNamespace(slim ? "textures/entity/player/wide/alex.png" : "textures/entity/player/wide/steve.png");
                 skinCache.put(clean, skinTexture);
             }
 
@@ -2233,7 +2232,7 @@ public final class CustomMainMenuScreen extends Screen {
         showToast(message, 0xFF52D68A);
     }
 
-    private void renderStatusToast(DrawContext context) {
+    private void renderStatusToast(GuiGraphics context) {
         if (statusToast.isEmpty()) return;
         long elapsed = System.currentTimeMillis() - statusToastTime;
         if (elapsed > 2800L) {

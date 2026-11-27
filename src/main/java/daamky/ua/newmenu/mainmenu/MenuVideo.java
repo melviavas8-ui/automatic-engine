@@ -1,5 +1,7 @@
 package daamky.ua.newmenu.mainmenu;
 
+import com.mojang.blaze3d.opengl.GlTexture;
+import com.mojang.blaze3d.platform.NativeImage;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -7,10 +9,8 @@ import java.io.InputStream;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.imageio.ImageIO;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.texture.GlTexture;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.DynamicTexture;
 
 /**
  * Plays the main menu background video.
@@ -27,8 +27,8 @@ import net.minecraft.client.texture.NativeImageBackedTexture;
  */
 public final class MenuVideo {
     private static final String RESOURCE = "/assets/daamkymenu/mainmenu/menu_video.bin";
-    private static final net.minecraft.util.Identifier RESOURCE_ID =
-            net.minecraft.util.Identifier.of("daamkymenu", "mainmenu/menu_video.bin");
+    private static final net.minecraft.resources.Identifier RESOURCE_ID =
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("daamkymenu", "mainmenu/menu_video.bin");
     /** The worker stops (and frees the pack) when the menu has not asked for a frame for this long. */
     private static final long IDLE_FREE_NANOS = 20_000_000_000L;
     /** Decoding is paused when the menu is not drawn (other screens are open). */
@@ -46,8 +46,8 @@ public final class MenuVideo {
     private volatile int framesDecoded;
     private volatile int framesShown;
 
-    private NativeImageBackedTexture current;
-    private NativeImageBackedTexture retired;
+    private DynamicTexture current;
+    private DynamicTexture retired;
     private int currentGlId;
 
     private MenuVideo() {
@@ -100,7 +100,7 @@ public final class MenuVideo {
         InputStream stream = MenuVideo.class.getResourceAsStream(RESOURCE);
         if (stream != null) return stream;
 
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc != null && mc.getResourceManager() != null) {
             return mc.getResourceManager().open(RESOURCE_ID);
         }
@@ -108,20 +108,20 @@ public final class MenuVideo {
     }
 
     private void upload(NativeImage image) {
-        NativeImageBackedTexture texture = null;
+        DynamicTexture texture = null;
         try {
-            texture = new NativeImageBackedTexture(() -> "daamky_menu_video", image);
+            texture = new DynamicTexture(() -> "daamky_menu_video", image);
             texture.upload();
-            if (texture.getGlTexture() instanceof GlTexture glTexture) {
+            if (texture.getTexture() instanceof GlTexture glTexture) {
                 // The previous frame may still be referenced by the frame being drawn, so it is freed one frame later.
                 if (retired != null) retired.close();
                 retired = current;
                 current = texture;
-                currentGlId = glTexture.getGlId();
+                currentGlId = glTexture.glId();
                 framesShown++;
                 status = "играет, кадров показано: " + framesShown + (useImageIo ? " (ImageIO)" : " (NativeImage)");
             } else {
-                String type = texture.getGlTexture() == null ? "null" : texture.getGlTexture().getClass().getName();
+                String type = texture.getTexture() == null ? "null" : texture.getTexture().getClass().getName();
                 texture.close();
                 if (!failed) {
                     failed = true;
@@ -161,7 +161,7 @@ public final class MenuVideo {
             for (int y = 0; y < h; y++) {
                 int row = y * w;
                 for (int x = 0; x < w; x++) {
-                    image.setColorArgb(x, y, argb[row + x] | 0xFF000000);
+                    image.setPixel(x, y, argb[row + x] | 0xFF000000);
                 }
             }
         } catch (RuntimeException exception) {

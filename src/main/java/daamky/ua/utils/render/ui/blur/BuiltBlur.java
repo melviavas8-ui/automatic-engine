@@ -1,7 +1,7 @@
 package daamky.ua.utils.render.ui.blur;
 
-import net.minecraft.client.gui.DrawContext;
 import daamky.ua.utils.render.color.ColorUtil;
+import net.minecraft.client.gui.GuiGraphics;
 
 public record BuiltBlur(
    float x,
@@ -41,7 +41,7 @@ public record BuiltBlur(
       this(x, y, width, height, radiusTopLeft, radiusTopRight, radiusBottomRight, radiusBottomLeft, smoothness, blurRadius, color, color, color, color);
    }
 
-   public void render(DrawContext graphics) {
+   public void render(GuiGraphics graphics) {
       BlurFramebuffer.getInstance().draw(graphics, this);
    }
 

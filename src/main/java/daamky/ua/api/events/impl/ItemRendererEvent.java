@@ -1,26 +1,26 @@
 package daamky.ua.api.events.impl;
 
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.Hand;
 import daamky.ua.api.events.Event;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
 
 public final class ItemRendererEvent implements Event {
-   private AbstractClientPlayerEntity player;
+   private AbstractClientPlayer player;
    private ItemStack stack;
-   private Hand hand;
+   private InteractionHand hand;
 
-   public ItemRendererEvent(AbstractClientPlayerEntity player, ItemStack stack, Hand hand) {
+   public ItemRendererEvent(AbstractClientPlayer player, ItemStack stack, InteractionHand hand) {
       this.player = player;
       this.stack = stack;
       this.hand = hand;
    }
 
-   public AbstractClientPlayerEntity getPlayer() {
+   public AbstractClientPlayer getPlayer() {
       return this.player;
    }
 
-   public void setPlayer(AbstractClientPlayerEntity player) {
+   public void setPlayer(AbstractClientPlayer player) {
       this.player = player;
    }
 
@@ -32,11 +32,11 @@ public final class ItemRendererEvent implements Event {
       this.stack = stack;
    }
 
-   public Hand getHand() {
+   public InteractionHand getHand() {
       return this.hand;
    }
 
-   public void setHand(Hand hand) {
+   public void setHand(InteractionHand hand) {
       this.hand = hand;
    }
 }

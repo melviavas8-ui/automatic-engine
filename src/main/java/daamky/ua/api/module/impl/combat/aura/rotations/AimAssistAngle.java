@@ -1,13 +1,13 @@
 package daamky.ua.api.module.impl.combat.aura.rotations;
 
 import java.util.concurrent.ThreadLocalRandom;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.client.Minecraft;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.api.module.impl.combat.aura.impl.RotateConstructor;
 
@@ -40,8 +40,8 @@ public final class AimAssistAngle extends RotateConstructor {
    private double nextPointZ;
    private long nextPointChangeAtMs;
    private double pointLerpSpeed;
-   private RegistryKey<World> worldKey;
-   MinecraftClient client = MinecraftClient.getInstance();
+   private ResourceKey<Level> worldKey;
+   Minecraft client = Minecraft.getInstance();
 
    public AimAssistAngle() {
       super("AimAssist");
@@ -49,9 +49,9 @@ public final class AimAssistAngle extends RotateConstructor {
    }
 
    @Override
-   public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3d vec3d, Entity entity) {
-      if (this.client != null && this.client.player != null && this.client.world != null) {
-         RegistryKey<World> currentWorldKey = this.client.world.getRegistryKey();
+   public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3 vec3d, Entity entity) {
+      if (this.client != null && this.client.player != null && this.client.level != null) {
+         ResourceKey<Level> currentWorldKey = this.client.level.dimension();
          if (this.worldKey == null) {
             this.worldKey = currentWorldKey;
          } else if (!this.worldKey.equals(currentWorldKey)) {
@@ -62,7 +62,7 @@ public final class AimAssistAngle extends RotateConstructor {
 
          long frameNs = System.nanoTime();
          double frameScale = this.lastFrameNs > 0L ? (double)(frameNs - this.lastFrameNs) / 6.0E7 : 1.0;
-         frameScale = MathHelper.clamp(frameScale, 0.05, 3.0);
+         frameScale = Mth.clamp(frameScale, 0.05, 3.0);
          this.lastFrameNs = frameNs;
          long nowMs = System.currentTimeMillis();
          this.updateHumanization(nowMs, frameScale);
@@ -73,10 +73,10 @@ public final class AimAssistAngle extends RotateConstructor {
       }
    }
 
-   private Angle rotateToTarget(Angle currentAngle, MinecraftClient client, LivingEntity selectedTarget, double frameScale, long nowMs) {
-      Vec3d eyePos = client.player.getEyePos();
-      Vec3d targetPoint = this.getAimPoint(selectedTarget);
-      Vec3d delta = targetPoint.subtract(eyePos);
+   private Angle rotateToTarget(Angle currentAngle, Minecraft client, LivingEntity selectedTarget, double frameScale, long nowMs) {
+      Vec3 eyePos = client.player.getEyePosition();
+      Vec3 targetPoint = this.getAimPoint(selectedTarget);
+      Vec3 delta = targetPoint.subtract(eyePos);
       double horizontal = Math.sqrt(delta.x * delta.x + delta.z * delta.z);
       if (horizontal < 1.0E-4) {
          return currentAngle;
@@ -84,17 +84,17 @@ public final class AimAssistAngle extends RotateConstructor {
          float currentYaw = currentAngle.getYaw();
          float currentPitch = currentAngle.getPitch();
          double targetYaw = Math.toDegrees(Math.atan2(-delta.x, delta.z));
-         double targetPitch = MathHelper.clamp(-Math.toDegrees(Math.atan2(delta.y, horizontal)), -90.0, 90.0);
-         double yawDiff = MathHelper.wrapDegrees(targetYaw - (double)currentYaw);
+         double targetPitch = Mth.clamp(-Math.toDegrees(Math.atan2(delta.y, horizontal)), -90.0, 90.0);
+         double yawDiff = Mth.wrapDegrees(targetYaw - (double)currentYaw);
          double pitchDiff = 0.0;
-         double response = MathHelper.clamp(0.5, 0.08, 1.0);
+         double response = Mth.clamp(0.5, 0.08, 1.0);
          double maxYawStep = Math.max(0.35, 10.0 * frameScale * this.speedMultiplier);
          double maxPitchStep = 0.0;
-         double followStrength = MathHelper.clamp(0.18 * frameScale + response * 0.45, 0.08, 1.0);
+         double followStrength = Mth.clamp(0.18 * frameScale + response * 0.45, 0.08, 1.0);
          this.aimYawVelocity = this.smoothStep(this.aimYawVelocity, yawDiff * response, followStrength);
          this.aimPitchVelocity = this.smoothStep(this.aimPitchVelocity, pitchDiff * response, followStrength);
-         double yawStep = MathHelper.clamp(this.aimYawVelocity, -maxYawStep, maxYawStep);
-         double pitchStep = MathHelper.clamp(this.aimPitchVelocity, -maxPitchStep, maxPitchStep);
+         double yawStep = Mth.clamp(this.aimYawVelocity, -maxYawStep, maxYawStep);
+         double pitchStep = Mth.clamp(this.aimPitchVelocity, -maxPitchStep, maxPitchStep);
          double secondsOnTarget = (double)(nowMs - this.targetAcquiredAtMs) / 1000.0;
          yawStep += Math.sin(this.yawWavePhase + secondsOnTarget * this.yawWaveSpeed * 6.0) * 0.08 * frameScale;
          pitchStep += Math.cos(this.pitchWavePhase + secondsOnTarget * this.pitchWaveSpeed * 6.0) * 0.05 * frameScale;
@@ -111,7 +111,7 @@ public final class AimAssistAngle extends RotateConstructor {
          this.previousYawStep = yawStep;
          this.previousPitchStep = pitchStep;
          float newYaw = currentYaw + (float)yawStep;
-         float newPitch = MathHelper.clamp(currentPitch + (float)pitchStep, -90.0F, 90.0F);
+         float newPitch = Mth.clamp(currentPitch + (float)pitchStep, -90.0F, 90.0F);
          if (!Float.isNaN(newYaw) && !Float.isNaN(newPitch)) {
             this.previousYawStep = yawStep;
             this.previousPitchStep = pitchStep;
@@ -122,26 +122,26 @@ public final class AimAssistAngle extends RotateConstructor {
       }
    }
 
-   private Vec3d getAimPoint(Entity entity) {
+   private Vec3 getAimPoint(Entity entity) {
       double heightFraction = -0.3F + this.heightNoise;
       double offsetX = 0.0;
       double offsetZ = 0.0;
-      double horizontalRadius = (double)entity.getWidth() * 0.5;
+      double horizontalRadius = (double)entity.getBbWidth() * 0.5;
       offsetX = this.currentPointX * horizontalRadius;
       offsetZ = this.currentPointZ * horizontalRadius;
       heightFraction += this.currentPointY;
-      return entity.getEntityPos().add(offsetX, (double)entity.getHeight() * MathHelper.clamp(heightFraction, 0.05, 0.95), offsetZ);
+      return entity.position().add(offsetX, (double)entity.getBbHeight() * Mth.clamp(heightFraction, 0.05, 0.95), offsetZ);
    }
 
-   private double getAngleTo(Vec3d eyePos, Vec3d lookVec, Entity entity) {
-      Vec3d targetVec = this.getAimPoint(entity).subtract(eyePos);
+   private double getAngleTo(Vec3 eyePos, Vec3 lookVec, Entity entity) {
+      Vec3 targetVec = this.getAimPoint(entity).subtract(eyePos);
       double length = targetVec.length();
       if (length < 0.001) {
          return 0.0;
       } else {
-         targetVec = targetVec.multiply(1.0 / length);
+         targetVec = targetVec.scale(1.0 / length);
          double dot = lookVec.x * targetVec.x + lookVec.y * targetVec.y + lookVec.z * targetVec.z;
-         return Math.toDegrees(Math.acos(MathHelper.clamp(dot, -1.0, 1.0)));
+         return Math.toDegrees(Math.acos(Mth.clamp(dot, -1.0, 1.0)));
       }
    }
 
@@ -157,14 +157,14 @@ public final class AimAssistAngle extends RotateConstructor {
          this.randomizePoint(nowMs);
       }
 
-      double lerpFactor = MathHelper.clamp(this.pointLerpSpeed * frameScale, 0.01, 1.0);
+      double lerpFactor = Mth.clamp(this.pointLerpSpeed * frameScale, 0.01, 1.0);
       this.currentPointX = lerp(this.currentPointX, this.nextPointX, lerpFactor);
       this.currentPointY = lerp(this.currentPointY, this.nextPointY, lerpFactor);
       this.currentPointZ = lerp(this.currentPointZ, this.nextPointZ, lerpFactor);
    }
 
    private static double lerp(double from, double to, double progress) {
-      return from + (to - from) * MathHelper.clamp(progress, 0.0, 1.0);
+      return from + (to - from) * Mth.clamp(progress, 0.0, 1.0);
    }
 
    private void resetState() {
@@ -215,8 +215,8 @@ public final class AimAssistAngle extends RotateConstructor {
    }
 
    @Override
-   public Vec3d randomValue() {
-      return Vec3d.ZERO;
+   public Vec3 randomValue() {
+      return Vec3.ZERO;
    }
 
    private void randomizeProfile() {
@@ -234,7 +234,7 @@ public final class AimAssistAngle extends RotateConstructor {
    }
 
    private double smoothStep(double previousValue, double targetValue, double response) {
-      double clampedResponse = MathHelper.clamp(response, 0.05, 1.0);
+      double clampedResponse = Mth.clamp(response, 0.05, 1.0);
       return previousValue + (targetValue - previousValue) * clampedResponse;
    }
 

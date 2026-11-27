@@ -1,10 +1,10 @@
 package daamky.ua.voice;
 
 import java.awt.Color;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.Component;
 import daamky.ua.api.module.Module;
 import daamky.ua.utils.render.ui.Render2D;
 import daamky.ua.utils.render.ui.font.FontType;
@@ -21,7 +21,7 @@ public final class VoiceBindScreen extends Screen {
    private long openedAt;
 
    public VoiceBindScreen(Screen parent, Module module) {
-      super(Text.literal("Голосовой бинд"));
+      super(Component.literal("Голосовой бинд"));
       this.parent = parent;
       this.module = module;
    }
@@ -30,7 +30,7 @@ public final class VoiceBindScreen extends Screen {
       this.openedAt = System.currentTimeMillis();
    }
 
-   public void render(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
+   public void render(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
       float progress = Math.min(1.0F, (float)(System.currentTimeMillis() - this.openedAt) / 220.0F);
       progress = 1.0F - (1.0F - progress) * (1.0F - progress) * (1.0F - progress);
       float panelX = ((float)this.width - 390.0F) * 0.5F;
@@ -205,7 +205,7 @@ public final class VoiceBindScreen extends Screen {
       Render2D.rect(x + 2.0F, y + 11.5F, 6.0F, 1.2F, 0.6F, color);
    }
 
-   public boolean mouseClicked(Click click, boolean doubled) {
+   public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
       if (click.button() != 0) {
          return true;
       } else {
@@ -215,7 +215,7 @@ public final class VoiceBindScreen extends Screen {
             this.voice.setBackgroundEnabled(!this.voice.isBackgroundEnabled());
             return true;
          } else if (inside(click.x(), click.y(), panelX + 358.0F, panelY + 20.0F, 18.0F, 20.0F)) {
-            this.close();
+            this.onClose();
             return true;
          } else {
             float wakeX = panelX + 18.0F;
@@ -256,15 +256,15 @@ public final class VoiceBindScreen extends Screen {
       }
    }
 
-   public void close() {
+   public void onClose() {
       if (this.voice.isRecording()) {
          this.voice.cancelRecording();
       }
 
-      this.client.setScreen(this.parent);
+      this.minecraft.setScreen(this.parent);
    }
 
-   public boolean shouldPause() {
+   public boolean isPauseScreen() {
       return false;
    }
 

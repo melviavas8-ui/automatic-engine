@@ -1,11 +1,11 @@
 package daamky.ua.utils.inventory.bind;
 
-import net.minecraft.client.MinecraftClient;
 import org.lwjgl.glfw.GLFW;
 import daamky.ua.api.events.impl.HotBarScrollEvent;
 import daamky.ua.api.settings.bind.InputType;
 import daamky.ua.api.settings.bind.KeyBind;
 import daamky.ua.api.settings.impl.BindSetting;
+import net.minecraft.client.Minecraft;
 
 public final class InventoryBindHelper {
    public static final int SCROLL_UP_BIND = 1000;
@@ -15,11 +15,11 @@ public final class InventoryBindHelper {
    private InventoryBindHelper() {
    }
 
-   public static boolean isHeld(MinecraftClient mc, BindSetting bind) {
+   public static boolean isHeld(Minecraft mc, BindSetting bind) {
       if (mc != null && mc.getWindow() != null && bind != null) {
          KeyBind keyBind = bind.getValue();
          if (keyBind != null && keyBind.isBound()) {
-            return keyBind.getCode() == 1002 ? GLFW.glfwGetMouseButton(mc.getWindow().getHandle(), 2) == 1 : keyBind.isDown(mc.getWindow().getHandle());
+            return keyBind.getCode() == 1002 ? GLFW.glfwGetMouseButton(mc.getWindow().handle(), 2) == 1 : keyBind.isDown(mc.getWindow().handle());
          } else {
             return false;
          }

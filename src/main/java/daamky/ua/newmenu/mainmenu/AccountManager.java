@@ -7,8 +7,8 @@ import java.io.FileWriter;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.session.Session;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.User;
 
 public final class AccountManager {
     private static final Random RANDOM = new Random();
@@ -106,8 +106,8 @@ public final class AccountManager {
     }
 
     private void initFile() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        File baseDir = (mc != null && mc.runDirectory != null) ? mc.runDirectory : new File(".");
+        Minecraft mc = Minecraft.getInstance();
+        File baseDir = (mc != null && mc.gameDirectory != null) ? mc.gameDirectory : new File(".");
         File configDir = new File(baseDir, "config");
         if (!configDir.exists()) {
             configDir.mkdirs();
@@ -163,9 +163,9 @@ public final class AccountManager {
     }
 
     public String getActiveAccount() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc != null && mc.getSession() != null) {
-            String current = mc.getSession().getUsername();
+        Minecraft mc = Minecraft.getInstance();
+        if (mc != null && mc.getUser() != null) {
+            String current = mc.getUser().getName();
             if (current != null && !current.isBlank()) {
                 activeAccount = current;
                 boolean found = false;
@@ -234,12 +234,12 @@ public final class AccountManager {
         String clean = nickname.trim();
         if (clean.length() > 16) clean = clean.substring(0, 16);
 
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc == null) return false;
 
         try {
             UUID uuid = UUID.nameUUIDFromBytes(("OfflinePlayer:" + clean).getBytes(StandardCharsets.UTF_8));
-            Session newSession = new Session(
+            User newSession = new User(
                 clean,
                 uuid,
                 "",
@@ -296,9 +296,9 @@ public final class AccountManager {
     public void load() {
         accountEntries.clear();
         try {
-            MinecraftClient mc = MinecraftClient.getInstance();
-            if (mc != null && mc.getSession() != null) {
-                activeAccount = mc.getSession().getUsername();
+            Minecraft mc = Minecraft.getInstance();
+            if (mc != null && mc.getUser() != null) {
+                activeAccount = mc.getUser().getName();
                 if (activeAccount != null && !activeAccount.isBlank()) {
                     accountEntries.add(new AccountEntry(activeAccount, getCurrentDateString(), false, false));
                 }

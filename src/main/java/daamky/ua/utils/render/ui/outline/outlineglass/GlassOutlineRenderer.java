@@ -5,16 +5,16 @@ import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.resources.Identifier;
 import org.joml.Matrix3x2f;
 import org.lwjgl.system.MemoryStack;
 import daamky.ua.mixin.accessor.GuiGraphicsExtractorAccessor;
@@ -34,7 +34,7 @@ public final class GlassOutlineRenderer implements AutoCloseable {
       .withLocation(id("pipeline/outline_glass"))
       .withVertexShader(id("ui/outline_glass/outline_glass"))
       .withFragmentShader(id("ui/outline_glass/outline_glass"))
-      .withVertexFormat(VertexFormats.POSITION_COLOR_LINE_WIDTH, DrawMode.QUADS)
+      .withVertexFormat(DefaultVertexFormat.POSITION_COLOR_LINE_WIDTH, Mode.QUADS)
       .withBlend(BlendFunction.TRANSLUCENT)
       .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
       .withCull(false)
@@ -45,7 +45,7 @@ public final class GlassOutlineRenderer implements AutoCloseable {
       .withUniform("BlurRegion", UniformType.UNIFORM_BUFFER)
       .build();
    private final List<BuiltGlassOutline> preparedOutlines = new ArrayList<>(128);
-   private DrawContext activeGraphics;
+   private GuiGraphics activeGraphics;
    private GpuBuffer paramsBuffer;
    private boolean paramsDirty = true;
 
@@ -75,11 +75,11 @@ public final class GlassOutlineRenderer implements AutoCloseable {
       }
    }
 
-   public void beginFrame(DrawContext graphics) {
+   public void beginFrame(GuiGraphics graphics) {
       this.activeGraphics = graphics;
    }
 
-   public void draw(DrawContext graphics, BuiltGlassOutline outline) {
+   public void draw(GuiGraphics graphics, BuiltGlassOutline outline) {
       this.beginFrame(graphics);
       this.enqueue(outline);
       this.flush();
@@ -157,7 +157,7 @@ public final class GlassOutlineRenderer implements AutoCloseable {
       }
    }
 
-   private void submit(DrawContext graphics, BuiltGlassOutline outline) {
+   private void submit(GuiGraphics graphics, BuiltGlassOutline outline) {
       if (graphics != null && outline != null && outline.visible()) {
          try {
             BuiltGlassOutline normalized = this.normalize(outline);
@@ -181,7 +181,7 @@ public final class GlassOutlineRenderer implements AutoCloseable {
                );
             ((GuiGraphicsExtractorAccessor)graphics)
                .daamky$getGuiRenderState()
-               .addSimpleElement(new GlassOutlineRenderState(pose, normalized, ScissorUtil.current()));
+               .submitGuiElement(new GlassOutlineRenderState(pose, normalized, ScissorUtil.current()));
          } catch (RuntimeException var5) {
          }
       }
@@ -340,7 +340,7 @@ public final class GlassOutlineRenderer implements AutoCloseable {
    }
 
    private static Identifier id(String path) {
-      return Identifier.of("daamky", path);
+      return Identifier.fromNamespaceAndPath("daamky", path);
    }
 
    @Override

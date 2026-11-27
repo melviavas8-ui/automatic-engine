@@ -6,10 +6,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
 import daamky.ua.api.module.impl.visual.esp.EspGeometry;
 import daamky.ua.utils.render.animation.Easings;
 import daamky.ua.utils.render.animation.SmoothAnimation;
@@ -41,7 +41,7 @@ public final class WayRenderer {
       this.frameBobOffset = this.bobOffset();
    }
 
-   public void queue(MinecraftClient mc, Way way, EspGeometry.ScreenPoint screen, double distance) {
+   public void queue(Minecraft mc, Way way, EspGeometry.ScreenPoint screen, double distance) {
       if (mc != null && mc.getWindow() != null && way != null && screen != null) {
          if (Double.isFinite(screen.x()) && Double.isFinite(screen.y()) && Double.isFinite(screen.z()) && !(screen.z() < 0.0)) {
             WayRenderer.DistanceState distanceState = this.distanceStates.computeIfAbsent(WayRenderer.WayKey.of(way), key -> new WayRenderer.DistanceState());
@@ -55,8 +55,8 @@ public final class WayRenderer {
             float distanceSlotWidth = distanceState.stableSlotWidth(Math.max(distanceWidth, this.minDistanceSlotWidth()));
             float width = nameWidth + separatorWidth + distanceSlotWidth + this.style.paddingX * 2.0F;
             float height = this.style.height;
-            int screenWidth = mc.getWindow().getScaledWidth();
-            int screenHeight = mc.getWindow().getScaledHeight();
+            int screenWidth = mc.getWindow().getGuiScaledWidth();
+            int screenHeight = mc.getWindow().getGuiScaledHeight();
             float rawCenterX = (float)screen.x();
             float rawCenterY = (float)screen.y();
             float rawX = rawCenterX - width * 0.5F;
@@ -99,20 +99,20 @@ public final class WayRenderer {
       }
    }
 
-   public void renderQueued(DrawContext graphics) {
+   public void renderQueued(GuiGraphics graphics) {
       if (graphics != null && !this.entries.isEmpty()) {
          for (WayRenderer.RenderEntry entry : this.entries) {
             this.renderBackground(entry);
          }
 
-         graphics.createNewRootLayer();
+         graphics.nextStratum();
          Render2D.beginFrame(graphics);
 
          for (WayRenderer.RenderEntry entry : this.entries) {
             this.renderText(entry);
          }
 
-         graphics.createNewRootLayer();
+         graphics.nextStratum();
          Render2D.beginFrame(graphics);
       }
    }
@@ -189,7 +189,7 @@ public final class WayRenderer {
    }
 
    private float safeRadius(float width, float height, float radius) {
-      return MathHelper.clamp(radius, 0.0F, Math.max(0.0F, Math.min(width, height) * 0.5F));
+      return Mth.clamp(radius, 0.0F, Math.max(0.0F, Math.min(width, height) * 0.5F));
    }
 
    private void pruneDistanceStates() {
@@ -246,7 +246,7 @@ public final class WayRenderer {
             long elapsedMillis = Math.max(0L, now - this.lastScreenUpdateMillis);
             float dx = targetX - this.screenX;
             float dy = targetY - this.screenY;
-            float distance = MathHelper.sqrt(dx * dx + dy * dy);
+            float distance = Mth.sqrt(dx * dx + dy * dy);
             if (elapsedMillis <= style.screenResyncMillis && !(distance >= style.screenSnapDistance)) {
                this.lastScreenUpdateMillis = now;
                double deltaSeconds = Math.min((double)elapsedMillis / 1000.0, 0.08);

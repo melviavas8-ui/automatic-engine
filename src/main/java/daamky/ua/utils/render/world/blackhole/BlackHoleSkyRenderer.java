@@ -4,7 +4,9 @@ import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.GpuDevice;
 import com.mojang.blaze3d.systems.RenderPass;
@@ -12,14 +14,12 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.textures.TextureFormat;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.nio.ByteBuffer;
 import java.util.OptionalInt;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 import org.lwjgl.system.MemoryStack;
@@ -27,9 +27,9 @@ import daamky.ua.utils.render.RenderSampler;
 
 public final class BlackHoleSkyRenderer {
    private static final int UNIFORM_SIZE = 192;
-   private static final Identifier PIPELINE_ID = Identifier.of("daamky", "pipeline/world/blackhole");
-   private static final Identifier VERTEX_SHADER = Identifier.of("daamky", "world/blackhole/blackhole");
-   private static final Identifier FRAGMENT_SHADER = Identifier.of("daamky", "world/blackhole/blackhole");
+   private static final Identifier PIPELINE_ID = Identifier.fromNamespaceAndPath("daamky", "pipeline/world/blackhole");
+   private static final Identifier VERTEX_SHADER = Identifier.fromNamespaceAndPath("daamky", "world/blackhole/blackhole");
+   private static final Identifier FRAGMENT_SHADER = Identifier.fromNamespaceAndPath("daamky", "world/blackhole/blackhole");
    private static final float SKY_DEPTH_THRESHOLD = 0.9995F;
    private static final long START_NANOS = System.nanoTime();
    private static RenderPipeline pipeline;
@@ -51,23 +51,23 @@ public final class BlackHoleSkyRenderer {
       closeDepthCopy();
    }
 
-   public static void render(Framebuffer renderTarget, Matrix4fc projectionMatrix, Matrix4fc viewMatrix, BlackHoleSettings settings) {
+   public static void render(RenderTarget renderTarget, Matrix4fc projectionMatrix, Matrix4fc viewMatrix, BlackHoleSettings settings) {
       if (!disabledAfterError && renderTarget != null && settings != null) {
          if (projectionMatrix != null && viewMatrix != null) {
-            if (renderTarget.getColorAttachmentView() != null && renderTarget.getDepthAttachment() != null) {
-               if (renderTarget.textureWidth > 0 && renderTarget.textureHeight > 0) {
+            if (renderTarget.getColorTextureView() != null && renderTarget.getDepthTexture() != null) {
+               if (renderTarget.width > 0 && renderTarget.height > 0) {
                   init();
                   if (pipeline != null && uniformBuffer != null) {
-                     if (ensureDepthCopy(renderTarget.textureWidth, renderTarget.textureHeight)) {
+                     if (ensureDepthCopy(renderTarget.width, renderTarget.height)) {
                         try {
                            CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
                            encoder.copyTextureToTexture(
-                              renderTarget.getDepthAttachment(), depthCopyTexture, 0, 0, 0, 0, 0, renderTarget.textureWidth, renderTarget.textureHeight
+                              renderTarget.getDepthTexture(), depthCopyTexture, 0, 0, 0, 0, 0, renderTarget.width, renderTarget.height
                            );
                            Matrix4f inverseViewProjection = new Matrix4f(projectionMatrix).mul(viewMatrix).invert();
                            writeUniform(encoder, inverseViewProjection, settings);
                            RenderPass renderPass = encoder.createRenderPass(
-                              () -> "daamky:black_hole_sky", renderTarget.getColorAttachmentView(), OptionalInt.empty()
+                              () -> "daamky:black_hole_sky", renderTarget.getColorTextureView(), OptionalInt.empty()
                            );
 
                            try {
@@ -113,7 +113,7 @@ public final class BlackHoleSkyRenderer {
                      .withLocation(PIPELINE_ID)
                      .withVertexShader(VERTEX_SHADER)
                      .withFragmentShader(FRAGMENT_SHADER)
-                     .withVertexFormat(VertexFormats.EMPTY, DrawMode.TRIANGLES)
+                     .withVertexFormat(DefaultVertexFormat.EMPTY, Mode.TRIANGLES)
                      .withUniform("BlackHoleData", UniformType.UNIFORM_BUFFER)
                      .withSampler("DepthSampler")
                      .withBlend(BlendFunction.TRANSLUCENT)

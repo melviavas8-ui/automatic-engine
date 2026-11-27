@@ -1,7 +1,7 @@
 package daamky.ua.api.events.impl;
 
-import net.minecraft.client.gui.screen.Screen;
 import daamky.ua.api.events.CancellableEvent;
+import net.minecraft.client.gui.screens.Screen;
 
 public final class CloseScreenEvent extends CancellableEvent {
    private final Screen screen;

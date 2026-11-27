@@ -15,10 +15,10 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ChatScreen;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.input.MouseButtonEvent;
 import daamky.ua.api.config.ConfigManager;
 import daamky.ua.utils.render.LoadingVisualGuard;
 
@@ -87,7 +87,7 @@ public final class ElementManager {
       }
    }
 
-   public boolean handleMouseClicked(Click event) {
+   public boolean handleMouseClicked(MouseButtonEvent event) {
       if (event != null && event.button() == 0 && this.canEdit()) {
          this.frame(ElementScreen.current());
          ElementComponent hovered = this.topmostAt((float)event.x(), (float)event.y());
@@ -104,7 +104,7 @@ public final class ElementManager {
       }
    }
 
-   public boolean handleMouseDragged(Click event) {
+   public boolean handleMouseDragged(MouseButtonEvent event) {
       if (event != null && this.active != null && this.canEdit()) {
          this.active.moveTo((float)event.x(), (float)event.y(), this.screen);
          this.resolveActiveCollision();
@@ -116,20 +116,20 @@ public final class ElementManager {
 
    public void updateActiveElementFromMouse() {
       if (this.active != null && this.canEdit()) {
-         MinecraftClient client = MinecraftClient.getInstance();
-         if (client != null && client.mouse != null && client.getWindow() != null) {
+         Minecraft client = Minecraft.getInstance();
+         if (client != null && client.mouseHandler != null && client.getWindow() != null) {
             ElementScreen currentScreen = ElementScreen.current();
             this.frame(currentScreen);
             float scale = Math.max(1.0E-4F, currentScreen.coordinateScale());
-            float mouseX = (float)client.mouse.getScaledX(client.getWindow()) / scale;
-            float mouseY = (float)client.mouse.getScaledY(client.getWindow()) / scale;
+            float mouseX = (float)client.mouseHandler.getScaledXPos(client.getWindow()) / scale;
+            float mouseY = (float)client.mouseHandler.getScaledYPos(client.getWindow()) / scale;
             this.active.moveTo(mouseX, mouseY, this.screen);
             this.resolveActiveCollision();
          }
       }
    }
 
-   public boolean handleMouseReleased(Click event) {
+   public boolean handleMouseReleased(MouseButtonEvent event) {
       if (this.active == null) {
          return false;
       } else {
@@ -165,7 +165,7 @@ public final class ElementManager {
       return this.canEdit();
    }
 
-   public void renderEditorOverlay(DrawContext graphics, ElementScreen screen) {
+   public void renderEditorOverlay(GuiGraphics graphics, ElementScreen screen) {
       if (this.canEdit()) {
          this.frame(screen);
 
@@ -409,11 +409,11 @@ public final class ElementManager {
    }
 
    private boolean canEdit() {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       return client != null
          && client.player != null
-         && client.world != null
-         && client.currentScreen instanceof ChatScreen
+         && client.level != null
+         && client.screen instanceof ChatScreen
          && !LoadingVisualGuard.shouldSuppressHud(client);
    }
 

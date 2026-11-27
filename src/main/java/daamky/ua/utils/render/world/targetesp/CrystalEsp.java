@@ -1,21 +1,21 @@
 package daamky.ua.utils.render.world.targetesp;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider.Immediate;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.util.math.MatrixStack.Entry;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.MathHelper;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.PoseStack.Pose;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import daamky.ua.utils.render.WorldVertex;
 import daamky.ua.utils.render.color.ColorUtil;
 import daamky.ua.utils.render.pipeline.ClientPipelines;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.LivingEntity;
 
 public final class CrystalEsp {
-   private static final Identifier BLOOM = Identifier.of("daamky", "textures/particles/glow.png");
+   private static final Identifier BLOOM = Identifier.fromNamespaceAndPath("daamky", "textures/particles/glow.png");
    private static final Vector3f[] VERTICES = new Vector3f[]{
       new Vector3f(0.0F, 1.5F, 0.0F),
       new Vector3f(0.0F, -1.5F, 0.0F),
@@ -32,16 +32,16 @@ public final class CrystalEsp {
    private CrystalEsp() {
    }
 
-   public static void render(MatrixStack stack, Immediate provider, TargetEspRenderContext context, float size, float speed, boolean redOnImpact) {
+   public static void render(PoseStack stack, BufferSource provider, TargetEspRenderContext context, float size, float speed, boolean redOnImpact) {
       LivingEntity target = context.target();
-      float anim = MathHelper.clamp(context.alpha(), 0.0F, 1.0F);
+      float anim = Mth.clamp(context.alpha(), 0.0F, 1.0F);
       if (!(anim <= 0.01F) && target != null) {
-         float sizeMultiplier = MathHelper.clamp(size, 0.5F, 2.0F);
-         float speedMultiplier = MathHelper.clamp(speed / 4.0F, 0.125F, 3.0F);
+         float sizeMultiplier = Mth.clamp(size, 0.5F, 2.0F);
+         float speedMultiplier = Mth.clamp(speed / 4.0F, 0.125F, 3.0F);
          float moving = (float)(context.frameTimeMs() % 100000L) * 0.2F * speedMultiplier;
-         float width = target.getWidth() * 1.5F * sizeMultiplier;
-         float height = target.getHeight();
-         float hurt = redOnImpact ? MathHelper.clamp(context.hurtProgress(), 0.0F, 1.0F) : 0.0F;
+         float width = target.getBbWidth() * 1.5F * sizeMultiplier;
+         float height = target.getBbHeight();
+         float hurt = redOnImpact ? Mth.clamp(context.hurtProgress(), 0.0F, 1.0F) : 0.0F;
          int rgb = ColorUtil.lerpColor(context.primaryColor(), -50630, hurt) | 0xFF000000;
          int baseColor = ColorUtil.withAlpha(rgb, Math.round(255.0F * anim));
          int bloomColor = ColorUtil.withAlpha(rgb, Math.round(255.0F * anim * 0.2F));
@@ -53,7 +53,7 @@ public final class CrystalEsp {
             float sin = (float)(Math.sin((double)angle) * (double)width * (double)val);
             float cos = (float)(Math.cos((double)angle) * (double)width * (double)val);
             float yOff = 0.1F + height * Math.abs((float)Math.sin((double)i));
-            stack.push();
+            stack.pushPose();
             stack.translate(sin, yOff, cos);
             Vector3f dir = new Vector3f(-sin, height * 0.5F - 1.0F, -cos);
             if (dir.lengthSquared() < 1.0E-8F) {
@@ -62,14 +62,14 @@ public final class CrystalEsp {
                dir.normalize();
             }
 
-            stack.multiply(new Quaternionf().rotationTo(new Vector3f(0.0F, 1.0F, 0.0F), dir));
+            stack.mulPose(new Quaternionf().rotationTo(new Vector3f(0.0F, 1.0F, 0.0F), dir));
             renderCrystalMesh(stack, crystal, 0.1F * sizeMultiplier, baseColor);
-            stack.pop();
+            stack.popPose();
          }
 
-         provider.draw(ClientPipelines.CRYSTAL_FILLED_TRIANGLES);
+         provider.endBatch(ClientPipelines.CRYSTAL_FILLED_TRIANGLES);
          VertexConsumer bloom = provider.getBuffer(ClientPipelines.BLOOM_ESP.apply(BLOOM));
-         Quaternionf camRot = MinecraftClient.getInstance().gameRenderer.getCamera().getRotation();
+         Quaternionf camRot = Minecraft.getInstance().gameRenderer.getMainCamera().rotation();
          float half = 1.0F * sizeMultiplier * 0.5F;
 
          for (int i = 0; i < 360; i += 20) {
@@ -78,28 +78,28 @@ public final class CrystalEsp {
             float sin = (float)(Math.sin((double)angle) * (double)width * (double)val);
             float cos = (float)(Math.cos((double)angle) * (double)width * (double)val);
             float yOff = 0.1F + height * Math.abs((float)Math.sin((double)i));
-            stack.push();
+            stack.pushPose();
             stack.translate(sin, yOff, cos);
-            stack.multiply(camRot);
-            Entry pose = stack.peek();
+            stack.mulPose(camRot);
+            Pose pose = stack.last();
             WorldVertex.textured(bloom, pose, -half, -half, 0.0F, 0.0F, 0.0F, bloomColor);
             WorldVertex.textured(bloom, pose, half, -half, 0.0F, 1.0F, 0.0F, bloomColor);
             WorldVertex.textured(bloom, pose, half, half, 0.0F, 1.0F, 1.0F, bloomColor);
             WorldVertex.textured(bloom, pose, -half, half, 0.0F, 0.0F, 1.0F, bloomColor);
-            stack.pop();
+            stack.popPose();
          }
 
-         provider.draw(ClientPipelines.BLOOM_ESP.apply(BLOOM));
+         provider.endBatch(ClientPipelines.BLOOM_ESP.apply(BLOOM));
       }
    }
 
-   public static void endBatch(Immediate provider) {
+   public static void endBatch(BufferSource provider) {
    }
 
-   private static void renderCrystalMesh(MatrixStack matrices, VertexConsumer buffer, float size, int color) {
-      matrices.push();
+   private static void renderCrystalMesh(PoseStack matrices, VertexConsumer buffer, float size, int color) {
+      matrices.pushPose();
       matrices.scale(size, size, size);
-      Entry pose = matrices.peek();
+      Pose pose = matrices.last();
 
       for (int i = 0; i < FACES.length; i++) {
          int[] face = FACES[i];
@@ -107,12 +107,12 @@ public final class CrystalEsp {
          Vector3f v1 = VERTICES[face[0]];
          Vector3f v2 = VERTICES[face[1]];
          Vector3f v3 = VERTICES[face[2]];
-         buffer.vertex(pose, v1.x, v1.y, v1.z).color(shaded);
-         buffer.vertex(pose, v2.x, v2.y, v2.z).color(shaded);
-         buffer.vertex(pose, v3.x, v3.y, v3.z).color(shaded);
+         buffer.addVertex(pose, v1.x, v1.y, v1.z).setColor(shaded);
+         buffer.addVertex(pose, v2.x, v2.y, v2.z).setColor(shaded);
+         buffer.addVertex(pose, v3.x, v3.y, v3.z).setColor(shaded);
       }
 
-      matrices.pop();
+      matrices.popPose();
    }
 
    private static int applyBrightness(int color, float brightness) {

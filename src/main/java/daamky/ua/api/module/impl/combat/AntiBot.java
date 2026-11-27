@@ -6,17 +6,17 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.EquippableComponent;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.s2c.play.PlayerListS2CPacket;
-import net.minecraft.network.packet.s2c.play.PlayerRemoveS2CPacket;
-import net.minecraft.network.packet.s2c.play.PlayerListS2CPacket.Entry;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket.Entry;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.equipment.Equippable;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.PacketEvent;
 import daamky.ua.api.module.Module;
@@ -24,7 +24,7 @@ import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.settings.impl.ModeSetting;
 
 public class AntiBot extends Module {
-   private static final MinecraftClient MC = MinecraftClient.getInstance();
+   private static final Minecraft MC = Minecraft.getInstance();
    private static final Set<UUID> BOT_SET = new HashSet<>();
    private static final EquipmentSlot[] ARMOR_SLOTS = new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
    private static AntiBot instance;
@@ -41,8 +41,8 @@ public class AntiBot extends Module {
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
-      if (client.player != null && client.world != null) {
+   public void onTick(Minecraft client) {
+      if (client.player != null && client.level != null) {
          if (this.mode.is("Matrix")) {
             this.matrixMode();
          } else {
@@ -60,10 +60,10 @@ public class AntiBot extends Module {
          Objects.requireNonNull(var10000);
          Object var2 = var10000;
          switch (var2) {
-            case PlayerListS2CPacket packet:
-               packet.getPlayerAdditionEntries().forEach(this::checkPlayerAfterSpawn);
+            case ClientboundPlayerInfoUpdatePacket packet:
+               packet.newEntries().forEach(this::checkPlayerAfterSpawn);
                break;
-            case PlayerRemoveS2CPacket packetx:
+            case ClientboundPlayerInfoRemovePacket packetx:
                packetx.profileIds().forEach(uuid -> {
                   this.suspectSet.remove(uuid);
                   BOT_SET.remove(uuid);
@@ -87,9 +87,9 @@ public class AntiBot extends Module {
    }
 
    private void matrixMode() {
-      if (MC.world != null) {
+      if (MC.level != null) {
          for (UUID uuid : Set.copyOf(this.suspectSet)) {
-            PlayerEntity player = MC.world.getPlayerByUuid(uuid);
+            Player player = MC.level.getPlayerByUUID(uuid);
             if (player != null && (this.isFullyEquipped(player) || hasForeignUuid(player) || this.isNameBot(player))) {
                BOT_SET.add(uuid);
             }
@@ -97,37 +97,37 @@ public class AntiBot extends Module {
             this.suspectSet.remove(uuid);
          }
 
-         if (MC.player != null && MC.player.age % 100 == 0) {
-            BOT_SET.removeIf(uuidx -> MC.world.getPlayerByUuid(uuidx) == null);
+         if (MC.player != null && MC.player.tickCount % 100 == 0) {
+            BOT_SET.removeIf(uuidx -> MC.level.getPlayerByUUID(uuidx) == null);
          }
       }
    }
 
    private void reallyWorldMode() {
-      if (MC.world != null) {
-         for (PlayerEntity player : MC.world.getPlayers()) {
+      if (MC.level != null) {
+         for (Player player : MC.level.players()) {
             if (player != MC.player && hasForeignUuid(player)) {
-               BOT_SET.add(player.getUuid());
+               BOT_SET.add(player.getUUID());
             }
          }
       }
    }
 
    private boolean isDuplicateProfile(GameProfile profile) {
-      return MC.getNetworkHandler() != null
-         && MC.getNetworkHandler()
-               .getPlayerList()
+      return MC.getConnection() != null
+         && MC.getConnection()
+               .getOnlinePlayers()
                .stream()
                .filter(player -> player.getProfile().name().equals(profile.name()) && !player.getProfile().id().equals(profile.id()))
                .count()
             == 1L;
    }
 
-   private boolean isFullyEquipped(PlayerEntity player) {
+   private boolean isFullyEquipped(Player player) {
       for (EquipmentSlot slot : ARMOR_SLOTS) {
-         ItemStack stack = player.getEquippedStack(slot);
-         EquippableComponent equippable = (EquippableComponent)stack.get(DataComponentTypes.EQUIPPABLE);
-         if (stack.isEmpty() || equippable == null || stack.hasEnchantments()) {
+         ItemStack stack = player.getItemBySlot(slot);
+         Equippable equippable = (Equippable)stack.get(DataComponents.EQUIPPABLE);
+         if (stack.isEmpty() || equippable == null || stack.isEnchanted()) {
             return false;
          }
       }
@@ -135,11 +135,11 @@ public class AntiBot extends Module {
       return true;
    }
 
-   public boolean isBot(PlayerEntity player) {
-      return player != null && (BOT_SET.contains(player.getUuid()) || this.isNameBot(player) || this.isBotU(player) || hasForeignUuid(player));
+   public boolean isBot(Player player) {
+      return player != null && (BOT_SET.contains(player.getUUID()) || this.isNameBot(player) || this.isBotU(player) || hasForeignUuid(player));
    }
 
-   public static boolean shouldIgnore(PlayerEntity player) {
+   public static boolean shouldIgnore(Player player) {
       return instance != null && instance.isEnabled() && instance.isBot(player);
    }
 
@@ -147,18 +147,18 @@ public class AntiBot extends Module {
       return BOT_SET.contains(uuid);
    }
 
-   public static boolean hasForeignUuid(PlayerEntity player) {
+   public static boolean hasForeignUuid(Player player) {
       if (player == null) {
          return false;
       } else {
          String name = player.getName().getString();
          return !name.contains("NPC") && !name.startsWith("[ZNPC]")
-            ? !player.getUuid().equals(UUID.nameUUIDFromBytes(("OfflinePlayer:" + name).getBytes(StandardCharsets.UTF_8)))
+            ? !player.getUUID().equals(UUID.nameUUIDFromBytes(("OfflinePlayer:" + name).getBytes(StandardCharsets.UTF_8)))
             : false;
       }
    }
 
-   private boolean isNameBot(PlayerEntity player) {
+   private boolean isNameBot(Player player) {
       String name = player.getName().getString();
       return name.startsWith("CIT-") && !name.contains("NPC") && !name.startsWith("[ZNPC]");
    }
@@ -168,7 +168,7 @@ public class AntiBot extends Module {
       return entity.isInvisible()
          && !name.contains("NPC")
          && !name.startsWith("[ZNPC]")
-         && !entity.getUuid().equals(UUID.nameUUIDFromBytes(("OfflinePlayer:" + name).getBytes(StandardCharsets.UTF_8)));
+         && !entity.getUUID().equals(UUID.nameUUIDFromBytes(("OfflinePlayer:" + name).getBytes(StandardCharsets.UTF_8)));
    }
 
    private void reset() {

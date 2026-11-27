@@ -1,8 +1,8 @@
 package daamky.ua.screens.modernui.settings;
 
 import java.awt.Color;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.MouseButtonEvent;
 import daamky.ua.api.drag.impl.ClientLanguage;
 import daamky.ua.api.settings.impl.ColorSetting;
 import daamky.ua.utils.render.animation.modernfx.Direction;
@@ -25,7 +25,7 @@ final class ColorSettingCard extends SettingCardComponent<ColorSetting> {
    }
 
    @Override
-   void render(DrawContext graphics, SettingCardContext context, float cardX, float y, int mouseX, int mouseY) {
+   void render(GuiGraphics graphics, SettingCardContext context, float cardX, float y, int mouseX, int mouseY) {
       float rowHeight = this.height(context);
       this.markRow(cardX, y, rowHeight);
       float rowX = cardX + 8.0F;
@@ -74,7 +74,7 @@ final class ColorSettingCard extends SettingCardComponent<ColorSetting> {
    }
 
    @Override
-   void renderFloatingOverlay(DrawContext graphics, SettingCardContext context) {
+   void renderFloatingOverlay(GuiGraphics graphics, SettingCardContext context) {
       boolean active = context.activeColor == this.setting && this.state.visible;
       this.state.colorPickerAnimation.setDirection(active ? Direction.FORWARDS : Direction.BACKWARDS);
       float animation = context.clamp(this.state.colorPickerAnimation.getOutput().floatValue(), 0.0F, 1.0F);
@@ -176,7 +176,7 @@ final class ColorSettingCard extends SettingCardComponent<ColorSetting> {
    }
 
    @Override
-   boolean mouseClickedOverlay(Click event, SettingCardContext context) {
+   boolean mouseClickedOverlay(MouseButtonEvent event, SettingCardContext context) {
       if (context.activeColor != this.setting || event.button() != 0) {
          return false;
       } else if (!this.state.visible) {
@@ -202,7 +202,7 @@ final class ColorSettingCard extends SettingCardComponent<ColorSetting> {
    }
 
    @Override
-   boolean mouseClicked(Click event, boolean doubled, SettingCardContext context) {
+   boolean mouseClicked(MouseButtonEvent event, boolean doubled, SettingCardContext context) {
       if (event.button() == 0 && context.inside(event.x(), event.y(), this.state.boxX, this.state.boxY, this.state.boxWidth, this.state.boxHeight)) {
          context.activeColor = context.activeColor == this.setting ? null : this.setting;
          return true;
@@ -212,7 +212,7 @@ final class ColorSettingCard extends SettingCardComponent<ColorSetting> {
    }
 
    @Override
-   boolean mouseReleased(Click event, SettingCardContext context) {
+   boolean mouseReleased(MouseButtonEvent event, SettingCardContext context) {
       if (context.draggingColor != this.setting) {
          return false;
       } else {
@@ -223,7 +223,7 @@ final class ColorSettingCard extends SettingCardComponent<ColorSetting> {
    }
 
    @Override
-   boolean mouseDragged(Click event, double dragX, double dragY, SettingCardContext context) {
+   boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY, SettingCardContext context) {
       if (context.draggingColor != this.setting) {
          return false;
       } else {

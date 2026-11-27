@@ -5,14 +5,14 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import lombok.Generated;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.util.Mth;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 
 public final class Animator {
    private static final ConcurrentHashMap<Object, Animator> REGISTRY = new ConcurrentHashMap<>();
-   private static final MinecraftClient mc = MinecraftClient.getInstance();
+   private static final Minecraft mc = Minecraft.getInstance();
    private static final long STALE_RESET_NANOS = 90000000L;
    private static final float REBASE_YAW_THRESHOLD = 25.0F;
    private static final float REBASE_PITCH_THRESHOLD = 12.0F;
@@ -21,7 +21,7 @@ public final class Animator {
    private boolean initialized = false;
    private boolean pitchInitialized = false;
    private long lastApplyNanos = 0L;
-   private WeakReference<ClientWorld> lastLevel = new WeakReference<>(null);
+   private WeakReference<ClientLevel> lastLevel = new WeakReference<>(null);
 
    private Animator(Animator.Axis yaw, Animator.Axis pitch) {
       this.yaw = yaw;
@@ -187,7 +187,7 @@ public final class Animator {
    }
 
    public Angle apply(Angle current, float targetYaw, float targetPitch) {
-      ClientWorld currentLevel = mc.world;
+      ClientLevel currentLevel = mc.level;
       long now = System.nanoTime();
       if (this.lastLevel.get() != currentLevel) {
          this.initialized = false;
@@ -201,17 +201,17 @@ public final class Animator {
       }
 
       this.lastApplyNanos = now;
-      float normalizedTargetYaw = this.yaw.getValue() + MathHelper.wrapDegrees(targetYaw - this.yaw.getValue());
+      float normalizedTargetYaw = this.yaw.getValue() + Mth.wrapDegrees(targetYaw - this.yaw.getValue());
       this.yaw.setTarget(normalizedTargetYaw);
-      this.pitch.setTarget(MathHelper.clamp(targetPitch, -90.0F, 90.0F));
+      this.pitch.setTarget(Mth.clamp(targetPitch, -90.0F, 90.0F));
       this.yaw.update();
       this.pitch.update();
       this.pitchInitialized = true;
-      return new Angle(this.yaw.getValue(), MathHelper.clamp(this.pitch.getValue(), -90.0F, 90.0F));
+      return new Angle(this.yaw.getValue(), Mth.clamp(this.pitch.getValue(), -90.0F, 90.0F));
    }
 
    public float applyPitch(float currentPitch, float targetPitch) {
-      ClientWorld currentLevel = mc.world;
+      ClientLevel currentLevel = mc.level;
       long now = System.nanoTime();
       if (this.lastLevel.get() != currentLevel) {
          this.initialized = false;
@@ -220,19 +220,19 @@ public final class Animator {
       }
 
       if (!this.pitchInitialized || this.isStale(now) || Math.abs(currentPitch - this.pitch.getValue()) > 12.0F) {
-         this.pitch.forceValue(MathHelper.clamp(currentPitch, -90.0F, 90.0F));
+         this.pitch.forceValue(Mth.clamp(currentPitch, -90.0F, 90.0F));
          this.pitchInitialized = true;
       }
 
       this.lastApplyNanos = now;
-      this.pitch.setTarget(MathHelper.clamp(targetPitch, -90.0F, 90.0F));
+      this.pitch.setTarget(Mth.clamp(targetPitch, -90.0F, 90.0F));
       this.pitch.update();
-      return MathHelper.clamp(this.pitch.getValue(), -90.0F, 90.0F);
+      return Mth.clamp(this.pitch.getValue(), -90.0F, 90.0F);
    }
 
    public void forceValue(float valueYaw, float valuePitch) {
       this.yaw.forceValue(valueYaw);
-      this.pitch.forceValue(MathHelper.clamp(valuePitch, -90.0F, 90.0F));
+      this.pitch.forceValue(Mth.clamp(valuePitch, -90.0F, 90.0F));
       this.initialized = true;
       this.pitchInitialized = true;
       this.lastApplyNanos = System.nanoTime();
@@ -254,14 +254,14 @@ public final class Animator {
       if (current == null) {
          return false;
       } else {
-         float yawDiff = Math.abs(MathHelper.wrapDegrees(current.getYaw() - this.yaw.getValue()));
+         float yawDiff = Math.abs(Mth.wrapDegrees(current.getYaw() - this.yaw.getValue()));
          float pitchDiff = Math.abs(current.getPitch() - this.pitch.getValue());
          return yawDiff > 25.0F || pitchDiff > 12.0F;
       }
    }
 
    private Angle fallbackSeed(float targetYaw, float targetPitch) {
-      return mc.player == null ? new Angle(targetYaw, MathHelper.clamp(targetPitch, -90.0F, 90.0F)) : new Angle(mc.player.getYaw(), mc.player.getPitch());
+      return mc.player == null ? new Angle(targetYaw, Mth.clamp(targetPitch, -90.0F, 90.0F)) : new Angle(mc.player.getYRot(), mc.player.getXRot());
    }
 
    private interface Axis {
@@ -371,10 +371,10 @@ public final class Animator {
 
       @Override
       public void setTarget(float target) {
-         float delta = MathHelper.wrapDegrees(target - this.target);
+         float delta = Mth.wrapDegrees(target - this.target);
          this.target = target;
          float impulse = delta * this.flickBoost;
-         this.velocity = this.velocity + MathHelper.clamp(impulse, -90.0F, 90.0F);
+         this.velocity = this.velocity + Mth.clamp(impulse, -90.0F, 90.0F);
       }
 
       @Override
@@ -388,7 +388,7 @@ public final class Animator {
       @Override
       public void update() {
          float delta = this.deltaSeconds();
-         float error = MathHelper.wrapDegrees(this.target - this.value);
+         float error = Mth.wrapDegrees(this.target - this.value);
          float accel = error * this.responsiveness - this.velocity * this.damping;
          this.velocity += accel * delta;
          this.value = this.value + this.velocity * delta;
@@ -415,7 +415,7 @@ public final class Animator {
          long now = System.nanoTime();
          float delta = (float)(now - this.lastUpdateTime) / 1.0E9F;
          this.lastUpdateTime = now;
-         return MathHelper.clamp(delta, 0.001F, 0.05F);
+         return Mth.clamp(delta, 0.001F, 0.05F);
       }
    }
 
@@ -459,7 +459,7 @@ public final class Animator {
       @Override
       public void update() {
          float delta = this.deltaSeconds();
-         float error = MathHelper.wrapDegrees(this.target - this.value);
+         float error = Mth.wrapDegrees(this.target - this.value);
          float accel = error * this.gain - this.velocity * this.damping;
          this.velocity += accel * delta;
          this.value = this.value + this.velocity * delta;
@@ -486,7 +486,7 @@ public final class Animator {
          long now = System.nanoTime();
          float delta = (float)(now - this.lastUpdateTime) / 1.0E9F;
          this.lastUpdateTime = now;
-         return MathHelper.clamp(delta, 0.001F, 0.05F);
+         return Mth.clamp(delta, 0.001F, 0.05F);
       }
    }
 

@@ -1,12 +1,12 @@
 package daamky.ua.mixin.accessor;
 
 import java.util.List;
-import net.minecraft.network.handler.PacketCodecDispatcher;
+import net.minecraft.network.codec.IdDispatchCodec;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-@Mixin({PacketCodecDispatcher.class})
+@Mixin({IdDispatchCodec.class})
 public interface IdDispatchCodecAccessor {
-   @Accessor("packetTypes")
+   @Accessor("byId")
    List<?> daamky$getById();
 }

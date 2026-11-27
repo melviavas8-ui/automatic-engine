@@ -7,11 +7,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import net.minecraft.component.ComponentMap;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
+import net.minecraft.core.component.DataComponentMap;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import daamky.ua.api.module.impl.visual.Hud;
 import daamky.ua.utils.render.animation.Easings;
 import daamky.ua.utils.render.animation.SmoothAnimation;
@@ -26,7 +26,7 @@ public final class Cooldowns extends HudPanel {
    private static final float PANEL_ANIM = 0.24F;
    private static final float ROW_ANIM = 0.22F;
    private static final ItemStack[] PREVIEW_STACKS = new ItemStack[]{
-      Items.SUGAR.getDefaultStack(), Items.MACE.getDefaultStack(), Items.GOLDEN_APPLE.getDefaultStack()
+      Items.SUGAR.getDefaultInstance(), Items.MACE.getDefaultInstance(), Items.GOLDEN_APPLE.getDefaultInstance()
    };
    private static final Comparator<Cooldowns.RowState> ROW_STATE_COMPARATOR = Comparator.comparingDouble(Cooldowns.RowState::offset);
    private final Map<Cooldowns.CooldownKey, Cooldowns.CooldownInfo> infoByItem = new LinkedHashMap<>();
@@ -232,17 +232,17 @@ public final class Cooldowns extends HudPanel {
          Set<Cooldowns.CooldownKey> seenKeys = this.seenKeysScratch;
          seenKeys.clear();
 
-         for (int i = 0; i < this.mc.player.getInventory().size(); i++) {
-            ItemStack stack = this.mc.player.getInventory().getStack(i);
-            if (!stack.isEmpty() && this.mc.player.getItemCooldownManager().isCoolingDown(stack)) {
+         for (int i = 0; i < this.mc.player.getInventory().getContainerSize(); i++) {
+            ItemStack stack = this.mc.player.getInventory().getItem(i);
+            if (!stack.isEmpty() && this.mc.player.getCooldowns().isOnCooldown(stack)) {
                Cooldowns.CooldownKey key = Cooldowns.CooldownKey.of(stack);
                if (seenKeys.add(key)) {
-                  float progress = this.mc.player.getItemCooldownManager().getCooldownProgress(stack, 0.0F);
+                  float progress = this.mc.player.getCooldowns().getCooldownPercent(stack, 0.0F);
                   Cooldowns.CooldownInfo info = this.infoByItem.computeIfAbsent(key, ignored -> new Cooldowns.CooldownInfo());
                   info.key = key;
                   info.stack = stack.copy();
                   info.displayName = this.displayName(stack);
-                  info.update(progress, (long)this.mc.player.age);
+                  info.update(progress, (long)this.mc.player.tickCount);
                   this.activeCooldowns.add(info);
                }
             }
@@ -264,7 +264,7 @@ public final class Cooldowns extends HudPanel {
    }
 
    private String displayName(ItemStack stack) {
-      String id = Registries.ITEM.getId(stack.getItem()).toString();
+      String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
 
       return switch (id) {
          case "minecraft:ender_eye" -> "Disorientation";
@@ -276,7 +276,7 @@ public final class Cooldowns extends HudPanel {
          case "minecraft:wind_charge" -> "Wind Charge";
          case "minecraft:enchanted_golden_apple" -> "Ench. Gap";
          case "minecraft:golden_apple" -> "Golden Apple";
-         default -> stack.getName().getString();
+         default -> stack.getHoverName().getString();
       };
    }
 
@@ -340,13 +340,13 @@ public final class Cooldowns extends HudPanel {
       }
    }
 
-   private static record CooldownKey(Item item, ComponentMap components, String name) {
+   private static record CooldownKey(Item item, DataComponentMap components, String name) {
       private static Cooldowns.CooldownKey of(ItemStack stack) {
-         return new Cooldowns.CooldownKey(stack.getItem(), stack.getImmutableComponents(), stack.getName().getString());
+         return new Cooldowns.CooldownKey(stack.getItem(), stack.immutableComponents(), stack.getHoverName().getString());
       }
 
       private String rowKey() {
-         return Registries.ITEM.getId(this.item) + "|" + this.name + "|" + this.components.hashCode();
+         return BuiltInRegistries.ITEM.getKey(this.item) + "|" + this.name + "|" + this.components.hashCode();
       }
    }
 

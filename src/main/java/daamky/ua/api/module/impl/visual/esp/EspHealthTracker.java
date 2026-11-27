@@ -5,14 +5,14 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.scoreboard.ReadableScoreboardScore;
-import net.minecraft.scoreboard.Scoreboard;
-import net.minecraft.scoreboard.ScoreboardDisplaySlot;
-import net.minecraft.scoreboard.ScoreboardObjective;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.scores.DisplaySlot;
+import net.minecraft.world.scores.Objective;
+import net.minecraft.world.scores.ReadOnlyScoreInfo;
+import net.minecraft.world.scores.Scoreboard;
 
 public final class EspHealthTracker {
    private static final long SERVER_HEALTH_TIMEOUT_MS = 3000L;
@@ -31,27 +31,27 @@ public final class EspHealthTracker {
       this.serverHealthByPlayer.entrySet().removeIf(entry -> now - entry.getValue().timestampMs() > 3000L);
    }
 
-   public void capture(Entity entity, Text scoreText) {
-      if (entity instanceof PlayerEntity player) {
+   public void capture(Entity entity, Component scoreText) {
+      if (entity instanceof Player player) {
          if (scoreText == null) {
-            this.serverHealthByPlayer.remove(player.getUuid());
+            this.serverHealthByPlayer.remove(player.getUUID());
          } else {
             Float health = this.parseServerHealth(scoreText.getString());
             if (health != null) {
-               this.serverHealthByPlayer.put(player.getUuid(), new EspHealthTracker.ServerHealth(health, System.currentTimeMillis()));
+               this.serverHealthByPlayer.put(player.getUUID(), new EspHealthTracker.ServerHealth(health, System.currentTimeMillis()));
             }
          }
       }
    }
 
    public float resolveDisplayHealth(LivingEntity entity) {
-      if (entity instanceof PlayerEntity player) {
+      if (entity instanceof Player player) {
          Float scoreboardHealth = this.resolveScoreboardHealth(player);
          if (scoreboardHealth != null) {
             return scoreboardHealth;
          }
 
-         EspHealthTracker.ServerHealth serverHealth = this.serverHealthByPlayer.get(player.getUuid());
+         EspHealthTracker.ServerHealth serverHealth = this.serverHealthByPlayer.get(player.getUUID());
          if (serverHealth != null && System.currentTimeMillis() - serverHealth.timestampMs() <= 3000L) {
             return Math.max(0.0F, serverHealth.health());
          }
@@ -85,21 +85,21 @@ public final class EspHealthTracker {
       }
    }
 
-   private Float resolveScoreboardHealth(PlayerEntity player) {
+   private Float resolveScoreboardHealth(Player player) {
       try {
-         if (player.getEntityWorld() == null) {
+         if (player.level() == null) {
             return null;
          } else {
-            Scoreboard scoreboard = player.getEntityWorld().getScoreboard();
-            ScoreboardObjective objective = scoreboard.getObjectiveForSlot(ScoreboardDisplaySlot.BELOW_NAME);
+            Scoreboard scoreboard = player.level().getScoreboard();
+            Objective objective = scoreboard.getDisplayObjective(DisplaySlot.BELOW_NAME);
             if (objective == null) {
                return null;
             } else {
-               ReadableScoreboardScore score = scoreboard.getScore(player, objective);
+               ReadOnlyScoreInfo score = scoreboard.getPlayerScoreInfo(player, objective);
                if (score == null) {
                   return null;
                } else {
-                  float health = (float)score.getScore();
+                  float health = (float)score.value();
                   return this.isValidServerHealth(player, health) ? health : null;
                }
             }
@@ -109,7 +109,7 @@ public final class EspHealthTracker {
       }
    }
 
-   private boolean isValidServerHealth(PlayerEntity player, float health) {
+   private boolean isValidServerHealth(Player player, float health) {
       if (Float.isFinite(health) && !(health < 0.0F) && !(health > 500.0F)) {
          float maxHealth = Math.max(1.0F, player.getMaxHealth() + player.getAbsorptionAmount());
          return health <= Math.max(maxHealth * 8.0F, 200.0F);

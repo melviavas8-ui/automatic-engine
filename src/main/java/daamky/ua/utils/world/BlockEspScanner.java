@@ -7,14 +7,14 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
 import java.util.Arrays;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.world.chunk.ChunkSection;
-import net.minecraft.world.chunk.ChunkStatus;
-import net.minecraft.world.chunk.WorldChunk;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
 
 /**
  * Incremental scanner for BlockESP. Chunks are scanned section by section inside a small time budget per tick,
@@ -45,7 +45,7 @@ public final class BlockEspScanner {
    private final LongArrayList inboxBlocks = new LongArrayList();
    private final LongArrayList inboxChunks = new LongArrayList();
    private final LongArrayList inboxUnload = new LongArrayList();
-   private final BlockPos.Mutable mutable = new BlockPos.Mutable();
+   private final BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
    private long[] sortKeys = new long[1024];
    private long[] tmpPos = new long[1024];
    private byte[] tmpType = new byte[1024];
@@ -92,21 +92,21 @@ public final class BlockEspScanner {
    /** Thread safe. */
    public void markChunk(int chunkX, int chunkZ) {
       synchronized (this.lock) {
-         this.inboxChunks.add(ChunkPos.toLong(chunkX, chunkZ));
+         this.inboxChunks.add(ChunkPos.asLong(chunkX, chunkZ));
       }
    }
 
    /** Thread safe. */
    public void markUnload(int chunkX, int chunkZ) {
       synchronized (this.lock) {
-         this.inboxUnload.add(ChunkPos.toLong(chunkX, chunkZ));
+         this.inboxUnload.add(ChunkPos.asLong(chunkX, chunkZ));
       }
    }
 
-   public void update(ClientWorld world, int playerChunkX, int playerChunkZ, int radius) {
+   public void update(ClientLevel world, int playerChunkX, int playerChunkZ, int radius) {
       this.tick++;
-      radius = MathHelper.clamp(radius, 1, 32);
-      int bottom = world.getBottomSectionCoord();
+      radius = Mth.clamp(radius, 1, 32);
+      int bottom = world.getMinSectionY();
       if (bottom != this.bottomSection) {
          this.chunks.clear();
          this.queue.clear();
@@ -168,7 +168,7 @@ public final class BlockEspScanner {
       LongIterator iterator = this.chunks.keySet().iterator();
       while (iterator.hasNext()) {
          long key = iterator.nextLong();
-         if (Math.abs(ChunkPos.getPackedX(key) - pcx) > radius + 2 || Math.abs(ChunkPos.getPackedZ(key) - pcz) > radius + 2) {
+         if (Math.abs(ChunkPos.getX(key) - pcx) > radius + 2 || Math.abs(ChunkPos.getZ(key) - pcz) > radius + 2) {
             if (far == null) {
                far = new LongArrayList();
             }
@@ -193,7 +193,7 @@ public final class BlockEspScanner {
          for (int dx = -ring; dx <= ring; dx++) {
             for (int dz = -ring; dz <= ring; dz++) {
                if (Math.max(Math.abs(dx), Math.abs(dz)) == ring) {
-                  long key = ChunkPos.toLong(pcx + dx, pcz + dz);
+                  long key = ChunkPos.asLong(pcx + dx, pcz + dz);
                   if (!this.chunks.containsKey(key) && !this.queue.contains(key)) {
                      this.queue.add(key);
                   }
@@ -220,7 +220,7 @@ public final class BlockEspScanner {
       return due;
    }
 
-   private void processDelayed(ClientWorld world) {
+   private void processDelayed(ClientLevel world) {
       if (!this.delayedChunks.isEmpty()) {
          LongArrayList due = this.takeDue(this.delayedChunks);
          for (int i = 0; i < due.size(); i++) {
@@ -232,10 +232,10 @@ public final class BlockEspScanner {
          LongArrayList due = this.takeDue(this.delayedBlocks);
          for (int i = 0; i < due.size(); i++) {
             long pos = due.getLong(i);
-            int x = BlockPos.unpackLongX(pos);
-            int y = BlockPos.unpackLongY(pos);
-            int z = BlockPos.unpackLongZ(pos);
-            long key = ChunkPos.toLong(x >> 4, z >> 4);
+            int x = BlockPos.getX(pos);
+            int y = BlockPos.getY(pos);
+            int z = BlockPos.getZ(pos);
+            long key = ChunkPos.asLong(x >> 4, z >> 4);
             if (this.queue.contains(key)) {
                continue;
             }
@@ -261,7 +261,7 @@ public final class BlockEspScanner {
       }
    }
 
-   private void processQueue(ClientWorld world) {
+   private void processQueue(ClientLevel world) {
       if (this.queue.isEmpty()) {
          return;
       }
@@ -270,14 +270,14 @@ public final class BlockEspScanner {
       int attempts = this.queue.size();
       while (!this.queue.isEmpty() && attempts-- > 0) {
          long key = this.queue.firstLong();
-         int cx = ChunkPos.getPackedX(key);
-         int cz = ChunkPos.getPackedZ(key);
+         int cx = ChunkPos.getX(key);
+         int cz = ChunkPos.getZ(key);
          if (Math.abs(cx - this.lastChunkX) > this.lastRadius + 2 || Math.abs(cz - this.lastChunkZ) > this.lastRadius + 2) {
             this.queue.removeFirstLong();
             continue;
          }
 
-         WorldChunk chunk = world.getChunkManager().getChunk(cx, cz, ChunkStatus.FULL, false);
+         LevelChunk chunk = world.getChunkSource().getChunk(cx, cz, ChunkStatus.FULL, false);
          this.queue.removeFirstLong();
          if (chunk == null) {
             int tries = this.retries.get(key) + 1;
@@ -298,15 +298,15 @@ public final class BlockEspScanner {
       }
    }
 
-   private void scanChunk(WorldChunk chunk, long key, int cx, int cz) {
+   private void scanChunk(LevelChunk chunk, long key, int cx, int cz) {
       ChunkData old = this.chunks.get(key);
       ChunkData data = new ChunkData();
-      ChunkSection[] sections = chunk.getSectionArray();
+      LevelChunkSection[] sections = chunk.getSections();
       int baseX = cx << 4;
       int baseZ = cz << 4;
       for (int i = 0; i < sections.length; i++) {
-         ChunkSection section = sections[i];
-         if (section == null || !section.hasAny(BlockEspTypes.predicate())) {
+         LevelChunkSection section = sections[i];
+         if (section == null || !section.maybeHas(BlockEspTypes.predicate())) {
             continue;
          }
 
@@ -346,9 +346,9 @@ public final class BlockEspScanner {
                continue;
             }
 
-            double dx = BlockPos.unpackLongX(pos) + 0.5 - px;
-            double dy = BlockPos.unpackLongY(pos) + 0.5 - py;
-            double dz = BlockPos.unpackLongZ(pos) + 0.5 - pz;
+            double dx = BlockPos.getX(pos) + 0.5 - px;
+            double dy = BlockPos.getY(pos) + 0.5 - py;
+            double dz = BlockPos.getZ(pos) + 0.5 - pz;
             double distSq = dx * dx + dy * dy + dz * dz;
             if (distSq > rangeSq) {
                continue;

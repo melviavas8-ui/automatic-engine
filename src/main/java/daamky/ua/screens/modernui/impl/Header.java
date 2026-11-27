@@ -4,8 +4,8 @@ import java.awt.Color;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.MouseButtonEvent;
 import daamky.ua.api.drag.impl.ClientLanguage;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
@@ -64,7 +64,7 @@ public final class Header {
    }
 
    public void render(
-      DrawContext graphics,
+      GuiGraphics graphics,
       float x,
       float y,
       float panelWidth,
@@ -81,7 +81,7 @@ public final class Header {
    }
 
    private void renderSearch(
-      DrawContext graphics, float x, float y, float panelWidth, SearchHandler searchHandler, List<Module> modules, int mouseX, int mouseY
+      GuiGraphics graphics, float x, float y, float panelWidth, SearchHandler searchHandler, List<Module> modules, int mouseX, int mouseY
    ) {
       ClientTheme theme = ThemeManager.current();
       float fullX = x + 262.0F;
@@ -230,7 +230,7 @@ public final class Header {
       }
    }
 
-   private void renderThemeMenu(DrawContext graphics, int mouseX, int mouseY, int alpha) {
+   private void renderThemeMenu(GuiGraphics graphics, int mouseX, int mouseY, int alpha) {
       this.themeMenuAnimation.setDirection(this.themeMenuOpen ? Direction.FORWARDS : Direction.BACKWARDS);
       float progress = MathUtils.clamp(this.themeMenuAnimation.getOutput().floatValue(), 0.0F, 1.0F);
       if (!(progress <= 0.01F)) {
@@ -350,7 +350,7 @@ public final class Header {
    }
 
    private void renderSearchText(
-      DrawContext graphics, float boxX, float boxY, float boxWidth, float boxHeight, SearchHandler searchHandler, float alphaMultiplier
+      GuiGraphics graphics, float boxX, float boxY, float boxWidth, float boxHeight, SearchHandler searchHandler, float alphaMultiplier
    ) {
       float textY = boxY + 3.0F;
       float textSize = 7.0F;
@@ -430,7 +430,7 @@ public final class Header {
    }
 
    private void renderSearchResults(
-      DrawContext graphics, Header.SearchMenuBounds menu, List<Module> modules, SearchHandler searchHandler, float progress, int mouseX, int mouseY
+      GuiGraphics graphics, Header.SearchMenuBounds menu, List<Module> modules, SearchHandler searchHandler, float progress, int mouseX, int mouseY
    ) {
       String query = searchHandler.getSearchText();
       if (!query.equals(this.lastSearchQuery)) {
@@ -483,7 +483,7 @@ public final class Header {
       }
    }
 
-   private void renderSearchResultRow(DrawContext graphics, Module module, float x, float y, float width, float progress, int index, int mouseX, int mouseY) {
+   private void renderSearchResultRow(GuiGraphics graphics, Module module, float x, float y, float width, float progress, int index, int mouseX, int mouseY) {
       float rowProgress = MathUtils.clamp((float)(System.currentTimeMillis() - this.searchResultsAnimationStartMs) / 220.0F - (float)index * 0.035F, 0.0F, 1.0F);
       rowProgress = 1.0F - (1.0F - rowProgress) * (1.0F - rowProgress);
       float rowAlpha = progress * rowProgress;
@@ -532,7 +532,7 @@ public final class Header {
       Render2D.rect(trackX, thumbY, 2.0F, thumbHeight, 1.0F, new Color(118, 152, 162, Math.round(96.0F * progress)).getRGB());
    }
 
-   public Module mouseClickedSearch(Click event, float x, float y, SearchHandler searchHandler, List<Module> modules) {
+   public Module mouseClickedSearch(MouseButtonEvent event, float x, float y, SearchHandler searchHandler, List<Module> modules) {
       return event.button() == 0 && this.isSearchBoxHovered(event.x(), event.y(), x, y, searchHandler)
          ? this.moduleAt(event.x(), event.y(), x, y, searchHandler, modules == null ? List.of() : modules)
          : null;
@@ -691,7 +691,7 @@ public final class Header {
       }
    }
 
-   public boolean mouseClickedLanguage(Click event, SearchHandler searchHandler) {
+   public boolean mouseClickedLanguage(MouseButtonEvent event, SearchHandler searchHandler) {
       if (event.button() == 0 && !(this.searchOpenProgress(searchHandler) > 0.16F)) {
          if (this.isLanguageIconClicked(event.x(), event.y(), searchHandler)) {
             this.languageMenuOpen = !this.languageMenuOpen;
@@ -713,7 +713,7 @@ public final class Header {
       }
    }
 
-   public boolean mouseClickedTheme(Click event, SearchHandler searchHandler) {
+   public boolean mouseClickedTheme(MouseButtonEvent event, SearchHandler searchHandler) {
       if (event.button() == 0 && !(this.searchOpenProgress(searchHandler) > 0.16F)) {
          if (this.isThemeIconClicked(event.x(), event.y(), searchHandler)) {
             this.themeMenuOpen = !this.themeMenuOpen;

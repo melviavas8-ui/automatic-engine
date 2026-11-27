@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.KeyEvent;
 import daamky.ua.utils.repository.RepositoryStorage;
@@ -15,7 +15,7 @@ import daamky.ua.utils.repository.RepositoryStorage;
 public final class MacroRepository {
    private static final MacroRepository INSTANCE = new MacroRepository();
    private final List<Macro> macroList = new ArrayList<>();
-   private final MinecraftClient mc = MinecraftClient.getInstance();
+   private final Minecraft mc = Minecraft.getInstance();
 
    private MacroRepository() {
    }
@@ -113,13 +113,13 @@ public final class MacroRepository {
 
    @SubscribeEvent
    private void onKey(KeyEvent event) {
-      if (this.mc.player != null && this.mc.currentScreen == null && event.action() == 1) {
+      if (this.mc.player != null && this.mc.screen == null && event.action() == 1) {
          this.macroList.stream().filter(macro -> macro.key() == event.key()).findFirst().ifPresent(macro -> {
             String message = macro.message();
             if (message.startsWith("/")) {
-               this.mc.player.networkHandler.sendChatCommand(message.substring(1));
+               this.mc.player.connection.sendCommand(message.substring(1));
             } else {
-               this.mc.player.networkHandler.sendChatMessage(message);
+               this.mc.player.connection.sendChat(message);
             }
          });
       }

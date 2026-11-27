@@ -1,11 +1,11 @@
 package daamky.render;
 
+import com.mojang.blaze3d.platform.NativeImage;
 import java.util.HashMap;
 import java.util.Map;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
 import org.joml.Matrix3x2f;
 
 
@@ -17,11 +17,11 @@ public final class Img {
 
     private Img() {}
 
-    public static Identifier id(String path) { return Identifier.of("daamky", "textures/gui/" + path); }
+    public static Identifier id(String path) { return Identifier.fromNamespaceAndPath("daamky", "textures/gui/" + path); }
 
     private static int[] size(String path) {
         return SIZE.computeIfAbsent(path, p -> {
-            try (var in = MinecraftClient.getInstance().getResourceManager().open(id(p)); NativeImage ni = NativeImage.read(in)) {
+            try (var in = Minecraft.getInstance().getResourceManager().open(id(p)); NativeImage ni = NativeImage.read(in)) {
                 return new int[]{ni.getWidth(), ni.getHeight()};
             } catch (Exception e) {
                 return new int[]{0, 0};
@@ -41,12 +41,12 @@ public final class Img {
         if (tw <= 0 || th <= 0) return false;
         float k = Math.min(w / tw, h / th);
         float dx = x + (w - tw * k) / 2f, dy = y + (h - th * k) / 2f;
-        var st = ctx.getMatrices();
+        var st = ctx.pose();
         st.pushMatrix();
         st.set(m);
         st.translate(dx, dy);
         st.scale(k, k);
-        ctx.drawTexture(RenderPipelines.GUI_TEXTURED, id(path), 0, 0, 0f, 0f, tw, th, tw, th, tw, th, color);
+        ctx.blit(RenderPipelines.GUI_TEXTURED, id(path), 0, 0, 0f, 0f, tw, th, tw, th, tw, th, color);
         st.popMatrix();
         return true;
     }

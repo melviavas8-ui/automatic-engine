@@ -4,13 +4,12 @@ import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderPass;
 import net.fabricmc.fabric.api.resource.v1.ResourceLoader;
 import net.fabricmc.fabric.api.resource.v1.reloader.SimpleResourceReloader;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.resource.ResourceType;
-import net.minecraft.resource.ResourceReloader.Store;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import daamky.ua.utils.render.color.ColorUtil;
 import daamky.ua.utils.render.ui.Render2D;
 import daamky.ua.utils.render.ui.font.FontType;
@@ -25,7 +24,7 @@ public final class RenderItem {
       registerReloadListener();
    }
 
-   public static void beginFrame(DrawContext graphics) {
+   public static void beginFrame(GuiGraphics graphics) {
       renderer().beginFrame(graphics);
    }
 
@@ -83,7 +82,7 @@ public final class RenderItem {
       if (item != null && item.visible()) {
          ItemStack stack = item.stack();
          RenderItemOptions options = item.options();
-         if (options.showDurability() && stack.isItemBarVisible()) {
+         if (options.showDurability() && stack.isBarVisible()) {
             drawDurabilityBar(stack, item.x(), item.y(), item.size(), options.alpha());
          }
 
@@ -98,8 +97,8 @@ public final class RenderItem {
       float barHeight = Math.max(1.5F, size * 0.07F);
       float barX = x + (size - barWidth) * 0.5F;
       float barY = y + size - barHeight - Math.max(1.0F, size * 0.08F);
-      float fill = Math.max(0.0F, Math.min(1.0F, (float)stack.getItemBarStep() / 13.0F));
-      int barColor = stack.getItemBarColor();
+      float fill = Math.max(0.0F, Math.min(1.0F, (float)stack.getBarWidth() / 13.0F));
+      int barColor = stack.getBarColor();
       Render2D.rect(barX, barY, barWidth, barHeight, barHeight * 0.5F, ColorUtil.rgba(0, 0, 0, Math.round(150.0F * alpha)));
       Render2D.rect(
          barX,
@@ -126,12 +125,12 @@ public final class RenderItem {
 
    private static ItemStack stackOf(String rawId) {
       if (rawId != null && !rawId.isBlank()) {
-         Identifier id = rawId.indexOf(58) >= 0 ? Identifier.tryParse(rawId.trim()) : Identifier.ofVanilla(rawId.trim());
+         Identifier id = rawId.indexOf(58) >= 0 ? Identifier.tryParse(rawId.trim()) : Identifier.withDefaultNamespace(rawId.trim());
          if (id == null) {
             return ItemStack.EMPTY;
          } else {
-            Item item = (Item)Registries.ITEM.getOptionalValue(id).orElse(null);
-            return item == null ? ItemStack.EMPTY : item.getDefaultStack();
+            Item item = (Item)BuiltInRegistries.ITEM.getOptional(id).orElse(null);
+            return item == null ? ItemStack.EMPTY : item.getDefaultInstance();
          }
       } else {
          return ItemStack.EMPTY;
@@ -144,13 +143,13 @@ public final class RenderItem {
 
    private static void registerReloadListener() {
       if (!reloadListenerRegistered) {
-         Identifier id = Identifier.of("daamky", "render_item_cache");
-         ResourceLoader.get(ResourceType.CLIENT_RESOURCES).registerReloader(id, new SimpleResourceReloader<Void>() {
-            protected Void prepare(Store state) {
+         Identifier id = Identifier.fromNamespaceAndPath("daamky", "render_item_cache");
+         ResourceLoader.get(PackType.CLIENT_RESOURCES).registerReloader(id, new SimpleResourceReloader<Void>() {
+            protected Void prepare(SharedState state) {
                return null;
             }
 
-            protected void apply(Void prepared, Store state) {
+            protected void apply(Void prepared, SharedState state) {
                RenderItem.close();
             }
          });

@@ -3,15 +3,15 @@ package daamky.ua.mixin;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
+import com.mojang.blaze3d.vertex.PoseStack;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.item.HeldItemRenderer;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.Arm;
-import net.minecraft.util.Hand;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.renderer.ItemInHandRenderer;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -27,20 +27,20 @@ import daamky.ua.manager.Manager;
 import daamky.ua.utils.render.hands.ShaderHandMaterialRenderer;
 
 @Mixin(
-   value = {HeldItemRenderer.class},
+   value = {ItemInHandRenderer.class},
    priority = 900
 )
 public abstract class HeldItemRendererMixin {
    @Unique
    private static final boolean daamky$holdMyItemsLoaded = FabricLoader.getInstance().isModLoaded("hold-my-items");
    @Shadow
-   private ItemStack mainHand;
+   private ItemStack mainHandItem;
    @Shadow
-   private ItemStack offHand;
+   private ItemStack offHandItem;
    @Unique
-   private MatrixStack daamky$customSwingMatrices;
+   private PoseStack daamky$customSwingMatrices;
    @Unique
-   private Hand daamky$customSwingHand;
+   private InteractionHand daamky$customSwingHand;
    @Unique
    private float daamky$customSwingProgress;
 
@@ -48,39 +48,39 @@ public abstract class HeldItemRendererMixin {
    }
 
    @Inject(
-      method = {"updateHeldItems"},
+      method = {"tick"},
       at = {@At("TAIL")}
    )
    private void daamky$updateHeldItems(CallbackInfo ci) {
-      HeldItemUpdateEvent event = Manager.postEvent(new HeldItemUpdateEvent(this.mainHand, this.offHand));
-      if (event.getMainHand() != this.mainHand) {
-         this.mainHand = event.getMainHand();
+      HeldItemUpdateEvent event = Manager.postEvent(new HeldItemUpdateEvent(this.mainHandItem, this.offHandItem));
+      if (event.getMainHand() != this.mainHandItem) {
+         this.mainHandItem = event.getMainHand();
       }
 
-      if (event.getOffHand() != this.offHand) {
-         this.offHand = event.getOffHand();
+      if (event.getOffHand() != this.offHandItem) {
+         this.offHandItem = event.getOffHand();
       }
    }
 
    @WrapOperation(
-      method = {"renderItem(FLnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/command/OrderedRenderCommandQueue;Lnet/minecraft/client/network/ClientPlayerEntity;I)V"},
+      method = {"renderHandsWithItems(FLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/player/LocalPlayer;I)V"},
       at = {@At(
          value = "INVOKE",
-         target = "Lnet/minecraft/client/render/item/HeldItemRenderer;renderFirstPersonItem(Lnet/minecraft/client/network/AbstractClientPlayerEntity;FFLnet/minecraft/util/Hand;FLnet/minecraft/item/ItemStack;FLnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/command/OrderedRenderCommandQueue;I)V"
+         target = "Lnet/minecraft/client/renderer/ItemInHandRenderer;renderArmWithItem(Lnet/minecraft/client/player/AbstractClientPlayer;FFLnet/minecraft/world/InteractionHand;FLnet/minecraft/world/item/ItemStack;FLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;I)V"
       )},
       require = 0
    )
    private void daamky$itemRenderHook(
-      HeldItemRenderer instance,
-      AbstractClientPlayerEntity player,
+      ItemInHandRenderer instance,
+      AbstractClientPlayer player,
       float tickDelta,
       float pitch,
-      Hand hand,
+      InteractionHand hand,
       float swingProgress,
       ItemStack item,
       float equipProgress,
-      MatrixStack matrices,
-      OrderedRenderCommandQueue nodeCollector,
+      PoseStack matrices,
+      SubmitNodeCollector nodeCollector,
       int light,
       Operation<Void> original
    ) {
@@ -97,28 +97,28 @@ public abstract class HeldItemRendererMixin {
    }
 
    @Inject(
-      method = {"renderFirstPersonItem"},
+      method = {"renderArmWithItem"},
       at = {@At(
          value = "INVOKE",
-         target = "Lnet/minecraft/client/util/math/MatrixStack;push()V",
+         target = "Lcom/mojang/blaze3d/vertex/PoseStack;pushPose()V",
          shift = Shift.AFTER
       )},
       require = 0
    )
    private void daamky$handOffset(
-      AbstractClientPlayerEntity player,
+      AbstractClientPlayer player,
       float tickDelta,
       float pitch,
-      Hand hand,
+      InteractionHand hand,
       float swingProgress,
       ItemStack stack,
       float equipProgress,
-      MatrixStack matrices,
-      OrderedRenderCommandQueue nodeCollector,
+      PoseStack matrices,
+      SubmitNodeCollector nodeCollector,
       int light,
       CallbackInfo ci
    ) {
-      if (!daamky$holdMyItemsLoaded && !stack.isEmpty() && !stack.contains(DataComponentTypes.MAP_ID)) {
+      if (!daamky$holdMyItemsLoaded && !stack.isEmpty() && !stack.has(DataComponents.MAP_ID)) {
          HandOffsetEvent event = Manager.postEvent(new HandOffsetEvent(matrices, stack, hand));
          float scale = event.getScale();
          if (scale != 1.0F) {
@@ -128,20 +128,20 @@ public abstract class HeldItemRendererMixin {
    }
 
    @Inject(
-      method = {"renderFirstPersonItem"},
+      method = {"renderArmWithItem"},
       at = {@At("HEAD")},
       require = 0
    )
    private void daamky$beginShaderHandMaterial(
-      AbstractClientPlayerEntity player,
+      AbstractClientPlayer player,
       float tickDelta,
       float pitch,
-      Hand hand,
+      InteractionHand hand,
       float swingProgress,
       ItemStack stack,
       float equipProgress,
-      MatrixStack matrices,
-      OrderedRenderCommandQueue nodeCollector,
+      PoseStack matrices,
+      SubmitNodeCollector nodeCollector,
       int light,
       CallbackInfo ci
    ) {
@@ -149,26 +149,26 @@ public abstract class HeldItemRendererMixin {
    }
 
    @WrapOperation(
-      method = {"renderFirstPersonItem"},
+      method = {"renderArmWithItem"},
       at = {@At(
          value = "INVOKE",
-         target = "Lnet/minecraft/client/render/item/HeldItemRenderer;applyEquipOffset(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/util/Arm;F)V"
+         target = "Lnet/minecraft/client/renderer/ItemInHandRenderer;applyItemArmTransform(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/world/entity/HumanoidArm;F)V"
       )},
       require = 0
    )
    private void daamky$baseSwingAnimation(
-      HeldItemRenderer instance,
-      MatrixStack matrices,
-      Arm arm,
+      ItemInHandRenderer instance,
+      PoseStack matrices,
+      HumanoidArm arm,
       float equipProgress,
       Operation<Void> original,
-      @Local(argsOnly = true) AbstractClientPlayerEntity player,
-      @Local(argsOnly = true) Hand hand,
+      @Local(argsOnly = true) AbstractClientPlayer player,
+      @Local(argsOnly = true) InteractionHand hand,
       @Local(argsOnly = true,ordinal = 2) float swingProgress
    ) {
       if (daamky$holdMyItemsLoaded) {
          original.call(new Object[]{instance, matrices, arm, equipProgress});
-      } else if (player.isUsingItem() && player.getActiveHand() == hand) {
+      } else if (player.isUsingItem() && player.getUsedItemHand() == hand) {
          original.call(new Object[]{instance, matrices, arm, equipProgress});
       } else {
          HandAnimationEvent event = Manager.postEvent(new HandAnimationEvent(matrices, hand, swingProgress));
@@ -181,26 +181,26 @@ public abstract class HeldItemRendererMixin {
    }
 
    @WrapOperation(
-      method = {"renderFirstPersonItem"},
+      method = {"renderArmWithItem"},
       at = {@At(
          value = "INVOKE",
-         target = "Lnet/minecraft/client/render/item/HeldItemRenderer;swingArm(FLnet/minecraft/client/util/math/MatrixStack;ILnet/minecraft/util/Arm;)V"
+         target = "Lnet/minecraft/client/renderer/ItemInHandRenderer;swingArm(FLcom/mojang/blaze3d/vertex/PoseStack;ILnet/minecraft/world/entity/HumanoidArm;)V"
       )},
       require = 0
    )
    private void daamky$swingAnimation(
-      HeldItemRenderer instance,
+      ItemInHandRenderer instance,
       float swingProgress,
-      MatrixStack matrices,
+      PoseStack matrices,
       int armX,
-      Arm arm,
+      HumanoidArm arm,
       Operation<Void> original,
-      @Local(argsOnly = true) AbstractClientPlayerEntity player,
-      @Local(argsOnly = true) Hand hand
+      @Local(argsOnly = true) AbstractClientPlayer player,
+      @Local(argsOnly = true) InteractionHand hand
    ) {
       if (daamky$holdMyItemsLoaded) {
          original.call(new Object[]{instance, swingProgress, matrices, armX, arm});
-      } else if (player.isUsingItem() && player.getActiveHand() == hand) {
+      } else if (player.isUsingItem() && player.getUsedItemHand() == hand) {
          original.call(new Object[]{instance, swingProgress, matrices, armX, arm});
       } else if (!this.daamky$consumeCustomSwing(matrices, hand, swingProgress)) {
          HandAnimationEvent event = Manager.postEvent(new HandAnimationEvent(matrices, hand, swingProgress));
@@ -211,20 +211,20 @@ public abstract class HeldItemRendererMixin {
    }
 
    @Inject(
-      method = {"renderFirstPersonItem"},
+      method = {"renderArmWithItem"},
       at = {@At("TAIL")},
       require = 0
    )
    private void daamky$clearSwingAnimation(
-      AbstractClientPlayerEntity player,
+      AbstractClientPlayer player,
       float tickDelta,
       float pitch,
-      Hand hand,
+      InteractionHand hand,
       float swingProgress,
       ItemStack stack,
       float equipProgress,
-      MatrixStack matrices,
-      OrderedRenderCommandQueue nodeCollector,
+      PoseStack matrices,
+      SubmitNodeCollector nodeCollector,
       int light,
       CallbackInfo ci
    ) {
@@ -233,14 +233,14 @@ public abstract class HeldItemRendererMixin {
    }
 
    @Unique
-   private void daamky$markCustomSwing(MatrixStack matrices, Hand hand, float swingProgress) {
+   private void daamky$markCustomSwing(PoseStack matrices, InteractionHand hand, float swingProgress) {
       this.daamky$customSwingMatrices = matrices;
       this.daamky$customSwingHand = hand;
       this.daamky$customSwingProgress = swingProgress;
    }
 
    @Unique
-   private boolean daamky$consumeCustomSwing(MatrixStack matrices, Hand hand, float swingProgress) {
+   private boolean daamky$consumeCustomSwing(PoseStack matrices, InteractionHand hand, float swingProgress) {
       boolean matches = this.daamky$customSwingMatrices == matrices
          && this.daamky$customSwingHand == hand
          && Float.compare(this.daamky$customSwingProgress, swingProgress) == 0;

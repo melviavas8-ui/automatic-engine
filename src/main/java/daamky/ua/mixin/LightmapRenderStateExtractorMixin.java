@@ -1,6 +1,5 @@
 package daamky.ua.mixin;
 
-import net.minecraft.client.render.LightmapTextureManager;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -8,14 +7,15 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import daamky.ua.api.module.impl.visual.Ambience;
 import daamky.ua.api.module.impl.visual.NoRender;
+import net.minecraft.client.renderer.LightTexture;
 
-@Mixin({LightmapTextureManager.class})
+@Mixin({LightTexture.class})
 public class LightmapRenderStateExtractorMixin {
    public LightmapRenderStateExtractorMixin() {
    }
 
    @Redirect(
-      method = {"update"},
+      method = {"updateLightTexture"},
       at = @At(
          value = "INVOKE",
          target = "Ljava/lang/Double;floatValue()F",
@@ -35,7 +35,7 @@ public class LightmapRenderStateExtractorMixin {
    }
 
    @Inject(
-      method = {"getDarkness"},
+      method = {"calculateDarknessScale"},
       at = {@At("HEAD")},
       cancellable = true,
       require = 0

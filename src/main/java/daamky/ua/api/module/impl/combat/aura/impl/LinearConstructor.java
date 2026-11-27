@@ -1,9 +1,9 @@
 package daamky.ua.api.module.impl.combat.aura.impl;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.api.module.impl.combat.aura.MathAngle;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 public class LinearConstructor extends RotateConstructor {
    public static final LinearConstructor INSTANCE = new LinearConstructor();
@@ -13,7 +13,7 @@ public class LinearConstructor extends RotateConstructor {
    }
 
    @Override
-   public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3d vec3d, Entity entity) {
+   public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3 vec3d, Entity entity) {
       Angle angleDelta = MathAngle.calculateDelta(currentAngle, targetAngle);
       float yawDelta = angleDelta.getYaw();
       float pitchDelta = angleDelta.getPitch();
@@ -31,7 +31,7 @@ public class LinearConstructor extends RotateConstructor {
    }
 
    @Override
-   public Vec3d randomValue() {
-      return Vec3d.ZERO;
+   public Vec3 randomValue() {
+      return Vec3.ZERO;
    }
 }

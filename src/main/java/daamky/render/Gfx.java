@@ -5,34 +5,35 @@ import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.DepthTestFunction;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
-import net.minecraft.client.texture.*;
-import net.minecraft.client.gl.*;
+import net.minecraft.resources.Identifier;
 import net.minecraft.client.gui.*;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.render.*;
-import net.minecraft.client.render.*;
-import net.minecraft.client.gui.render.state.SimpleGuiElementRenderState;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.render.state.GuiElementRenderState;
+import net.minecraft.client.renderer.RenderPipelines;
 import org.joml.Matrix3x2f;
 import org.joml.Vector2f;
 
 
 public final class Gfx {
-    public static final VertexFormat FORMAT = VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL;
+    public static final VertexFormat FORMAT = DefaultVertexFormat.NEW_ENTITY;
 
-    public static DrawContext ctx;
+    public static GuiGraphics ctx;
 
-    public static ScreenRect scissor;
+    public static ScreenRectangle scissor;
 
     public static final RenderPipeline RECT = gui("rect", false);
     public static final RenderPipeline MSDF = gui("msdf", true);
     public static final RenderPipeline SDF = gui("sdf", true);
     public static final RenderPipeline SDFGEN = RenderPipeline.builder()
-            .withLocation(Identifier.of("daamky", "pipeline/sdfgen"))
-            .withVertexShader(Identifier.of("daamky", "core/sdfgen"))
-            .withFragmentShader(Identifier.of("daamky", "core/sdfgen"))
+            .withLocation(Identifier.fromNamespaceAndPath("daamky", "pipeline/sdfgen"))
+            .withVertexShader(Identifier.fromNamespaceAndPath("daamky", "core/sdfgen"))
+            .withFragmentShader(Identifier.fromNamespaceAndPath("daamky", "core/sdfgen"))
             .withSampler("Sampler0")
-            .withVertexFormat(FORMAT, VertexFormat.DrawMode.QUADS)
+            .withVertexFormat(FORMAT, VertexFormat.Mode.QUADS)
             .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
             .withDepthWrite(false)
             .withCull(false)
@@ -41,11 +42,11 @@ public final class Gfx {
     private Gfx() {}
 
     private static RenderPipeline gui(String n, boolean sampler) {
-        var b = RenderPipeline.builder(RenderPipelines.TRANSFORMS_AND_PROJECTION_SNIPPET)
-                .withLocation(Identifier.of("daamky", "pipeline/" + n))
-                .withVertexShader(Identifier.of("daamky", "core/" + n))
-                .withFragmentShader(Identifier.of("daamky", "core/" + n))
-                .withVertexFormat(FORMAT, VertexFormat.DrawMode.QUADS)
+        var b = RenderPipeline.builder(RenderPipelines.MATRICES_PROJECTION_SNIPPET)
+                .withLocation(Identifier.fromNamespaceAndPath("daamky", "pipeline/" + n))
+                .withVertexShader(Identifier.fromNamespaceAndPath("daamky", "core/" + n))
+                .withFragmentShader(Identifier.fromNamespaceAndPath("daamky", "core/" + n))
+                .withVertexFormat(FORMAT, VertexFormat.Mode.QUADS)
                 .withBlend(BlendFunction.TRANSLUCENT)
                 .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
                 .withDepthWrite(false)
@@ -82,28 +83,28 @@ public final class Gfx {
         public void submit(RenderPipeline pl, TextureSetup ts) {
             if (n == 0 || ctx == null) return;
             int x = (int) Math.floor(minX), y = (int) Math.floor(minY);
-            ScreenRect b = new ScreenRect(x, y, (int) Math.ceil(maxX) - x + 1, (int) Math.ceil(maxY) - y + 1);
-            ScreenRect sc = scissor;
+            ScreenRectangle b = new ScreenRectangle(x, y, (int) Math.ceil(maxX) - x + 1, (int) Math.ceil(maxY) - y + 1);
+            ScreenRectangle sc = scissor;
             if (sc != null) {
                 b = b.intersection(sc);
                 if (b == null) return;
             }
-            ctx.state.addSimpleElement(new State(pl, ts, sc, b, java.util.Arrays.copyOf(d, n * 11), n));
+            ctx.guiRenderState.submitGuiElement(new State(pl, ts, sc, b, java.util.Arrays.copyOf(d, n * 11), n));
         }
     }
 
-    private record State(RenderPipeline pipeline, TextureSetup textureSetup, ScreenRect scissorArea, ScreenRect bounds,
-                         float[] d, int n) implements SimpleGuiElementRenderState {
+    private record State(RenderPipeline pipeline, TextureSetup textureSetup, ScreenRectangle scissorArea, ScreenRectangle bounds,
+                         float[] d, int n) implements GuiElementRenderState {
         @Override
-        public void setupVertices(VertexConsumer vc) {
+        public void buildVertices(VertexConsumer vc) {
             for (int k = 0; k < n; k++) {
                 int i = k * 11;
-                vc.vertex(d[i], d[i + 1], d[i + 2])
-                        .color(Float.floatToRawIntBits(d[i + 3]))
-                        .texture(d[i + 4], d[i + 5])
-                        .overlay((int) d[i + 6], (int) d[i + 7])
-                        .light((int) d[i + 8], (int) d[i + 9])
-                        .normal(d[i + 10], 0f, 0f);
+                vc.addVertex(d[i], d[i + 1], d[i + 2])
+                        .setColor(Float.floatToRawIntBits(d[i + 3]))
+                        .setUv(d[i + 4], d[i + 5])
+                        .setUv1((int) d[i + 6], (int) d[i + 7])
+                        .setUv2((int) d[i + 8], (int) d[i + 9])
+                        .setNormal(d[i + 10], 0f, 0f);
             }
         }
     }

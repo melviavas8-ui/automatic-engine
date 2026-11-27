@@ -5,10 +5,10 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.input.CharInput;
-import net.minecraft.client.input.KeyInput;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import daamky.ua.api.drag.impl.ClientLanguage;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleManager;
@@ -48,11 +48,11 @@ public final class ClickGuiSearchBar {
       this.focusAnimation.set(0.0);
    }
 
-   public void render(DrawContext graphics, int screenWidth, float openProgress) {
+   public void render(GuiGraphics graphics, int screenWidth, float openProgress) {
       this.render(graphics, screenWidth, openProgress, 0.0F, 0.0F);
    }
 
-   public void render(DrawContext graphics, int screenWidth, float openProgress, float offsetX, float offsetY) {
+   public void render(GuiGraphics graphics, int screenWidth, float openProgress, float offsetX, float offsetY) {
       this.focusAnimation.run(this.focused ? 1.0 : 0.0, 0.18, Easings.CUBIC_OUT, true);
       this.focusAnimation.update();
       this.refreshResults();
@@ -106,7 +106,7 @@ public final class ClickGuiSearchBar {
       }
    }
 
-   public boolean mouseClicked(Click event, boolean doubled, Consumer<ClickGuiSearchBar.Result> onSelect) {
+   public boolean mouseClicked(MouseButtonEvent event, boolean doubled, Consumer<ClickGuiSearchBar.Result> onSelect) {
       double mouseX = event.x();
       double mouseY = event.y();
       if (this.hovered(mouseX, mouseY, this.x, this.y, this.width, this.height)) {
@@ -146,7 +146,7 @@ public final class ClickGuiSearchBar {
       }
    }
 
-   public boolean keyPressed(KeyInput event, Consumer<ClickGuiSearchBar.Result> onSelect) {
+   public boolean keyPressed(KeyEvent event, Consumer<ClickGuiSearchBar.Result> onSelect) {
       if (!this.focused) {
          return false;
       } else {
@@ -185,9 +185,9 @@ public final class ClickGuiSearchBar {
       }
    }
 
-   public boolean charTyped(CharInput event) {
-      if (this.focused && event.isValidChar()) {
-         String text = event.asString();
+   public boolean charTyped(CharacterEvent event) {
+      if (this.focused && event.isAllowedChatCharacter()) {
+         String text = event.codepointAsString();
          if (text != null && !text.isBlank() && this.query.length() < 32) {
             if (this.selectedAll) {
                this.query = "";
@@ -223,7 +223,7 @@ public final class ClickGuiSearchBar {
       }
    }
 
-   private void renderDropdown(DrawContext graphics, float alpha) {
+   private void renderDropdown(GuiGraphics graphics, float alpha) {
       if (this.dropdownOpen()) {
          float resultHeight = 21.0F * this.scale;
          float dropdownY = this.y + this.height + 5.0F * this.scale;

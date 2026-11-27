@@ -1,18 +1,17 @@
 package daamky.ua.screens.mainmenu;
 
 import java.util.List;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.GameMenuScreen;
-import net.minecraft.client.gui.screen.option.OptionsScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.multiplayer.AddServerScreen;
-import net.minecraft.client.gui.screen.multiplayer.DirectConnectScreen;
-import net.minecraft.client.gui.screen.world.SelectWorldScreen;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.DirectJoinServerScreen;
+import net.minecraft.client.gui.screens.ManageServerScreen;
+import net.minecraft.client.gui.screens.PauseScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import daamky.ua.api.theme.ClientTheme;
 import daamky.ua.api.theme.ThemeManager;
 import daamky.ua.utils.render.ui.Render2D;
@@ -29,35 +28,35 @@ public final class VanillaMenuTheme {
    }
 
    public static boolean active() {
-      MinecraftClient minecraft = MinecraftClient.getInstance();
-      return minecraft != null && isThemed(minecraft.currentScreen);
+      Minecraft minecraft = Minecraft.getInstance();
+      return minecraft != null && isThemed(minecraft.screen);
    }
 
    public static boolean isThemed(Screen screen) {
       if (screen == null) return false;
       // Yarn package names use "screen", not Mojmap's "screens".
       return screen instanceof SelectWorldScreen
-         || screen instanceof DirectConnectScreen
-         || screen instanceof AddServerScreen;
+         || screen instanceof DirectJoinServerScreen
+         || screen instanceof ManageServerScreen;
    }
 
    public static boolean usesNeonBackground(Screen screen) {
       return screen instanceof SelectWorldScreen
-         || screen instanceof DirectConnectScreen
-         || screen instanceof AddServerScreen;
+         || screen instanceof DirectJoinServerScreen
+         || screen instanceof ManageServerScreen;
    }
 
    public static boolean usesOpeningAnimation(Screen screen) {
-      return isThemed(screen) && !(screen instanceof GameMenuScreen);
+      return isThemed(screen) && !(screen instanceof PauseScreen);
    }
 
-   public static void renderBackground(DrawContext graphics, int width, int height) {
+   public static void renderBackground(GuiGraphics graphics, int width, int height) {
       DaamkyMenuBackground.render(graphics, width, height);
    }
 
    public static boolean shouldRoundListIcon(int width, int height, int textureWidth, int textureHeight) {
-      MinecraftClient minecraft = MinecraftClient.getInstance();
-      Screen screen = minecraft == null ? null : minecraft.currentScreen;
+      Minecraft minecraft = Minecraft.getInstance();
+      Screen screen = minecraft == null ? null : minecraft.screen;
       return screen instanceof SelectWorldScreen
          && width == 32
          && height == 32
@@ -65,16 +64,16 @@ public final class VanillaMenuTheme {
          && textureHeight == 32;
    }
 
-   public static void renderRoundedListIcon(DrawContext graphics, String texture, float x, float y) {
+   public static void renderRoundedListIcon(GuiGraphics graphics, String texture, float x, float y) {
       Render2D.beginFrame(graphics);
       Render2D.imageUvNearest(texture, x + 3.0F, y + 3.0F, 26.0F, 26.0F, 5.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F, -1);
       Render2D.flush();
    }
 
    public static boolean shouldHideServerListOverlay(Identifier texture) {
-      MinecraftClient minecraft = MinecraftClient.getInstance();
+      Minecraft minecraft = Minecraft.getInstance();
       if (minecraft == null || texture == null) return false;
-      if (!(minecraft.currentScreen instanceof SelectWorldScreen)) return false;
+      if (!(minecraft.screen instanceof SelectWorldScreen)) return false;
       String path = texture.getPath();
       return path.equals("world_list/join")
          || path.equals("world_list/join_highlighted")
@@ -82,7 +81,7 @@ public final class VanillaMenuTheme {
          || path.equals("world_list/marked_join_highlighted");
    }
 
-   public static void renderServerMoveButton(DrawContext graphics, float buttonX, float buttonY, boolean moveUp, boolean highlighted) {
+   public static void renderServerMoveButton(GuiGraphics graphics, float buttonX, float buttonY, boolean moveUp, boolean highlighted) {
       float size = 11.0F;
       Render2D.beginFrame(graphics);
       Render2D.blur(buttonX, buttonY, size, size, 3.5F, 12.0F, 1.0F, withAlpha(-13258753, highlighted ? 105 : 58));
@@ -111,7 +110,7 @@ public final class VanillaMenuTheme {
       Render2D.flush();
    }
 
-   public static void renderButton(DrawContext graphics, ClickableWidget widget, float hover) {
+   public static void renderButton(GuiGraphics graphics, AbstractWidget widget, float hover) {
       float x = (float)widget.getX();
       float y = (float)widget.getY();
       float width = (float)widget.getWidth();
@@ -147,7 +146,7 @@ public final class VanillaMenuTheme {
       Render2D.flush();
    }
 
-   public static void renderSlider(DrawContext graphics, ClickableWidget widget, double value, float hover) {
+   public static void renderSlider(GuiGraphics graphics, AbstractWidget widget, double value, float hover) {
       float x = (float)widget.getX();
       float y = (float)widget.getY();
       float width = (float)widget.getWidth();
@@ -186,7 +185,7 @@ public final class VanillaMenuTheme {
       Render2D.flush();
    }
 
-   public static void renderListBackground(DrawContext graphics, ClickableWidget widget) {
+   public static void renderListBackground(GuiGraphics graphics, AbstractWidget widget) {
       float x = (float)widget.getX();
       float y = (float)widget.getY();
       float width = (float)widget.getWidth();
@@ -198,11 +197,11 @@ public final class VanillaMenuTheme {
       Render2D.flush();
    }
 
-   public static void renderListCard(DrawContext graphics, float x, float y, float width, float height, boolean hovered, boolean selected) {
+   public static void renderListCard(GuiGraphics graphics, float x, float y, float width, float height, boolean hovered, boolean selected) {
       renderListCard(graphics, x, y, width, height, hovered, selected, 1.0F);
    }
 
-   public static void renderListCard(DrawContext graphics, float x, float y, float width, float height, boolean hovered, boolean selected, float visibility) {
+   public static void renderListCard(GuiGraphics graphics, float x, float y, float width, float height, boolean hovered, boolean selected, float visibility) {
       float shown = Math.max(0.0F, Math.min(1.0F, visibility));
       float insetX = 2.5F;
       float insetY = 1.5F;
@@ -243,7 +242,7 @@ public final class VanillaMenuTheme {
       Render2D.flush();
    }
 
-   public static void renderHeading(DrawContext graphics, ClickableWidget widget) {
+   public static void renderHeading(GuiGraphics graphics, AbstractWidget widget) {
       String text = widget.getMessage() == null ? "" : widget.getMessage().getString();
       if (!text.isEmpty()) {
          float size = 7.4F;
@@ -261,7 +260,7 @@ public final class VanillaMenuTheme {
       }
    }
 
-   public static void renderEditBox(DrawContext graphics, TextFieldWidget editBox) {
+   public static void renderEditBox(GuiGraphics graphics, EditBox editBox) {
       float x = (float)editBox.getX();
       float y = (float)editBox.getY();
       float width = (float)editBox.getWidth();
@@ -271,7 +270,7 @@ public final class VanillaMenuTheme {
       Render2D.blur(x, y, width, height, radius, 16.0F, 1.0F, 880525809);
       Render2D.glass(x, y, width, height, radius, 551941375, 0.42F, 42.0F, 783605500, 0.08F, true, 0.12F, 0.004F, 1.0F, 0.0F);
       Render2D.rect(x, y, width, height, radius, editBox.isFocused() ? 405380840 : 177194474);
-      String value = editBox.getText();
+      String value = editBox.getValue();
       String shown = value.isEmpty() ? "Поиск..." : value;
       float size = 5.9F;
       float available = Math.max(1.0F, width - 12.0F);
@@ -280,7 +279,7 @@ public final class VanillaMenuTheme {
       Render2D.pushScissor(graphics, x + 5.0F, y, available + 2.0F, height);
       Render2D.text(FontType.REGULARNEW, shown, x + 6.0F + offset, y + (height - size) * 0.5F - 0.4F, size, value.isEmpty() ? 1904910773 : -891097353);
       if (editBox.isFocused() && System.currentTimeMillis() / 430L % 2L == 0L) {
-         int cursor = Math.min(editBox.getCursor(), value.length());
+         int cursor = Math.min(editBox.getCursorPosition(), value.length());
          float cursorX = x + 6.0F + offset + Render2D.textWidth(FontType.REGULARNEW, value.substring(0, cursor), size);
          Render2D.rect(cursorX + 0.5F, y + 4.5F, 0.65F, Math.max(5.0F, height - 9.0F), 0.3F, -1244795905);
       }
@@ -289,7 +288,7 @@ public final class VanillaMenuTheme {
       Render2D.flush();
    }
 
-   public static void drawCenteredText(DrawContext graphics, String text, float centerX, float y, int color) {
+   public static void drawCenteredText(GuiGraphics graphics, String text, float centerX, float y, int color) {
       text = stripLegacyFormatting(text);
       if (text != null && !text.isEmpty()) {
          float size = 6.4F;
@@ -301,7 +300,7 @@ public final class VanillaMenuTheme {
       }
    }
 
-   public static void drawText(DrawContext graphics, String text, float x, float y, int color) {
+   public static void drawText(GuiGraphics graphics, String text, float x, float y, int color) {
       text = stripLegacyFormatting(text);
       if (text != null && !text.isEmpty()) {
          Render2D.beginFrame(graphics);
@@ -310,7 +309,7 @@ public final class VanillaMenuTheme {
       }
    }
 
-   public static void drawRightAlignedText(DrawContext graphics, String text, float rightX, float y, int color) {
+   public static void drawRightAlignedText(GuiGraphics graphics, String text, float rightX, float y, int color) {
       text = stripLegacyFormatting(text);
       if (text != null && !text.isEmpty()) {
          float size = 6.0F;
@@ -339,7 +338,7 @@ public final class VanillaMenuTheme {
       }
    }
 
-   private static void renderCenteredLabel(Text message, float x, float y, float width, float height, float alpha) {
+   private static void renderCenteredLabel(Component message, float x, float y, float width, float height, float alpha) {
       String text = message == null ? "" : message.getString();
       if (!text.isEmpty()) {
          float size = 5.85F;

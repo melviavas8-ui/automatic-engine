@@ -3,10 +3,10 @@ package daamky.ua.screens.clickgui.impl.panel;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.input.CharInput;
-import net.minecraft.client.input.KeyInput;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import daamky.ua.api.drag.impl.ClientLanguage;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
@@ -86,7 +86,7 @@ public final class ClickGuiPanel {
       return rowsHeight;
    }
 
-   public void renderShell(DrawContext graphics, float x, float y, float width, float height, float scale, float alpha) {
+   public void renderShell(GuiGraphics graphics, float x, float y, float width, float height, float scale, float alpha) {
       this.rememberBounds(x, y, width, height, scale);
       width *= scale;
       height *= scale;
@@ -114,7 +114,7 @@ public final class ClickGuiPanel {
       }
    }
 
-   public void renderContent(DrawContext graphics, float x, float y, float width, float height, float scale, float alpha) {
+   public void renderContent(GuiGraphics graphics, float x, float y, float width, float height, float scale, float alpha) {
       this.rememberBounds(x, y, width, height, scale);
       width *= scale;
       height *= scale;
@@ -170,7 +170,7 @@ public final class ClickGuiPanel {
       }
    }
 
-   public void renderOverlays(DrawContext graphics) {
+   public void renderOverlays(GuiGraphics graphics) {
       for (Module module : this.modules()) {
          this.optionFor(module).renderOverlay(graphics);
       }
@@ -185,11 +185,11 @@ public final class ClickGuiPanel {
       }
    }
 
-   public boolean mouseClicked(Click event, boolean doubled) {
+   public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
       return this.mouseClickedPopup(event, doubled) ? true : this.mouseClickedControls(event, doubled);
    }
 
-   public boolean mouseClickedPopup(Click event, boolean doubled) {
+   public boolean mouseClickedPopup(MouseButtonEvent event, boolean doubled) {
       List<Module> modules = this.modules();
 
       for (int i = modules.size() - 1; i >= 0; i--) {
@@ -201,7 +201,7 @@ public final class ClickGuiPanel {
       return false;
    }
 
-   public boolean mouseClickedControls(Click event, boolean doubled) {
+   public boolean mouseClickedControls(MouseButtonEvent event, boolean doubled) {
       if (!this.containsContent(event.x(), event.y())) {
          return false;
       } else {
@@ -233,7 +233,7 @@ public final class ClickGuiPanel {
       }
    }
 
-   public boolean mouseReleased(Click event) {
+   public boolean mouseReleased(MouseButtonEvent event) {
       List<Module> modules = this.modules();
 
       for (int i = modules.size() - 1; i >= 0; i--) {
@@ -245,7 +245,7 @@ public final class ClickGuiPanel {
       return false;
    }
 
-   public boolean mouseDragged(Click event, double dragX, double dragY) {
+   public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
       List<Module> modules = this.modules();
 
       for (int i = modules.size() - 1; i >= 0; i--) {
@@ -257,7 +257,7 @@ public final class ClickGuiPanel {
       return false;
    }
 
-   public boolean keyPressed(KeyInput event) {
+   public boolean keyPressed(KeyEvent event) {
       List<Module> modules = this.modules();
 
       for (int i = modules.size() - 1; i >= 0; i--) {
@@ -269,7 +269,7 @@ public final class ClickGuiPanel {
       return false;
    }
 
-   public boolean charTyped(CharInput event) {
+   public boolean charTyped(CharacterEvent event) {
       List<Module> modules = this.modules();
 
       for (int i = modules.size() - 1; i >= 0; i--) {

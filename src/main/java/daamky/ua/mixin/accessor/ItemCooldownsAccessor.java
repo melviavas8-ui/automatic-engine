@@ -1,16 +1,16 @@
 package daamky.ua.mixin.accessor;
 
 import java.util.Map;
-import net.minecraft.entity.player.ItemCooldownManager;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.ItemCooldowns;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-@Mixin({ItemCooldownManager.class})
+@Mixin({ItemCooldowns.class})
 public interface ItemCooldownsAccessor {
-   @Accessor("entries")
+   @Accessor("cooldowns")
    Map<Identifier, ?> daamky$getCooldowns();
 
-   @Accessor("tick")
+   @Accessor("tickCount")
    int daamky$getTickCount();
 }

@@ -1,12 +1,12 @@
 package daamky.ua.screens.clickgui.impl.options;
 
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
 import daamky.ua.api.drag.impl.ClientLanguage;
 import daamky.ua.api.settings.impl.MultiModeSetting;
 import daamky.ua.utils.render.animation.Easings;
 import daamky.ua.utils.render.animation.SmoothAnimation;
 import daamky.ua.utils.render.ui.Render2D;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.MouseButtonEvent;
 
 public class MultiOption extends ClickGuiOption {
    private final String[] values;
@@ -26,7 +26,7 @@ public class MultiOption extends ClickGuiOption {
    }
 
    @Override
-   protected void renderControl(DrawContext graphics, float x, float y, float width, float height, float scale, float alpha) {
+   protected void renderControl(GuiGraphics graphics, float x, float y, float width, float height, float scale, float alpha) {
       this.controlWidth = 58.0F * scale;
       this.controlHeight = 13.0F * scale;
       this.controlX = x + width - this.controlWidth - 5.0F * scale;
@@ -55,7 +55,7 @@ public class MultiOption extends ClickGuiOption {
    }
 
    @Override
-   public void renderOverlay(DrawContext graphics) {
+   public void renderOverlay(GuiGraphics graphics) {
       this.openAnimation.update();
       float progress = this.openAnimation.get();
       if (!(progress <= 0.01F)) {
@@ -140,7 +140,7 @@ public class MultiOption extends ClickGuiOption {
    }
 
    @Override
-   public boolean mouseClicked(Click event, boolean doubled) {
+   public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
       if (event.button() != 0) {
          return false;
       } else {
@@ -170,7 +170,7 @@ public class MultiOption extends ClickGuiOption {
    }
 
    @Override
-   public boolean wantsMousePriority(Click event) {
+   public boolean wantsMousePriority(MouseButtonEvent event) {
       if (!this.isPopupVisible()) {
          return false;
       } else {

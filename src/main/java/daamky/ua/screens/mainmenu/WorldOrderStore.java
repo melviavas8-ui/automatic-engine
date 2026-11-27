@@ -7,17 +7,17 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.AbstractSelectionList;
 import java.util.Base64.Decoder;
 import java.util.Base64.Encoder;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.widget.EntryListWidget;
 import daamky.ua.mixin.accessor.AbstractSelectionListAccessor;
 
 public final class WorldOrderStore {
    private WorldOrderStore() {
    }
 
-   public static void apply(EntryListWidget<?> list) {
+   public static void apply(AbstractSelectionList<?> list) {
       List<String> order = load();
       if (!order.isEmpty()) {
          List<?> entries = list.children();
@@ -36,7 +36,7 @@ public final class WorldOrderStore {
       }
    }
 
-   public static void save(EntryListWidget<?> list) {
+   public static void save(AbstractSelectionList<?> list) {
       List<String> lines = new ArrayList<>();
       Encoder encoder = Base64.getUrlEncoder().withoutPadding();
 
@@ -100,6 +100,6 @@ public final class WorldOrderStore {
    }
 
    private static Path orderFile() {
-      return MinecraftClient.getInstance().runDirectory.toPath().resolve("config").resolve("daamky-world-order.txt");
+      return Minecraft.getInstance().gameDirectory.toPath().resolve("config").resolve("daamky-world-order.txt");
    }
 }

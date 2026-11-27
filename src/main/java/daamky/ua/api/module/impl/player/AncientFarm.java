@@ -4,24 +4,24 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.StreamSupport;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.PotionContentsComponent;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.UpdatePlayerAbilitiesC2SPacket;
-import net.minecraft.registry.tag.ItemTags;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.protocol.game.ServerboundPlayerAbilitiesPacket;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.drag.impl.Notifications;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.InputEvent;
@@ -134,9 +134,9 @@ public final class AncientFarm extends Module {
 
    @SubscribeEvent
    private void onTick(TickEvent.Post event) {
-      MinecraftClient client = event.getClient();
-      if (client.player != null && client.world != null && client.interactionManager != null && client.options != null) {
-         if (client.world.getRegistryKey() != World.NETHER) {
+      Minecraft client = event.getClient();
+      if (client.player != null && client.level != null && client.gameMode != null && client.options != null) {
+         if (client.level.dimension() != Level.NETHER) {
             this.enforceFullStop();
             this.notifyOnce("AncientFarm работает только в Незере.", 3000L);
          } else if (this.consuming) {
@@ -150,7 +150,7 @@ public final class AncientFarm extends Module {
                }
             }
 
-            if (this.autoEat.getValue() && client.player.getHungerManager().isNotFull() && this.canPauseForFood()) {
+            if (this.autoEat.getValue() && client.player.getFoodData().needsFood() && this.canPauseForFood()) {
                Slot food = InventoryTask.getFoodMaxSaturationSlot();
                if (food != null) {
                   this.beginConsuming(food);
@@ -160,17 +160,17 @@ public final class AncientFarm extends Module {
                this.notifyOnce("Нужна еда в инвентаре.", 3000L);
             }
 
-            if (this.flyCommandSent && client.player.getAbilities().allowFlying && !this.requiresFullStop() && !this.baritoneNavigating) {
+            if (this.flyCommandSent && client.player.getAbilities().mayfly && !this.requiresFullStop() && !this.baritoneNavigating) {
                this.ensureFlying();
             }
 
             if (this.baritoneNavigating && client.player.horizontalCollision) {
-               client.options.jumpKey.setPressed(true);
-               if (client.player.isOnGround()) {
-                  client.player.jump();
+               client.options.keyJump.setDown(true);
+               if (client.player.onGround()) {
+                  client.player.jumpFromGround();
                } else if (client.player.getAbilities().flying) {
-                  Vec3d movement = client.player.getVelocity();
-                  client.player.setVelocity(movement.x, Math.max(movement.y, 0.22), movement.z);
+                  Vec3 movement = client.player.getDeltaMovement();
+                  client.player.setDeltaMovement(movement.x, Math.max(movement.y, 0.22), movement.z);
                }
             }
 
@@ -220,19 +220,19 @@ public final class AncientFarm extends Module {
 
    private void tickStart() {
       if (!this.flyCommandSent) {
-         mc.player.networkHandler.sendChatCommand("fly");
+         mc.player.connection.sendCommand("fly");
          this.flyCommandSent = true;
          this.flyCommandAt = System.currentTimeMillis();
-         this.routeDirection = mc.player.getHorizontalFacing();
+         this.routeDirection = mc.player.getDirection();
          if (this.routeDirection.getAxis().isVertical()) {
             this.routeDirection = Direction.NORTH;
          }
 
          this.notifyOnce("Включаю /fly...", 1000L);
-      } else if (!mc.player.getAbilities().allowFlying) {
+      } else if (!mc.player.getAbilities().mayfly) {
          this.enforceFullStop();
          if (System.currentTimeMillis() - this.flyCommandAt >= 3000L) {
-            mc.player.networkHandler.sendChatCommand("fly");
+            mc.player.connection.sendCommand("fly");
             this.flyCommandAt = System.currentTimeMillis();
             this.notifyOnce("Жду подтверждение /fly от сервера.", 1500L);
          }
@@ -246,7 +246,7 @@ public final class AncientFarm extends Module {
 
    private void startNextRoute() {
       this.releaseKeys();
-      this.tunnelStart = mc.player.getBlockPos();
+      this.tunnelStart = mc.player.blockPosition();
       this.startBaritoneTunnel(true);
       this.transition(AncientFarm.State.DIG_TUNNEL);
    }
@@ -260,8 +260,8 @@ public final class AncientFarm extends Module {
             this.stopBaritone();
             this.releaseKeys();
             this.faceDirection(this.routeDirection);
-            this.tntPos = mc.player.getBlockPos().toImmutable();
-            this.tntStandPos = this.tntPos.offset(this.routeDirection.getOpposite(), 2);
+            this.tntPos = mc.player.blockPosition().immutable();
+            this.tntStandPos = this.tntPos.relative(this.routeDirection.getOpposite(), 2);
             this.startBaritoneGoto(this.tntStandPos, true);
             this.transition(AncientFarm.State.POSITION_TNT);
          } else {
@@ -285,7 +285,7 @@ public final class AncientFarm extends Module {
 
    private void tickPositionForTnt() {
       if (this.tntStandPos != null && this.tntPos != null) {
-         if (this.horizontalDistanceSqr(mc.player.getBlockPos(), this.tntStandPos) <= 1.5625) {
+         if (this.horizontalDistanceSqr(mc.player.blockPosition(), this.tntStandPos) <= 1.5625) {
             this.stopBaritone();
             this.transition(AncientFarm.State.FIND_TNT_POSITION);
          } else {
@@ -313,8 +313,8 @@ public final class AncientFarm extends Module {
    private void tickFindTntPosition() {
       this.enforceFullStop();
       if (this.tntPos != null
-         && mc.world.getBlockState(this.tntPos).isAir()
-         && mc.world.getBlockState(this.tntPos.down()).isSideSolidFullSquare(mc.world, this.tntPos.down(), Direction.UP)) {
+         && mc.level.getBlockState(this.tntPos).isAir()
+         && mc.level.getBlockState(this.tntPos.below()).isFaceSturdy(mc.level, this.tntPos.below(), Direction.UP)) {
          this.stableStopTicks = 0;
          this.transition(AncientFarm.State.PREPARE_TNT);
       } else {
@@ -337,8 +337,8 @@ public final class AncientFarm extends Module {
          this.resetTntPlacement(true);
          this.transition(AncientFarm.State.FIND_TNT_POSITION);
       } else {
-         BlockPos support = this.tntPos.down();
-         Vec3d hitVec = Vec3d.ofCenter(support).add(0.0, 0.5, 0.0);
+         BlockPos support = this.tntPos.below();
+         Vec3 hitVec = Vec3.atCenterOf(support).add(0.0, 0.5, 0.0);
          this.lookAt(hitVec);
          if (this.tntPlacementSlot == null) {
             Slot tntSlot = InventoryTask.getSlot(Items.TNT);
@@ -346,9 +346,9 @@ public final class AncientFarm extends Module {
                this.notifyOnce("Закончился динамит.", 3000L);
             } else {
                this.tntPlacementSlot = tntSlot;
-               this.tntPlacementSwapped = !mc.player.getOffHandStack().isOf(Items.TNT);
+               this.tntPlacementSwapped = !mc.player.getOffhandItem().is(Items.TNT);
                if (this.tntPlacementSwapped) {
-                  InventoryTask.swapHand(tntSlot, Hand.OFF_HAND, false, true);
+                  InventoryTask.swapHand(tntSlot, InteractionHand.OFF_HAND, false, true);
                }
 
                this.tntPlacementTicks = 0;
@@ -356,29 +356,29 @@ public final class AncientFarm extends Module {
             }
          } else {
             this.tntPlacementTicks++;
-            if (!mc.player.getOffHandStack().isOf(Items.TNT)) {
+            if (!mc.player.getOffhandItem().is(Items.TNT)) {
                if (this.tntPlacementTicks >= 20) {
                   this.resetTntPlacement(true);
                   this.notifyOnce("Сервер не подтвердил свап TNT. Повторяю.", 1500L);
                }
             } else if (!this.tntPlacementSent) {
-               if (!mc.world.getBlockState(this.tntPos).isAir() || !mc.world.getBlockState(support).isSideSolidFullSquare(mc.world, support, Direction.UP)) {
+               if (!mc.level.getBlockState(this.tntPos).isAir() || !mc.level.getBlockState(support).isFaceSturdy(mc.level, support, Direction.UP)) {
                   this.resetTntPlacement(true);
                   this.transition(AncientFarm.State.FIND_TNT_POSITION);
                } else if (this.tntPlacementTicks >= 4) {
                   BlockHitResult hit = new BlockHitResult(hitVec, Direction.UP, support, false);
-                  ActionResult result = mc.interactionManager.interactBlock(mc.player, Hand.OFF_HAND, hit);
-                  if (!result.isAccepted()) {
+                  InteractionResult result = mc.gameMode.useItemOn(mc.player, InteractionHand.OFF_HAND, hit);
+                  if (!result.consumesAction()) {
                      this.resetTntPlacement(true);
                      this.transition(AncientFarm.State.FIND_TNT_POSITION);
                   } else {
-                     mc.player.swingHand(Hand.OFF_HAND);
+                     mc.player.swing(InteractionHand.OFF_HAND);
                      this.tntPlacementSent = true;
                      this.tntPlacementTicks = 0;
                   }
                }
             } else {
-               if (mc.world.getBlockState(this.tntPos).isOf(Blocks.TNT)) {
+               if (mc.level.getBlockState(this.tntPos).is(Blocks.TNT)) {
                   this.tntConfirmTicks++;
                } else {
                   this.tntConfirmTicks = 0;
@@ -402,35 +402,35 @@ public final class AncientFarm extends Module {
 
    private void tickIgniteTnt() {
       this.enforceFullStop();
-      if (this.tntPos != null && mc.world.getBlockState(this.tntPos).isOf(Blocks.TNT)) {
+      if (this.tntPos != null && mc.level.getBlockState(this.tntPos).is(Blocks.TNT)) {
          this.ignitionConfirmTicks = 0;
-         this.lookAt(Vec3d.ofCenter(this.tntPos));
+         this.lookAt(Vec3.atCenterOf(this.tntPos));
          if (this.ignitionSlot == null) {
             Slot foundIgnition = this.findIgnitionItem();
             if (foundIgnition == null) {
                this.notifyOnce("Нужны огниво или огненный заряд.", 3000L);
             } else {
                this.ignitionSlot = foundIgnition;
-               ItemStack offhand = mc.player.getOffHandStack();
-               this.ignitionSwapped = !offhand.isOf(Items.FLINT_AND_STEEL) && !offhand.isOf(Items.FIRE_CHARGE);
+               ItemStack offhand = mc.player.getOffhandItem();
+               this.ignitionSwapped = !offhand.is(Items.FLINT_AND_STEEL) && !offhand.is(Items.FIRE_CHARGE);
                if (this.ignitionSwapped) {
-                  InventoryTask.swapHand(foundIgnition, Hand.OFF_HAND, false, true);
+                  InventoryTask.swapHand(foundIgnition, InteractionHand.OFF_HAND, false, true);
                }
 
                this.ignitionTicks = 0;
             }
          } else {
             this.ignitionTicks++;
-            ItemStack offhand = mc.player.getOffHandStack();
-            if (!offhand.isOf(Items.FLINT_AND_STEEL) && !offhand.isOf(Items.FIRE_CHARGE)) {
+            ItemStack offhand = mc.player.getOffhandItem();
+            if (!offhand.is(Items.FLINT_AND_STEEL) && !offhand.is(Items.FIRE_CHARGE)) {
                if (this.ignitionTicks >= 20) {
                   this.resetIgnition(true);
                }
             } else if (!this.ignitionSent && this.ignitionTicks >= 4) {
-               BlockHitResult hit = new BlockHitResult(Vec3d.ofCenter(this.tntPos), Direction.UP, this.tntPos, false);
-               ActionResult result = mc.interactionManager.interactBlock(mc.player, Hand.OFF_HAND, hit);
-               if (result.isAccepted()) {
-                  mc.player.swingHand(Hand.OFF_HAND);
+               BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(this.tntPos), Direction.UP, this.tntPos, false);
+               InteractionResult result = mc.gameMode.useItemOn(mc.player, InteractionHand.OFF_HAND, hit);
+               if (result.consumesAction()) {
+                  mc.player.swing(InteractionHand.OFF_HAND);
                   this.ignitionSent = true;
                   this.ignitionTicks = 0;
                }
@@ -441,7 +441,7 @@ public final class AncientFarm extends Module {
             this.ignitionConfirmTicks++;
             if (this.ignitionConfirmTicks >= 5) {
                this.resetIgnition(true);
-               this.scanCenter = this.tntPos.toImmutable();
+               this.scanCenter = this.tntPos.immutable();
                this.tntIgnitedAt = System.currentTimeMillis();
                this.buildRetreatTarget();
                this.stopBaritone();
@@ -457,7 +457,7 @@ public final class AncientFarm extends Module {
    }
 
    private void tickRetreat() {
-      if (this.retreatTarget != null && !(this.horizontalDistanceSqr(mc.player.getBlockPos(), this.retreatTarget) <= 9.0) && this.elapsed() < 4200L) {
+      if (this.retreatTarget != null && !(this.horizontalDistanceSqr(mc.player.blockPosition(), this.retreatTarget) <= 9.0) && this.elapsed() < 4200L) {
          this.flyEscapeTo(this.retreatTarget);
       } else {
          this.hoverFlight();
@@ -476,7 +476,7 @@ public final class AncientFarm extends Module {
 
    private void scanDebris() {
       this.debrisQueue.clear();
-      BlockPos center = this.scanCenter != null ? this.scanCenter : mc.player.getBlockPos();
+      BlockPos center = this.scanCenter != null ? this.scanCenter : mc.player.blockPosition();
       int radius = Math.round(this.scanRadius.getFloat());
       int verticalRadius = Math.min(radius, 16);
       int radiusSqr = radius * radius;
@@ -485,16 +485,16 @@ public final class AncientFarm extends Module {
          for (int y = -verticalRadius; y <= verticalRadius; y++) {
             for (int z = -radius; z <= radius; z++) {
                if (x * x + y * y + z * z <= radiusSqr) {
-                  BlockPos pos = center.add(x, y, z);
-                  if (mc.world.isChunkLoaded(pos) && mc.world.getBlockState(pos).isOf(Blocks.ANCIENT_DEBRIS) && this.canStandOnDebris(pos)) {
-                     this.debrisQueue.add(pos.toImmutable());
+                  BlockPos pos = center.offset(x, y, z);
+                  if (mc.level.hasChunkAt(pos) && mc.level.getBlockState(pos).is(Blocks.ANCIENT_DEBRIS) && this.canStandOnDebris(pos)) {
+                     this.debrisQueue.add(pos.immutable());
                   }
                }
             }
          }
       }
 
-      this.debrisQueue.sort(Comparator.comparingDouble(posx -> mc.player.squaredDistanceTo(Vec3d.ofCenter(posx))));
+      this.debrisQueue.sort(Comparator.comparingDouble(posx -> mc.player.distanceToSqr(Vec3.atCenterOf(posx))));
       if (this.debrisQueue.isEmpty()) {
          this.stopBaritone();
          this.ensureFlying();
@@ -508,7 +508,7 @@ public final class AncientFarm extends Module {
 
    private void selectNextDebris() {
       this.resetDebrisMining();
-      this.debrisQueue.removeIf(pos -> !mc.world.getBlockState(pos).isOf(Blocks.ANCIENT_DEBRIS) || !this.canStandOnDebris(pos));
+      this.debrisQueue.removeIf(pos -> !mc.level.getBlockState(pos).is(Blocks.ANCIENT_DEBRIS) || !this.canStandOnDebris(pos));
       if (this.debrisQueue.isEmpty()) {
          this.transition(AncientFarm.State.SCAN_DEBRIS);
       } else {
@@ -527,8 +527,8 @@ public final class AncientFarm extends Module {
    }
 
    private void tickNavigateToDebris() {
-      if (this.debrisTarget != null && mc.world.getBlockState(this.debrisTarget).isOf(Blocks.ANCIENT_DEBRIS) && this.canStandOnDebris(this.debrisTarget)) {
-         if (this.debrisApproach == null || !mc.world.getBlockState(this.debrisApproach).isAir()) {
+      if (this.debrisTarget != null && mc.level.getBlockState(this.debrisTarget).is(Blocks.ANCIENT_DEBRIS) && this.canStandOnDebris(this.debrisTarget)) {
+         if (this.debrisApproach == null || !mc.level.getBlockState(this.debrisApproach).isAir()) {
             this.debrisApproach = this.findDebrisApproach(this.debrisTarget);
             if (this.debrisApproach == null) {
                this.selectNextDebris();
@@ -537,7 +537,7 @@ public final class AncientFarm extends Module {
          }
 
          if (!this.debrisDescending) {
-            Vec3d destination = new Vec3d(
+            Vec3 destination = new Vec3(
                (double)this.debrisTarget.getX() + 0.5, (double)this.debrisTarget.getY() + 3.2, (double)this.debrisTarget.getZ() + 0.5
             );
             double dx = mc.player.getX() - destination.x;
@@ -550,8 +550,8 @@ public final class AncientFarm extends Module {
             this.debrisDescending = true;
          }
 
-         Vec3d destination = new Vec3d((double)this.debrisTarget.getX() + 0.5, (double)this.debrisTarget.getY() + 1.05, (double)this.debrisTarget.getZ() + 0.5);
-         if (mc.player.getEntityPos().squaredDistanceTo(destination) <= 1.3224999999999998) {
+         Vec3 destination = new Vec3((double)this.debrisTarget.getX() + 0.5, (double)this.debrisTarget.getY() + 1.05, (double)this.debrisTarget.getZ() + 0.5);
+         if (mc.player.position().distanceToSqr(destination) <= 1.3224999999999998) {
             this.hoverFlight();
             this.releaseKeys();
             this.disableFlyingForBaritone();
@@ -566,16 +566,16 @@ public final class AncientFarm extends Module {
    }
 
    private void tickMineDebris() {
-      if (this.debrisTarget == null || !mc.world.getBlockState(this.debrisTarget).isOf(Blocks.ANCIENT_DEBRIS)) {
+      if (this.debrisTarget == null || !mc.level.getBlockState(this.debrisTarget).is(Blocks.ANCIENT_DEBRIS)) {
          this.ensureFlying();
-         mc.player.setVelocity(Vec3d.ZERO);
+         mc.player.setDeltaMovement(Vec3.ZERO);
          this.resetDebrisMining();
          this.selectNextDebris();
       } else if (!this.canStandOnDebris(this.debrisTarget)) {
          this.ensureFlying();
          this.resetDebrisMining();
          this.selectNextDebris();
-      } else if (mc.player.squaredDistanceTo(Vec3d.ofCenter(this.debrisTarget)) > 20.25) {
+      } else if (mc.player.distanceToSqr(Vec3.atCenterOf(this.debrisTarget)) > 20.25) {
          this.resetDebrisMining();
          this.transition(AncientFarm.State.NAVIGATE_TO_DEBRIS);
       } else {
@@ -584,20 +584,20 @@ public final class AncientFarm extends Module {
             this.disableFlyingForBaritone();
          }
 
-         if (!mc.player.isOnGround()) {
-            Vec3d movement = mc.player.getVelocity();
-            mc.player.setVelocity(0.0, movement.y, 0.0);
+         if (!mc.player.onGround()) {
+            Vec3 movement = mc.player.getDeltaMovement();
+            mc.player.setDeltaMovement(0.0, movement.y, 0.0);
          } else if (this.prepareDebrisTool()) {
-            this.lookAt(Vec3d.ofCenter(this.debrisTarget));
+            this.lookAt(Vec3.atCenterOf(this.debrisTarget));
             if (!this.breakingDebris) {
-               mc.interactionManager.attackBlock(this.debrisTarget, this.debrisHitFace);
+               mc.gameMode.startDestroyBlock(this.debrisTarget, this.debrisHitFace);
                this.breakingDebris = true;
             } else {
-               mc.interactionManager.updateBlockBreakingProgress(this.debrisTarget, this.debrisHitFace);
+               mc.gameMode.continueDestroyBlock(this.debrisTarget, this.debrisHitFace);
             }
 
-            mc.options.attackKey.setPressed(true);
-            mc.player.swingHand(Hand.MAIN_HAND);
+            mc.options.keyAttack.setDown(true);
+            mc.player.swing(InteractionHand.MAIN_HAND);
          }
       }
    }
@@ -607,25 +607,25 @@ public final class AncientFarm extends Module {
          return null;
       } else {
          this.debrisHitFace = Direction.UP;
-         return target.up().toImmutable();
+         return target.above().immutable();
       }
    }
 
    private boolean canStandOnDebris(BlockPos pos) {
-      return mc.world.getBlockState(pos).isOf(Blocks.ANCIENT_DEBRIS)
-         && mc.world.getBlockState(pos.up()).isAir()
-         && mc.world.getBlockState(pos.up(2)).isAir()
-         && mc.world.getBlockState(pos.up(3)).isAir();
+      return mc.level.getBlockState(pos).is(Blocks.ANCIENT_DEBRIS)
+         && mc.level.getBlockState(pos.above()).isAir()
+         && mc.level.getBlockState(pos.above(2)).isAir()
+         && mc.level.getBlockState(pos.above(3)).isAir();
    }
 
    private boolean prepareDebrisTool() {
       AutoTool.setMainHandReserved(true);
-      if (mc.player.getMainHandStack().isIn(ItemTags.PICKAXES)) {
+      if (mc.player.getMainHandItem().is(ItemTags.PICKAXES)) {
          return true;
       } else if (this.debrisToolSlot == null) {
          Slot pickaxe = InventoryTask.slots()
-            .filter(slot -> slot.getStack().isIn(ItemTags.PICKAXES))
-            .max(Comparator.comparingDouble(slot -> (double)slot.getStack().getMiningSpeedMultiplier(mc.world.getBlockState(this.debrisTarget))))
+            .filter(slot -> slot.getItem().is(ItemTags.PICKAXES))
+            .max(Comparator.comparingDouble(slot -> (double)slot.getItem().getDestroySpeed(mc.level.getBlockState(this.debrisTarget))))
             .orElse(null);
          if (pickaxe == null) {
             this.notifyOnce("Нужна кирка в инвентаре.", 3000L);
@@ -640,7 +640,7 @@ public final class AncientFarm extends Module {
             } else {
                this.debrisToolUseSlot = this.debrisToolPreviousSlot;
                this.debrisToolSwapped = true;
-               InventoryTask.swapHand(pickaxe, Hand.MAIN_HAND, false, true);
+               InventoryTask.swapHand(pickaxe, InteractionHand.MAIN_HAND, false, true);
             }
 
             return false;
@@ -650,13 +650,13 @@ public final class AncientFarm extends Module {
             InventoryTask.switchTo(this.debrisToolUseSlot);
          }
 
-         return mc.player.getMainHandStack().isIn(ItemTags.PICKAXES);
+         return mc.player.getMainHandItem().is(ItemTags.PICKAXES);
       }
    }
 
    private void resetDebrisMining() {
-      if (this.breakingDebris && mc.interactionManager != null) {
-         mc.interactionManager.cancelBlockBreaking();
+      if (this.breakingDebris && mc.gameMode != null) {
+         mc.gameMode.stopDestroyBlock();
       }
 
       this.breakingDebris = false;
@@ -666,7 +666,7 @@ public final class AncientFarm extends Module {
       }
 
       if (mc.player != null && this.debrisToolSwapped && this.debrisToolSlot != null) {
-         InventoryTask.swapHand(this.debrisToolSlot, Hand.MAIN_HAND, false, true);
+         InventoryTask.swapHand(this.debrisToolSlot, InteractionHand.MAIN_HAND, false, true);
       }
 
       if (mc.player != null && this.debrisToolPreviousSlot >= 0) {
@@ -679,14 +679,14 @@ public final class AncientFarm extends Module {
       this.debrisToolPreviousSlot = -1;
       AutoTool.setMainHandReserved(false);
       if (mc.options != null) {
-         mc.options.attackKey.setPressed(false);
+         mc.options.keyAttack.setDown(false);
       }
    }
 
    private boolean isExposedDebris(BlockPos pos) {
       for (Direction direction : Direction.values()) {
-         BlockPos neighbor = pos.offset(direction);
-         if (mc.world.getBlockState(neighbor).isAir()) {
+         BlockPos neighbor = pos.relative(direction);
+         if (mc.level.getBlockState(neighbor).isAir()) {
             return true;
          }
       }
@@ -695,10 +695,10 @@ public final class AncientFarm extends Module {
    }
 
    private void ensureFlying() {
-      if (mc.player != null && mc.player.getAbilities().allowFlying) {
+      if (mc.player != null && mc.player.getAbilities().mayfly) {
          if (!mc.player.getAbilities().flying) {
             mc.player.getAbilities().flying = true;
-            mc.player.networkHandler.sendPacket(new UpdatePlayerAbilitiesC2SPacket(mc.player.getAbilities()));
+            mc.player.connection.send(new ServerboundPlayerAbilitiesPacket(mc.player.getAbilities()));
          }
       }
    }
@@ -706,7 +706,7 @@ public final class AncientFarm extends Module {
    private void disableFlyingForBaritone() {
       if (mc.player != null && mc.player.getAbilities().flying) {
          mc.player.getAbilities().flying = false;
-         mc.player.networkHandler.sendPacket(new UpdatePlayerAbilitiesC2SPacket(mc.player.getAbilities()));
+         mc.player.connection.send(new ServerboundPlayerAbilitiesPacket(mc.player.getAbilities()));
       }
    }
 
@@ -714,7 +714,7 @@ public final class AncientFarm extends Module {
       if (mc.player != null) {
          this.ensureFlying();
          mc.player.setSprinting(false);
-         mc.player.setVelocity(Vec3d.ZERO);
+         mc.player.setDeltaMovement(Vec3.ZERO);
       }
    }
 
@@ -722,28 +722,28 @@ public final class AncientFarm extends Module {
       if (mc.player != null && target != null) {
          this.releaseKeys();
          this.ensureFlying();
-         Vec3d delta = Vec3d.ofCenter(target).subtract(mc.player.getEntityPos());
+         Vec3 delta = Vec3.atCenterOf(target).subtract(mc.player.position());
          double horizontal = Math.hypot(delta.x, delta.z);
          if (horizontal < 0.05) {
             this.hoverFlight();
          } else {
             double speed = 0.55;
             double motionY = mc.player.horizontalCollision ? 0.3 : 0.04;
-            mc.player.setYaw((float)Math.toDegrees(Math.atan2(delta.z, delta.x)) - 90.0F);
-            mc.player.setPitch(0.0F);
+            mc.player.setYRot((float)Math.toDegrees(Math.atan2(delta.z, delta.x)) - 90.0F);
+            mc.player.setXRot(0.0F);
             mc.player.setSprinting(false);
-            mc.options.forwardKey.setPressed(true);
-            mc.options.jumpKey.setPressed(mc.player.horizontalCollision);
-            mc.player.setVelocity(delta.x / horizontal * speed, motionY, delta.z / horizontal * speed);
+            mc.options.keyUp.setDown(true);
+            mc.options.keyJump.setDown(mc.player.horizontalCollision);
+            mc.player.setDeltaMovement(delta.x / horizontal * speed, motionY, delta.z / horizontal * speed);
          }
       }
    }
 
-   private void flyTo(Vec3d target) {
+   private void flyTo(Vec3 target) {
       if (mc.player != null && target != null) {
          this.releaseKeys();
          this.ensureFlying();
-         Vec3d delta = target.subtract(mc.player.getEntityPos());
+         Vec3 delta = target.subtract(mc.player.position());
          double distance = delta.length();
          if (distance < 0.05) {
             this.hoverFlight();
@@ -756,29 +756,29 @@ public final class AncientFarm extends Module {
 
             double horizontal = Math.hypot(delta.x, delta.z);
             if (horizontal > 0.001) {
-               mc.player.setYaw((float)Math.toDegrees(Math.atan2(delta.z, delta.x)) - 90.0F);
+               mc.player.setYRot((float)Math.toDegrees(Math.atan2(delta.z, delta.x)) - 90.0F);
             }
 
-            mc.player.setPitch(0.0F);
+            mc.player.setXRot(0.0F);
             mc.player.setSprinting(false);
-            mc.player.setVelocity(delta.x / distance * speed, motionY, delta.z / distance * speed);
+            mc.player.setDeltaMovement(delta.x / distance * speed, motionY, delta.z / distance * speed);
          }
       }
    }
 
    private void configureBaritone() {
       if (mc.player != null) {
-         mc.player.networkHandler.sendChatMessage("#set allowBreak true");
-         mc.player.networkHandler.sendChatMessage("#set allowPlace false");
-         mc.player.networkHandler.sendChatMessage("#set allowSprint true");
-         mc.player.networkHandler.sendChatMessage("#set allowParkour true");
-         mc.player.networkHandler.sendChatMessage("#set allowParkourAscend true");
-         mc.player.networkHandler.sendChatMessage("#set allowDiagonalAscend true");
-         mc.player.networkHandler.sendChatMessage("#set allowDiagonalDescend true");
-         mc.player.networkHandler.sendChatMessage("#set assumeStep false");
-         mc.player.networkHandler.sendChatMessage("#set autoTool true");
-         mc.player.networkHandler.sendChatMessage("#set walkWhileBreaking true");
-         mc.player.networkHandler.sendChatMessage("#set blockBreakAdditionalPenalty 0");
+         mc.player.connection.sendChat("#set allowBreak true");
+         mc.player.connection.sendChat("#set allowPlace false");
+         mc.player.connection.sendChat("#set allowSprint true");
+         mc.player.connection.sendChat("#set allowParkour true");
+         mc.player.connection.sendChat("#set allowParkourAscend true");
+         mc.player.connection.sendChat("#set allowDiagonalAscend true");
+         mc.player.connection.sendChat("#set allowDiagonalDescend true");
+         mc.player.connection.sendChat("#set assumeStep false");
+         mc.player.connection.sendChat("#set autoTool true");
+         mc.player.connection.sendChat("#set walkWhileBreaking true");
+         mc.player.connection.sendChat("#set blockBreakAdditionalPenalty 0");
       }
    }
 
@@ -796,7 +796,7 @@ public final class AncientFarm extends Module {
          this.baritoneTarget = null;
          this.baritoneStuckTicks = 0;
          this.rememberBaritonePosition();
-         mc.player.networkHandler.sendChatMessage("#tunnel");
+         mc.player.connection.sendChat("#tunnel");
       }
    }
 
@@ -810,10 +810,10 @@ public final class AncientFarm extends Module {
          }
 
          this.baritoneNavigating = true;
-         this.baritoneTarget = target.toImmutable();
+         this.baritoneTarget = target.immutable();
          this.baritoneStuckTicks = 0;
          this.rememberBaritonePosition();
-         mc.player.networkHandler.sendChatMessage("#goto " + target.getX() + " " + target.getY() + " " + target.getZ());
+         mc.player.connection.sendChat("#goto " + target.getX() + " " + target.getY() + " " + target.getZ());
       }
    }
 
@@ -865,8 +865,8 @@ public final class AncientFarm extends Module {
 
    private void stopBaritone() {
       if (this.baritoneNavigating && mc.player != null) {
-         mc.player.networkHandler.sendChatMessage("#stop");
-         mc.player.networkHandler.sendChatMessage("#cancel");
+         mc.player.connection.sendChat("#stop");
+         mc.player.connection.sendChat("#cancel");
       }
 
       this.baritoneNavigating = false;
@@ -880,7 +880,7 @@ public final class AncientFarm extends Module {
 
    private int tunnelProgress() {
       if (mc.player != null && this.tunnelStart != null) {
-         BlockPos current = mc.player.getBlockPos();
+         BlockPos current = mc.player.blockPosition();
          int dx = current.getX() - this.tunnelStart.getX();
          int dz = current.getZ() - this.tunnelStart.getZ();
          return (int)Math.floor(Math.sqrt((double)dx * (double)dx + (double)dz * (double)dz));
@@ -891,8 +891,8 @@ public final class AncientFarm extends Module {
 
    private void faceDirection(Direction direction) {
       if (mc.player != null && direction != null) {
-         mc.player.setYaw(direction.getPositiveHorizontalDegrees());
-         mc.player.setPitch(0.0F);
+         mc.player.setYRot(direction.toYRot());
+         mc.player.setXRot(0.0F);
       }
    }
 
@@ -910,24 +910,24 @@ public final class AncientFarm extends Module {
       if (mc.player == null) {
          return false;
       } else {
-         StatusEffectInstance effect = mc.player.getStatusEffect(StatusEffects.FIRE_RESISTANCE);
+         MobEffectInstance effect = mc.player.getEffect(MobEffects.FIRE_RESISTANCE);
          return effect == null || effect.getDuration() <= 400;
       }
    }
 
    private Slot findDrinkableFireResistance() {
       return InventoryTask.slots()
-         .filter(slot -> slot.getStack().isOf(Items.POTION))
-         .filter(slot -> this.hasPotionEffect(slot.getStack()))
+         .filter(slot -> slot.getItem().is(Items.POTION))
+         .filter(slot -> this.hasPotionEffect(slot.getItem()))
          .findFirst()
          .orElse(null);
    }
 
    private boolean hasPotionEffect(ItemStack stack) {
-      PotionContentsComponent contents = (PotionContentsComponent)stack.get(DataComponentTypes.POTION_CONTENTS);
+      PotionContents contents = (PotionContents)stack.get(DataComponents.POTION_CONTENTS);
       return contents != null
-         && StreamSupport.<StatusEffectInstance>stream(contents.getEffects().spliterator(), false)
-            .anyMatch(effect -> effect.getEffectType().equals(StatusEffects.FIRE_RESISTANCE));
+         && StreamSupport.<MobEffectInstance>stream(contents.getAllEffects().spliterator(), false)
+            .anyMatch(effect -> effect.getEffect().equals(MobEffects.FIRE_RESISTANCE));
    }
 
    private void beginConsuming(Slot slot) {
@@ -948,16 +948,16 @@ public final class AncientFarm extends Module {
       if (this.pendingConsumeSlot != null) {
          this.consumeStopTicks++;
          if (this.consumeStopTicks >= 3) {
-            ItemStack stack = this.pendingConsumeSlot.getStack();
-            if (!stack.isEmpty() && !mc.player.getItemCooldownManager().isCoolingDown(stack)) {
-               if (!ItemStack.areItemsAndComponentsEqual(mc.player.getOffHandStack(), stack)) {
-                  InventoryTask.swapHand(this.pendingConsumeSlot, Hand.OFF_HAND, false, true);
+            ItemStack stack = this.pendingConsumeSlot.getItem();
+            if (!stack.isEmpty() && !mc.player.getCooldowns().isOnCooldown(stack)) {
+               if (!ItemStack.isSameItemSameComponents(mc.player.getOffhandItem(), stack)) {
+                  InventoryTask.swapHand(this.pendingConsumeSlot, InteractionHand.OFF_HAND, false, true);
                   this.restoreConsumeSlot = this.pendingConsumeSlot;
                }
 
                this.pendingConsumeSlot = null;
-               mc.options.useKey.setPressed(true);
-               PlayerInteractionHelper.interactItem(Hand.OFF_HAND);
+               mc.options.keyUse.setDown(true);
+               PlayerInteractionHelper.interactItem(InteractionHand.OFF_HAND);
             } else {
                this.finishConsuming(false);
             }
@@ -966,10 +966,10 @@ public final class AncientFarm extends Module {
          this.consumeStartTicks++;
          if (mc.player.isUsingItem()) {
             this.consumeStarted = true;
-            mc.options.useKey.setPressed(true);
+            mc.options.keyUse.setDown(true);
          } else {
             if (!this.consumeStarted && this.consumeStartTicks < 6) {
-               mc.options.useKey.setPressed(true);
+               mc.options.keyUse.setDown(true);
             } else {
                this.finishConsuming(true);
             }
@@ -979,11 +979,11 @@ public final class AncientFarm extends Module {
 
    private void finishConsuming(boolean restoreItem) {
       if (mc.options != null) {
-         mc.options.useKey.setPressed(false);
+         mc.options.keyUse.setDown(false);
       }
 
       if (restoreItem && this.restoreConsumeSlot != null && mc.player != null) {
-         InventoryTask.swapHand(this.restoreConsumeSlot, Hand.OFF_HAND, false, true);
+         InventoryTask.swapHand(this.restoreConsumeSlot, InteractionHand.OFF_HAND, false, true);
       }
 
       this.consuming = false;
@@ -1020,13 +1020,13 @@ public final class AncientFarm extends Module {
       } else {
          Direction away = this.routeDirection.getOpposite();
          int distance = Math.round(this.retreatDistance.getFloat());
-         this.retreatTarget = this.tntPos.offset(away, distance);
+         this.retreatTarget = this.tntPos.relative(away, distance);
       }
    }
 
    private void resetTntPlacement(boolean restoreItem) {
       if (restoreItem && this.tntPlacementSwapped && this.tntPlacementSlot != null && mc.player != null) {
-         InventoryTask.swapHand(this.tntPlacementSlot, Hand.OFF_HAND, false, true);
+         InventoryTask.swapHand(this.tntPlacementSlot, InteractionHand.OFF_HAND, false, true);
       }
 
       this.tntPlacementSlot = null;
@@ -1040,7 +1040,7 @@ public final class AncientFarm extends Module {
 
    private void resetIgnition(boolean restoreItem) {
       if (restoreItem && this.ignitionSwapped && this.ignitionSlot != null && mc.player != null) {
-         InventoryTask.swapHand(this.ignitionSlot, Hand.OFF_HAND, false, true);
+         InventoryTask.swapHand(this.ignitionSlot, InteractionHand.OFF_HAND, false, true);
       }
 
       this.ignitionSlot = null;
@@ -1052,14 +1052,14 @@ public final class AncientFarm extends Module {
       this.ignitionConfirmTicks = 0;
    }
 
-   private void lookAt(Vec3d target) {
-      Vec3d eyes = mc.player.getEyePos();
+   private void lookAt(Vec3 target) {
+      Vec3 eyes = mc.player.getEyePosition();
       double dx = target.x - eyes.x;
       double dy = target.y - eyes.y;
       double dz = target.z - eyes.z;
       double horizontal = Math.sqrt(dx * dx + dz * dz);
-      mc.player.setYaw((float)Math.toDegrees(Math.atan2(dz, dx)) - 90.0F);
-      mc.player.setPitch((float)(-Math.toDegrees(Math.atan2(dy, horizontal))));
+      mc.player.setYRot((float)Math.toDegrees(Math.atan2(dz, dx)) - 90.0F);
+      mc.player.setXRot((float)(-Math.toDegrees(Math.atan2(dy, horizontal))));
    }
 
    private void transition(AncientFarm.State next) {
@@ -1107,22 +1107,22 @@ public final class AncientFarm extends Module {
       this.releaseKeys();
       if (mc.player != null) {
          mc.player.setSprinting(false);
-         double vertical = mc.player.getAbilities().flying ? 0.0 : mc.player.getVelocity().y;
-         mc.player.setVelocity(0.0, vertical, 0.0);
+         double vertical = mc.player.getAbilities().flying ? 0.0 : mc.player.getDeltaMovement().y;
+         mc.player.setDeltaMovement(0.0, vertical, 0.0);
       }
    }
 
    private void releaseKeys() {
       if (mc.options != null) {
-         mc.options.forwardKey.setPressed(false);
-         mc.options.backKey.setPressed(false);
-         mc.options.leftKey.setPressed(false);
-         mc.options.rightKey.setPressed(false);
-         mc.options.jumpKey.setPressed(false);
-         mc.options.sneakKey.setPressed(false);
-         mc.options.sprintKey.setPressed(false);
-         mc.options.attackKey.setPressed(false);
-         mc.options.useKey.setPressed(false);
+         mc.options.keyUp.setDown(false);
+         mc.options.keyDown.setDown(false);
+         mc.options.keyLeft.setDown(false);
+         mc.options.keyRight.setDown(false);
+         mc.options.keyJump.setDown(false);
+         mc.options.keyShift.setDown(false);
+         mc.options.keySprint.setDown(false);
+         mc.options.keyAttack.setDown(false);
+         mc.options.keyUse.setDown(false);
       }
    }
 

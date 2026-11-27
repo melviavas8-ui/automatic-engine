@@ -1,7 +1,5 @@
 package daamky.ua.api.module.impl.combat;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.LivingEntity;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.InputEvent;
 import daamky.ua.api.events.impl.RotationUpdateEvent;
@@ -28,6 +26,8 @@ import daamky.ua.api.settings.impl.MultiModeSetting;
 import daamky.ua.api.settings.impl.NumberSetting;
 import daamky.ua.utils.inventory.lookup.InventoryUtils;
 import daamky.ua.utils.inventory.swap.SwapSettings;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.LivingEntity;
 
 public class MaceTarget extends Module {
    private static MaceTarget instance;
@@ -71,7 +71,7 @@ public class MaceTarget extends Module {
 
    @Override
    protected void onDisable() {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (this.autoEquipChest.getValue() && client.player != null) {
          this.equipChestplateOnDisable();
       }
@@ -89,8 +89,8 @@ public class MaceTarget extends Module {
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
-      if (client.player != null && client.world != null) {
+   public void onTick(Minecraft client) {
+      if (client.player != null && client.level != null) {
          if (!this.isSilentMode()) {
             this.armorSwapHandler.processLoop();
             this.fireworkHandler.processLoop();
@@ -109,8 +109,8 @@ public class MaceTarget extends Module {
 
    @SubscribeEvent
    private void onRotationUpdate(RotationUpdateEvent event) {
-      MinecraftClient client = MinecraftClient.getInstance();
-      if (client.player != null && client.world != null) {
+      Minecraft client = Minecraft.getInstance();
+      if (client.player != null && client.level != null) {
          if (event.getPhase() != EventPhase.PRE) {
             if (event.getPhase() == EventPhase.POST) {
                this.handlePostRotation();
@@ -125,7 +125,7 @@ public class MaceTarget extends Module {
                this.predictor.update(this.target);
                MaceState.Stage currentStage = this.stageHandler.getStage();
                if (currentStage == MaceState.Stage.FLYING_UP) {
-                  if (InventoryUtils.hasElytra() && client.player.isGliding()) {
+                  if (InventoryUtils.hasElytra() && client.player.isFallFlying()) {
                      this.rotateTo(this.flightController.calculateAngle(this.target, currentStage));
                   }
                } else if (currentStage == MaceState.Stage.TARGETTING || currentStage == MaceState.Stage.ATTACKING) {
@@ -138,7 +138,7 @@ public class MaceTarget extends Module {
 
    @SubscribeEvent
    private void onInput(InputEvent event) {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (client.player != null) {
          if (this.armorSwapHandler.getMovement().isBlocked() || this.fireworkHandler.getMovement().isBlocked()) {
             event.setDirectionalLow(false, false, false, false);
@@ -148,10 +148,10 @@ public class MaceTarget extends Module {
          }
 
          if (this.target != null && InventoryUtils.hasElytra() && this.stageHandler.getStage() == MaceState.Stage.FLYING_UP) {
-            if (client.player.isOnGround()) {
+            if (client.player.onGround()) {
                event.setJumping(true);
-            } else if (!client.player.isGliding() && !client.player.getAbilities().flying) {
-               event.setJumping(client.player.age % 2 == 0);
+            } else if (!client.player.isFallFlying() && !client.player.getAbilities().flying) {
+               event.setJumping(client.player.tickCount % 2 == 0);
             }
          }
       }
@@ -174,13 +174,13 @@ public class MaceTarget extends Module {
    }
 
    private void findTarget() {
-      MinecraftClient client = MinecraftClient.getInstance();
-      if (client.world == null) {
+      Minecraft client = Minecraft.getInstance();
+      if (client.level == null) {
          this.targetFinder.releaseTarget();
          this.target = null;
       } else {
          TargetFinder.EntityFilter filter = new TargetFinder.EntityFilter(this.targetType.getValue());
-         this.targetFinder.searchTargets(client.world.getEntities(), 128.0F, 360.0F, true);
+         this.targetFinder.searchTargets(client.level.entitiesForRendering(), 128.0F, 360.0F, true);
          this.targetFinder.validateTarget(filter::isValid);
          this.target = this.targetFinder.getCurrentTarget();
       }

@@ -1,19 +1,19 @@
 package daamky.ua.api.module.impl.visual.esp;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RotationAxis;
-import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 import daamky.ua.utils.render.Render3D;
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 public final class EspGeometry {
    private static final double NEAR_PLANE = 0.05;
@@ -23,21 +23,21 @@ public final class EspGeometry {
    private EspGeometry() {
    }
 
-   public static EspGeometry.ProjectionContext createProjectionContext(MinecraftClient mc, float tickDelta) {
+   public static EspGeometry.ProjectionContext createProjectionContext(Minecraft mc, float tickDelta) {
       if (mc.gameRenderer != null && mc.getWindow() != null) {
-         Camera camera = mc.gameRenderer.getCamera();
-         if (camera != null && camera.isReady()) {
-            Vec3d cameraPos = isFinite(Render3D.lastCameraPos) ? Render3D.lastCameraPos : camera.getCameraPos();
+         Camera camera = mc.gameRenderer.getMainCamera();
+         if (camera != null && camera.isInitialized()) {
+            Vec3 cameraPos = isFinite(Render3D.lastCameraPos) ? Render3D.lastCameraPos : camera.position();
             float resolvedTickDelta = Float.isFinite(tickDelta) ? tickDelta : Render3D.lastTickDelta;
-            MatrixStack stack = new MatrixStack();
-            stack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(camera.getPitch()));
-            stack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(camera.getYaw() + 180.0F));
+            PoseStack stack = new PoseStack();
+            stack.mulPose(Axis.XP.rotationDegrees(camera.xRot()));
+            stack.mulPose(Axis.YP.rotationDegrees(camera.yRot() + 180.0F));
             return new EspGeometry.ProjectionContext(
                cameraPos,
                new Matrix4f(Render3D.lastProjMat),
-               new Matrix3f(stack.peek().getPositionMatrix()),
-               (float)mc.getWindow().getScaledWidth(),
-               (float)mc.getWindow().getScaledHeight(),
+               new Matrix3f(stack.last().pose()),
+               (float)mc.getWindow().getGuiScaledWidth(),
+               (float)mc.getWindow().getGuiScaledHeight(),
                resolvedTickDelta,
                createCorners(),
                new Vector3f(),
@@ -53,18 +53,18 @@ public final class EspGeometry {
       }
    }
 
-   public static Box interpolatedBox(Entity entity, float tickDelta) {
-      Vec3d pos = entity.getLerpedPos(tickDelta);
-      return entity.getDimensions(entity.getPose()).getBoxAt(pos.x, pos.y, pos.z);
+   public static AABB interpolatedBox(Entity entity, float tickDelta) {
+      Vec3 pos = entity.getPosition(tickDelta);
+      return entity.getDimensions(entity.getPose()).makeBoundingBox(pos.x, pos.y, pos.z);
    }
 
    public static EspGeometry.ScreenBox projectEntityBox(Entity entity, EspGeometry.ProjectionContext context) {
-      Box box = interpolatedBox(entity, context.tickDelta()).expand(0.025, 0.0, 0.025);
-      box = new Box(box.minX, box.minY, box.minZ, box.maxX, box.maxY + 0.05, box.maxZ);
+      AABB box = interpolatedBox(entity, context.tickDelta()).inflate(0.025, 0.0, 0.025);
+      box = new AABB(box.minX, box.minY, box.minZ, box.maxX, box.maxY + 0.05, box.maxZ);
       return projectBox(box, context);
    }
 
-   public static EspGeometry.ScreenBox projectBox(Box box, EspGeometry.ProjectionContext context) {
+   public static EspGeometry.ScreenBox projectBox(AABB box, EspGeometry.ProjectionContext context) {
       if (box != null && context != null) {
          fillViewSpaceCorners(box, context);
          double[] bounds = context.bounds();
@@ -103,14 +103,14 @@ public final class EspGeometry {
    }
 
    public static EspGeometry.ScreenAnchor resolveTopAnchor(Entity entity, EspGeometry.ProjectionContext context, EspGeometry.ScreenBox fallbackBox) {
-      Vec3d interpolated = entity.getLerpedPos(context.tickDelta());
+      Vec3 interpolated = entity.getPosition(context.tickDelta());
       double height = (double)entity.getDimensions(entity.getPose()).height();
-      double topOffset = entity instanceof PlayerEntity ? 0.38 : 0.06;
+      double topOffset = entity instanceof Player ? 0.38 : 0.06;
       return resolveTopAnchor(interpolated, height, topOffset, context, fallbackBox);
    }
 
    public static EspGeometry.ScreenAnchor resolveTopAnchor(
-      Vec3d interpolated, double height, double topOffset, EspGeometry.ProjectionContext context, EspGeometry.ScreenBox fallbackBox
+      Vec3 interpolated, double height, double topOffset, EspGeometry.ProjectionContext context, EspGeometry.ScreenBox fallbackBox
    ) {
       if (!isFinite(interpolated)) {
          return fallbackBox != null ? new EspGeometry.ScreenAnchor(fallbackBox.centerX(), fallbackBox.minY()) : null;
@@ -120,8 +120,8 @@ public final class EspGeometry {
             double marginX = (double)context.screenWidth() * 0.45;
             double marginY = (double)context.screenHeight() * 0.45;
             return new EspGeometry.ScreenAnchor(
-               MathHelper.clamp(projected.x(), -marginX, (double)context.screenWidth() + marginX),
-               MathHelper.clamp(projected.y(), -marginY, (double)context.screenHeight() + marginY)
+               Mth.clamp(projected.x(), -marginX, (double)context.screenWidth() + marginX),
+               Mth.clamp(projected.y(), -marginY, (double)context.screenHeight() + marginY)
             );
          } else {
             return fallbackBox != null ? new EspGeometry.ScreenAnchor(fallbackBox.centerX(), fallbackBox.minY()) : null;
@@ -138,7 +138,7 @@ public final class EspGeometry {
          && box.minY() <= (double)context.screenHeight() + marginY;
    }
 
-   public static boolean isFinite(Vec3d pos) {
+   public static boolean isFinite(Vec3 pos) {
       return pos != null
          && Double.isFinite(pos.x)
          && Double.isFinite(pos.y)
@@ -148,7 +148,7 @@ public final class EspGeometry {
          && Math.abs(pos.z) < 3.0E7;
    }
 
-   public static EspGeometry.ScreenPoint projectWorldToScreenSpace(Vec3d worldPos, EspGeometry.ProjectionContext context) {
+   public static EspGeometry.ScreenPoint projectWorldToScreenSpace(Vec3 worldPos, EspGeometry.ProjectionContext context) {
       return !isFinite(worldPos) ? null : projectWorldToScreenSpace(worldPos.x, worldPos.y, worldPos.z, context);
    }
 
@@ -196,7 +196,7 @@ public final class EspGeometry {
       }
    }
 
-   private static void fillViewSpaceCorners(Box box, EspGeometry.ProjectionContext context) {
+   private static void fillViewSpaceCorners(AABB box, EspGeometry.ProjectionContext context) {
       toCameraViewSpace(box.minX, box.minY, box.minZ, context, context.corners()[0]);
       toCameraViewSpace(box.maxX, box.minY, box.minZ, context, context.corners()[1]);
       toCameraViewSpace(box.minX, box.maxY, box.minZ, context, context.corners()[2]);
@@ -244,7 +244,7 @@ public final class EspGeometry {
          float planeZ = -0.05F;
          float t = (planeZ - start.z) / deltaZ;
          return Float.isFinite(t) && !(t < 0.0F) && !(t > 1.0F)
-            ? dest.set(MathHelper.lerp(t, start.x, end.x), MathHelper.lerp(t, start.y, end.y), planeZ - 0.001F)
+            ? dest.set(Mth.lerp(t, start.x, end.x), Mth.lerp(t, start.y, end.y), planeZ - 0.001F)
             : null;
       }
    }
@@ -276,8 +276,8 @@ public final class EspGeometry {
    }
 
    private static void expandBounds(double[] bounds, double x, double y, float screenWidth, float screenHeight) {
-      double clampedX = MathHelper.clamp(x, (double)(-screenWidth), (double)screenWidth * 2.0);
-      double clampedY = MathHelper.clamp(y, (double)(-screenHeight), (double)screenHeight * 2.0);
+      double clampedX = Mth.clamp(x, (double)(-screenWidth), (double)screenWidth * 2.0);
+      double clampedY = Mth.clamp(y, (double)(-screenHeight), (double)screenHeight * 2.0);
       bounds[0] = Math.min(bounds[0], clampedX);
       bounds[1] = Math.min(bounds[1], clampedY);
       bounds[2] = Math.max(bounds[2], clampedX);
@@ -299,7 +299,7 @@ public final class EspGeometry {
    }
 
    public static record ProjectionContext(
-      Vec3d cameraPos,
+      Vec3 cameraPos,
       Matrix4f projection,
       Matrix3f viewRotation,
       float screenWidth,

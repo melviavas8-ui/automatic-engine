@@ -1,10 +1,6 @@
 package daamky.ua.mixin;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.Vec3d;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -16,8 +12,12 @@ import daamky.ua.api.module.impl.combat.AuraModule;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.api.module.impl.combat.aura.AngleConnection;
 import daamky.ua.manager.Manager;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.Vec3;
 
-@Mixin({PlayerEntity.class})
+@Mixin({Player.class})
 public abstract class PlayerEntityMixin {
    @Unique
    private boolean daamky$restoreAttackYaw;
@@ -34,15 +34,15 @@ public abstract class PlayerEntityMixin {
    )
    private void daamky$attackYawHead(Entity target, CallbackInfo ci) {
       this.daamky$restoreAttackYaw = false;
-      if ((Object)this == MinecraftClient.getInstance().player) {
+      if ((Object)this == Minecraft.getInstance().player) {
          AuraModule aura = AuraModule.getInstance();
          if (aura == null || !aura.isEnabled() || !aura.isMatrixMode()) {
             Angle angle = AngleConnection.INSTANCE.getMoveRotation();
             if (angle != null) {
-               PlayerEntity player = (PlayerEntity)(Object)this;
-               this.daamky$attackYawBefore = player.getYaw();
+               Player player = (Player)(Object)this;
+               this.daamky$attackYawBefore = player.getYRot();
                this.daamky$restoreAttackYaw = true;
-               player.setYaw(angle.getYaw());
+               player.setYRot(angle.getYaw());
             }
          }
       }
@@ -55,7 +55,7 @@ public abstract class PlayerEntityMixin {
    )
    private void daamky$attackYawReturn(Entity target, CallbackInfo ci) {
       if (this.daamky$restoreAttackYaw) {
-         ((PlayerEntity)(Object)this).setYaw(this.daamky$attackYawBefore);
+         ((Player)(Object)this).setYRot(this.daamky$attackYawBefore);
          this.daamky$restoreAttackYaw = false;
       }
    }
@@ -66,8 +66,8 @@ public abstract class PlayerEntityMixin {
       cancellable = true,
       require = 0
    )
-   private void daamky$onTravelPre(Vec3d movementInput, CallbackInfo ci) {
-      if ((Object)this == MinecraftClient.getInstance().player) {
+   private void daamky$onTravelPre(Vec3 movementInput, CallbackInfo ci) {
+      if ((Object)this == Minecraft.getInstance().player) {
          PlayerTravelEvent event = Manager.postEvent(new PlayerTravelEvent(movementInput, true));
          if (event.isCancelled()) {
             ci.cancel();
@@ -79,12 +79,12 @@ public abstract class PlayerEntityMixin {
       method = {"travel"},
       at = {@At(
          value = "INVOKE",
-         target = "Lnet/minecraft/entity/player/PlayerEntity;getRotationVector()Lnet/minecraft/util/math/Vec3d;"
+         target = "Lnet/minecraft/world/entity/player/Player;getLookAngle()Lnet/minecraft/world/phys/Vec3;"
       )},
       require = 0
    )
-   private Vec3d daamky$travelLookAngle(Vec3d original) {
-      if ((Object)this != MinecraftClient.getInstance().player) {
+   private Vec3 daamky$travelLookAngle(Vec3 original) {
+      if ((Object)this != Minecraft.getInstance().player) {
          return original;
       } else {
          SwimmingEvent event = Manager.postEvent(new SwimmingEvent(original));
@@ -97,8 +97,8 @@ public abstract class PlayerEntityMixin {
       at = {@At("RETURN")},
       require = 0
    )
-   private void daamky$onTravelPost(Vec3d movementInput, CallbackInfo ci) {
-      if ((Object)this == MinecraftClient.getInstance().player) {
+   private void daamky$onTravelPost(Vec3 movementInput, CallbackInfo ci) {
+      if ((Object)this == Minecraft.getInstance().player) {
          Manager.postEvent(new PlayerTravelEvent(movementInput, false));
       }
    }

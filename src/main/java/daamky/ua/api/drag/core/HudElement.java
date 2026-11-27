@@ -1,11 +1,11 @@
 package daamky.ua.api.drag.core;
 
-import net.minecraft.client.gui.Click;
+import net.minecraft.client.input.MouseButtonEvent;
 
 public interface HudElement {
    void render();
 
-   default boolean mouseClicked(Click event, boolean doubled) {
+   default boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
       return false;
    }
 

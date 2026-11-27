@@ -6,27 +6,27 @@ import java.util.List;
 import java.util.function.IntPredicate;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.network.PendingUpdateManager;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.EquippableComponent;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.CloseHandledScreenC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
-import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.Hand;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.multiplayer.prediction.BlockStatePredictionHandler;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
+import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.equipment.Equippable;
 import daamky.ua.IMinecraft;
 import daamky.ua.mixin.accessor.MultiPlayerGameModeAccessor;
 import daamky.ua.utils.inventory.InventoryTask;
 
 public final class InventoryUtils {
-   private static final MinecraftClient mc = MinecraftClient.getInstance();
+   private static final Minecraft mc = Minecraft.getInstance();
    private static final EquipmentSlot[] ARMOR_SLOTS = new EquipmentSlot[]{EquipmentSlot.FEET, EquipmentSlot.LEGS, EquipmentSlot.CHEST, EquipmentSlot.HEAD};
    private static int savedSlot = -1;
    private static int silentSlot = -1;
@@ -39,7 +39,7 @@ public final class InventoryUtils {
          return -1;
       } else {
          for (int i = 0; i < 9; i++) {
-            ItemStack stack = mc.player.getInventory().getStack(i);
+            ItemStack stack = mc.player.getInventory().getItem(i);
             if (!stack.isEmpty() && stack.getItem() == item) {
                return i;
             }
@@ -54,7 +54,7 @@ public final class InventoryUtils {
          return -1;
       } else {
          for (int i = 9; i < 36; i++) {
-            ItemStack stack = mc.player.getInventory().getStack(i);
+            ItemStack stack = mc.player.getInventory().getItem(i);
             if (!stack.isEmpty() && stack.getItem() == item) {
                return i;
             }
@@ -82,22 +82,22 @@ public final class InventoryUtils {
    }
 
    public static boolean hasElytra() {
-      return mc.player == null ? false : mc.player.getEquippedStack(EquipmentSlot.CHEST).get(DataComponentTypes.GLIDER) != null;
+      return mc.player == null ? false : mc.player.getItemBySlot(EquipmentSlot.CHEST).get(DataComponents.GLIDER) != null;
    }
 
    public static boolean isElytraEquipped() {
-      return mc.player == null ? false : mc.player.getEquippedStack(EquipmentSlot.CHEST).getItem() == Items.ELYTRA;
+      return mc.player == null ? false : mc.player.getItemBySlot(EquipmentSlot.CHEST).getItem() == Items.ELYTRA;
    }
 
    public static boolean isElytraUsable() {
       if (mc.player == null) {
          return false;
       } else {
-         ItemStack stack = mc.player.getEquippedStack(EquipmentSlot.CHEST);
+         ItemStack stack = mc.player.getItemBySlot(EquipmentSlot.CHEST);
          if (stack.getItem() != Items.ELYTRA) {
             return false;
          } else {
-            return stack.getMaxDamage() <= 0 ? true : stack.getDamage() < stack.getMaxDamage() - 1;
+            return stack.getMaxDamage() <= 0 ? true : stack.getDamageValue() < stack.getMaxDamage() - 1;
          }
       }
    }
@@ -107,7 +107,7 @@ public final class InventoryUtils {
          return -1;
       } else {
          for (int i = 0; i < 9; i++) {
-            if (mc.player.getInventory().getStack(i).getItem() == item) {
+            if (mc.player.getInventory().getItem(i).getItem() == item) {
                return i;
             }
          }
@@ -135,7 +135,7 @@ public final class InventoryUtils {
          return -1;
       } else {
          for (int i = 0; i < 46; i++) {
-            if (mc.player.getInventory().getStack(i).getItem() == Items.ELYTRA) {
+            if (mc.player.getInventory().getItem(i).getItem() == Items.ELYTRA) {
                return i;
             }
          }
@@ -149,8 +149,8 @@ public final class InventoryUtils {
          return -1;
       } else {
          for (int i = 0; i < 46; i++) {
-            ItemStack stack = mc.player.getInventory().getStack(i);
-            EquippableComponent component = (EquippableComponent)stack.get(DataComponentTypes.EQUIPPABLE);
+            ItemStack stack = mc.player.getInventory().getItem(i);
+            Equippable component = (Equippable)stack.get(DataComponents.EQUIPPABLE);
             if (component != null && component.slot() == EquipmentSlot.CHEST && stack.getItem() != Items.ELYTRA) {
                return i;
             }
@@ -165,8 +165,8 @@ public final class InventoryUtils {
          return -1;
       } else {
          for (int i = 0; i < 36; i++) {
-            ItemStack stack = mc.player.getInventory().getStack(i);
-            EquippableComponent component = (EquippableComponent)stack.get(DataComponentTypes.EQUIPPABLE);
+            ItemStack stack = mc.player.getInventory().getItem(i);
+            Equippable component = (Equippable)stack.get(DataComponents.EQUIPPABLE);
             if (component != null && component.slot() == EquipmentSlot.CHEST) {
                if (targetItem == null) {
                   if (stack.getItem() != Items.ELYTRA) {
@@ -187,14 +187,14 @@ public final class InventoryUtils {
          return InventoryResult.notFound();
       } else {
          for (EquipmentSlot slot : ARMOR_SLOTS) {
-            ItemStack stack = mc.player.getEquippedStack(slot);
+            ItemStack stack = mc.player.getItemBySlot(slot);
             if (isValid(stack) && searcher.matches(stack)) {
                return new InventoryResult(-2, true, stack);
             }
          }
 
          for (int i = 35; i >= 0; i--) {
-            ItemStack stack = mc.player.getInventory().getStack(i);
+            ItemStack stack = mc.player.getInventory().getItem(i);
             if (isValid(stack) && searcher.matches(stack)) {
                return InventoryResult.of(i, stack);
             }
@@ -213,7 +213,7 @@ public final class InventoryUtils {
          return InventoryResult.notFound();
       } else {
          for (int i = 0; i < 9; i++) {
-            ItemStack stack = mc.player.getInventory().getStack(i);
+            ItemStack stack = mc.player.getInventory().getItem(i);
             if (isValid(stack) && searcher.matches(stack)) {
                return InventoryResult.of(i, stack);
             }
@@ -224,7 +224,7 @@ public final class InventoryUtils {
    }
 
    public static Slot findSlot(Item item) {
-      return findSlot(s -> s.getStack().getItem() == item, null);
+      return findSlot(s -> s.getItem().getItem() == item, null);
    }
 
    public static Slot findSlot(Predicate<Slot> filter) {
@@ -235,13 +235,13 @@ public final class InventoryUtils {
       if (mc.player == null) {
          return null;
       } else {
-         Stream<Slot> stream = mc.player.currentScreenHandler.slots.stream().filter(filter);
+         Stream<Slot> stream = mc.player.containerMenu.slots.stream().filter(filter);
          return comparator != null ? stream.max(comparator).orElse(null) : stream.findFirst().orElse(null);
       }
    }
 
    public static Slot findSlot(Item item, Predicate<Slot> extraFilter, Comparator<Slot> comparator) {
-      Predicate<Slot> combined = s -> s.getStack().getItem() == item && extraFilter.test(s);
+      Predicate<Slot> combined = s -> s.getItem().getItem() == item && extraFilter.test(s);
       return findSlot(combined, comparator);
    }
 
@@ -250,8 +250,8 @@ public final class InventoryUtils {
          return null;
       } else {
          for (int i = 36; i <= 44; i++) {
-            Slot slot = mc.player.playerScreenHandler.getSlot(i);
-            if (slot != null && !slot.getStack().isEmpty() && slot.getStack().getItem() == item) {
+            Slot slot = mc.player.inventoryMenu.getSlot(i);
+            if (slot != null && !slot.getItem().isEmpty() && slot.getItem().getItem() == item) {
                return slot;
             }
          }
@@ -265,8 +265,8 @@ public final class InventoryUtils {
          return null;
       } else {
          for (int i = 9; i <= 35; i++) {
-            Slot slot = mc.player.playerScreenHandler.getSlot(i);
-            if (slot != null && !slot.getStack().isEmpty() && slot.getStack().getItem() == item) {
+            Slot slot = mc.player.inventoryMenu.getSlot(i);
+            if (slot != null && !slot.getItem().isEmpty() && slot.getItem().getItem() == item) {
                return slot;
             }
          }
@@ -285,15 +285,15 @@ public final class InventoryUtils {
          return null;
       } else {
          for (int i = 36; i <= 44; i++) {
-            Slot slot = mc.player.playerScreenHandler.getSlot(i);
-            if (slot != null && !slot.getStack().isEmpty() && slot.getStack().getItem() == Items.TOTEM_OF_UNDYING && !slot.getStack().hasEnchantments()) {
+            Slot slot = mc.player.inventoryMenu.getSlot(i);
+            if (slot != null && !slot.getItem().isEmpty() && slot.getItem().getItem() == Items.TOTEM_OF_UNDYING && !slot.getItem().isEnchanted()) {
                return slot;
             }
          }
 
          for (int ix = 9; ix <= 35; ix++) {
-            Slot slot = mc.player.playerScreenHandler.getSlot(ix);
-            if (slot != null && !slot.getStack().isEmpty() && slot.getStack().getItem() == Items.TOTEM_OF_UNDYING && !slot.getStack().hasEnchantments()) {
+            Slot slot = mc.player.inventoryMenu.getSlot(ix);
+            if (slot != null && !slot.getItem().isEmpty() && slot.getItem().getItem() == Items.TOTEM_OF_UNDYING && !slot.getItem().isEnchanted()) {
                return slot;
             }
          }
@@ -307,15 +307,15 @@ public final class InventoryUtils {
          return null;
       } else {
          for (int i = 36; i <= 44; i++) {
-            Slot slot = mc.player.playerScreenHandler.getSlot(i);
-            if (slot != null && !slot.getStack().isEmpty() && slot.getStack().getItem() == Items.TOTEM_OF_UNDYING && slot.getStack().hasEnchantments()) {
+            Slot slot = mc.player.inventoryMenu.getSlot(i);
+            if (slot != null && !slot.getItem().isEmpty() && slot.getItem().getItem() == Items.TOTEM_OF_UNDYING && slot.getItem().isEnchanted()) {
                return slot;
             }
          }
 
          for (int ix = 9; ix <= 35; ix++) {
-            Slot slot = mc.player.playerScreenHandler.getSlot(ix);
-            if (slot != null && !slot.getStack().isEmpty() && slot.getStack().getItem() == Items.TOTEM_OF_UNDYING && slot.getStack().hasEnchantments()) {
+            Slot slot = mc.player.inventoryMenu.getSlot(ix);
+            if (slot != null && !slot.getItem().isEmpty() && slot.getItem().getItem() == Items.TOTEM_OF_UNDYING && slot.getItem().isEnchanted()) {
                return slot;
             }
          }
@@ -332,9 +332,9 @@ public final class InventoryUtils {
          Slot enchantedTotem = null;
 
          for (int i = 36; i <= 44; i++) {
-            Slot slot = mc.player.playerScreenHandler.getSlot(i);
-            if (slot != null && !slot.getStack().isEmpty() && slot.getStack().getItem() == Items.TOTEM_OF_UNDYING) {
-               if (!slot.getStack().hasEnchantments()) {
+            Slot slot = mc.player.inventoryMenu.getSlot(i);
+            if (slot != null && !slot.getItem().isEmpty() && slot.getItem().getItem() == Items.TOTEM_OF_UNDYING) {
+               if (!slot.getItem().isEnchanted()) {
                   if (regularTotem == null) {
                      regularTotem = slot;
                   }
@@ -345,9 +345,9 @@ public final class InventoryUtils {
          }
 
          for (int ix = 9; ix <= 35; ix++) {
-            Slot slot = mc.player.playerScreenHandler.getSlot(ix);
-            if (slot != null && !slot.getStack().isEmpty() && slot.getStack().getItem() == Items.TOTEM_OF_UNDYING) {
-               if (!slot.getStack().hasEnchantments()) {
+            Slot slot = mc.player.inventoryMenu.getSlot(ix);
+            if (slot != null && !slot.getItem().isEmpty() && slot.getItem().getItem() == Items.TOTEM_OF_UNDYING) {
+               if (!slot.getItem().isEnchanted()) {
                   if (regularTotem == null) {
                      regularTotem = slot;
                   }
@@ -369,8 +369,8 @@ public final class InventoryUtils {
       if (mc.player == null) {
          return false;
       } else {
-         ItemStack offhand = mc.player.getOffHandStack();
-         return offhand.getItem() == Items.TOTEM_OF_UNDYING && offhand.hasEnchantments();
+         ItemStack offhand = mc.player.getOffhandItem();
+         return offhand.getItem() == Items.TOTEM_OF_UNDYING && offhand.isEnchanted();
       }
    }
 
@@ -378,15 +378,15 @@ public final class InventoryUtils {
       if (mc.player == null) {
          return false;
       } else {
-         ItemStack offhand = mc.player.getOffHandStack();
-         return offhand.getItem() == Items.TOTEM_OF_UNDYING && !offhand.hasEnchantments();
+         ItemStack offhand = mc.player.getOffhandItem();
+         return offhand.getItem() == Items.TOTEM_OF_UNDYING && !offhand.isEnchanted();
       }
    }
 
    public static void swap(int from, int to) {
-      click(from, 0, SlotActionType.PICKUP);
-      click(to, 0, SlotActionType.PICKUP);
-      click(from, 0, SlotActionType.PICKUP);
+      click(from, 0, ClickType.PICKUP);
+      click(to, 0, ClickType.PICKUP);
+      click(from, 0, ClickType.PICKUP);
    }
 
    public static void swapHotbar(int slot, int hotbarSlot) {
@@ -394,27 +394,27 @@ public final class InventoryUtils {
          boolean fromInventory = slot < 36 || slot > 44;
          if (fromInventory) {
             mc.player.setSprinting(false);
-            mc.options.sprintKey.setPressed(false);
+            mc.options.keySprint.setDown(false);
          }
       }
 
-      click(slot, hotbarSlot, SlotActionType.SWAP);
+      click(slot, hotbarSlot, ClickType.SWAP);
    }
 
    public static void swapToOffhand(int slot) {
-      click(slot, 40, SlotActionType.SWAP);
+      click(slot, 40, ClickType.SWAP);
    }
 
    public static void swapToOffhand(Slot slot) {
       if (slot != null) {
-         click(InventoryTask.getMenuSlotId(slot), 40, SlotActionType.SWAP);
+         click(InventoryTask.getMenuSlotId(slot), 40, ClickType.SWAP);
       }
    }
 
    public static void swapOffhandWithSlot(int slotId) {
-      if (mc.player != null && mc.interactionManager != null) {
-         int syncId = mc.player.currentScreenHandler.syncId;
-         mc.interactionManager.clickSlot(syncId, slotId, 40, SlotActionType.SWAP, mc.player);
+      if (mc.player != null && mc.gameMode != null) {
+         int syncId = mc.player.containerMenu.containerId;
+         mc.gameMode.handleInventoryMouseClick(syncId, slotId, 40, ClickType.SWAP, mc.player);
       }
    }
 
@@ -422,9 +422,9 @@ public final class InventoryUtils {
       swap(from, to);
    }
 
-   public static void click(int slot, int button, SlotActionType type) {
-      if (mc.player != null && mc.interactionManager != null && slot != -1) {
-         mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, slot, button, type, mc.player);
+   public static void click(int slot, int button, ClickType type) {
+      if (mc.player != null && mc.gameMode != null && slot != -1) {
+         mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, slot, button, type, mc.player);
       }
    }
 
@@ -437,12 +437,12 @@ public final class InventoryUtils {
    }
 
    public static boolean syncSelectedHotbarSlot(int slot) {
-      if (mc.player != null && mc.interactionManager != null && slot >= 0 && slot <= 8) {
+      if (mc.player != null && mc.gameMode != null && slot >= 0 && slot <= 8) {
          if (mc.player.getInventory().getSelectedSlot() == slot) {
             return false;
          } else {
             mc.player.getInventory().setSelectedSlot(slot);
-            ((MultiPlayerGameModeAccessor)mc.interactionManager).daamky$ensureHasSentCarriedItem();
+            ((MultiPlayerGameModeAccessor)mc.gameMode).daamky$ensureHasSentCarriedItem();
             resetSilentSlotTracking();
             return true;
          }
@@ -456,7 +456,7 @@ public final class InventoryUtils {
    }
 
    public static boolean sendHeldItemChange(int slot) {
-      if (mc.player != null && mc.getNetworkHandler() != null && slot >= 0 && slot <= 8) {
+      if (mc.player != null && mc.getConnection() != null && slot >= 0 && slot <= 8) {
          if (silentSlot == -1) {
             silentSlot = mc.player.getInventory().getSelectedSlot();
          }
@@ -464,7 +464,7 @@ public final class InventoryUtils {
          if (silentSlot == slot) {
             return false;
          } else {
-            mc.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(slot));
+            mc.getConnection().send(new ServerboundSetCarriedItemPacket(slot));
             silentSlot = slot;
             return true;
          }
@@ -502,13 +502,13 @@ public final class InventoryUtils {
    }
 
    public static void silentUseHotbarItem(int hotbarSlot) {
-      if (mc.player != null && mc.getNetworkHandler() != null) {
+      if (mc.player != null && mc.getConnection() != null) {
          int currentSlot = mc.player.getInventory().getSelectedSlot();
          if (hotbarSlot != currentSlot) {
             sendHeldItemChange(hotbarSlot);
          }
 
-         sendUsePacket(Hand.MAIN_HAND);
+         sendUsePacket(InteractionHand.MAIN_HAND);
          if (hotbarSlot != currentSlot) {
             sendHeldItemChange(currentSlot);
          }
@@ -516,11 +516,11 @@ public final class InventoryUtils {
    }
 
    public static void silentSwapUseAndReturn(int inventorySlot) {
-      if (mc.player != null && mc.getNetworkHandler() != null) {
+      if (mc.player != null && mc.getConnection() != null) {
          int currentHotbarSlot = mc.player.getInventory().getSelectedSlot();
-         click(inventorySlot, currentHotbarSlot, SlotActionType.SWAP);
-         sendUsePacket(Hand.MAIN_HAND);
-         click(inventorySlot, currentHotbarSlot, SlotActionType.SWAP);
+         click(inventorySlot, currentHotbarSlot, ClickType.SWAP);
+         sendUsePacket(InteractionHand.MAIN_HAND);
+         click(inventorySlot, currentHotbarSlot, ClickType.SWAP);
       }
    }
 
@@ -540,24 +540,24 @@ public final class InventoryUtils {
       }
    }
 
-   public static void sendUsePacket(Hand hand) {
+   public static void sendUsePacket(InteractionHand hand) {
       if (mc.player != null) {
-         sendUsePacket(hand, mc.player.getYaw(), mc.player.getPitch());
+         sendUsePacket(hand, mc.player.getYRot(), mc.player.getXRot());
       }
    }
 
-   public static void sendUsePacket(Hand hand, float yaw, float pitch) {
-      if (mc.player != null && mc.getNetworkHandler() != null && mc.world != null) {
+   public static void sendUsePacket(InteractionHand hand, float yaw, float pitch) {
+      if (mc.player != null && mc.getConnection() != null && mc.level != null) {
          int sequence = 0;
-         PendingUpdateManager pendingUpdateManager = null;
+         BlockStatePredictionHandler pendingUpdateManager = null;
 
          try {
-            pendingUpdateManager = mc.world.getPendingUpdateManager().incrementSequence();
-            sequence = pendingUpdateManager.getSequence();
+            pendingUpdateManager = mc.level.getBlockStatePredictionHandler().startPredicting();
+            sequence = pendingUpdateManager.currentSequence();
          } catch (Exception var53) {
          } finally {
             try {
-               mc.getNetworkHandler().sendPacket(new PlayerInteractItemC2SPacket(hand, sequence, yaw, pitch));
+               mc.getConnection().send(new ServerboundUseItemPacket(hand, sequence, yaw, pitch));
             } finally {
                if (pendingUpdateManager != null) {
                   try {
@@ -570,20 +570,20 @@ public final class InventoryUtils {
       }
    }
 
-   public static void use(Hand hand) {
-      if (mc.player != null && mc.interactionManager != null) {
+   public static void use(InteractionHand hand) {
+      if (mc.player != null && mc.gameMode != null) {
          sendUsePacket(hand);
       }
    }
 
    public static void closeScreen() {
-      if (mc.player != null && mc.getNetworkHandler() != null) {
-         mc.getNetworkHandler().sendPacket(new CloseHandledScreenC2SPacket(mc.player.currentScreenHandler.syncId));
+      if (mc.player != null && mc.getConnection() != null) {
+         mc.getConnection().send(new ServerboundContainerClosePacket(mc.player.containerMenu.containerId));
       }
    }
 
    public static boolean isScreenOpen() {
-      return mc.currentScreen != null && !(mc.currentScreen instanceof ChatScreen);
+      return mc.screen != null && !(mc.screen instanceof ChatScreen);
    }
 
    public static int wrapSlot(int slot) {
@@ -595,26 +595,26 @@ public final class InventoryUtils {
    }
 
    public static ItemStack offhandStack() {
-      return mc.player != null ? mc.player.getOffHandStack() : ItemStack.EMPTY;
+      return mc.player != null ? mc.player.getOffhandItem() : ItemStack.EMPTY;
    }
 
    public static ItemStack mainhandStack() {
-      return mc.player != null ? mc.player.getMainHandStack() : ItemStack.EMPTY;
+      return mc.player != null ? mc.player.getMainHandItem() : ItemStack.EMPTY;
    }
 
    public static boolean hasTotemInOffhand() {
-      return mc.player != null && mc.player.getOffHandStack().getItem() == Items.TOTEM_OF_UNDYING;
+      return mc.player != null && mc.player.getOffhandItem().getItem() == Items.TOTEM_OF_UNDYING;
    }
 
    public static Item getOffhandItem() {
-      return mc.player != null ? mc.player.getOffHandStack().getItem() : Items.AIR;
+      return mc.player != null ? mc.player.getOffhandItem().getItem() : Items.AIR;
    }
 
    private static boolean isValid(ItemStack stack) {
       if (stack.isEmpty()) {
          return false;
       } else {
-         return stack.getMaxDamage() <= 0 ? true : stack.getDamage() < stack.getMaxDamage() - 10;
+         return stack.getMaxDamage() <= 0 ? true : stack.getDamageValue() < stack.getMaxDamage() - 10;
       }
    }
 }

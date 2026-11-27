@@ -4,13 +4,13 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.VertexConsumerProvider.Immediate;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Quaternionf;
+import com.mojang.blaze3d.vertex.PoseStack;
 import daamky.ua.api.events.impl.WorldRenderEvent;
 
 public final class ParticleSystem {
@@ -31,8 +31,8 @@ public final class ParticleSystem {
       this.renderer.clear();
    }
 
-   public void tick(MinecraftClient client) {
-      if (client != null && client.world != null && client.player != null) {
+   public void tick(Minecraft client) {
+      if (client != null && client.level != null && client.player != null) {
          this.updateParticlesList(false, client);
          if (this.settings.spawnWorld()) {
             this.addParticlesToWorld(client, client.player);
@@ -42,21 +42,21 @@ public final class ParticleSystem {
       }
    }
 
-   public void spawnAttack(MinecraftClient client, Entity target) {
-      if (target != null && client != null && client.world != null && client.player != null && this.settings.spawnAttacks()) {
+   public void spawnAttack(Minecraft client, Entity target) {
+      if (target != null && client != null && client.level != null && client.player != null && this.settings.spawnAttacks()) {
          this.addParticlesToList(
             client, target, Math.round(this.settings.spawnCountOnAttack.getFloat()), (long)Math.round(this.settings.aliveTimeBaseOnAttack.getFloat())
          );
       }
    }
 
-   public void render(MinecraftClient client, WorldRenderEvent event) {
-      if (client != null && client.world != null && client.player != null && !this.particles.isEmpty() && client.gameRenderer != null) {
-         MatrixStack stack = event.getStack();
-         Immediate provider = client.getBufferBuilders().getEntityVertexConsumers();
-         Vec3d cameraPos = client.gameRenderer.getCamera().getCameraPos();
-         Quaternionf cameraRotation = client.gameRenderer.getCamera().getRotation();
-         float partialTicks = 1.0F - MathHelper.clamp(event.getPartialTicks(), 0.0F, 1.0F);
+   public void render(Minecraft client, WorldRenderEvent event) {
+      if (client != null && client.level != null && client.player != null && !this.particles.isEmpty() && client.gameRenderer != null) {
+         PoseStack stack = event.getStack();
+         BufferSource provider = client.renderBuffers().bufferSource();
+         Vec3 cameraPos = client.gameRenderer.getMainCamera().position();
+         Quaternionf cameraRotation = client.gameRenderer.getMainCamera().rotation();
+         float partialTicks = 1.0F - Mth.clamp(event.getPartialTicks(), 0.0F, 1.0F);
          boolean scaleOfAlpha = this.settings.scaleAsAlphaEnabled.getValue();
          boolean bloom = this.settings.bloomTextureEnabled.getValue();
          this.renderer.clear();
@@ -69,21 +69,21 @@ public final class ParticleSystem {
       }
    }
 
-   private void addParticlesToWorld(MinecraftClient client, Entity entityIn) {
+   private void addParticlesToWorld(Minecraft client, Entity entityIn) {
       this.addParticlesToList(
          client, entityIn, Math.round(this.settings.spawnCountPerTickInWorld.getFloat()), (long)Math.round(this.settings.aliveTimeBaseInWorld.getFloat())
       );
    }
 
-   private void addParticlesToList(MinecraftClient client, Entity entityIn, int countAdd, long aliveTime) {
+   private void addParticlesToList(Minecraft client, Entity entityIn, int countAdd, long aliveTime) {
       Entity entity = (Entity)(entityIn == null ? client.player : entityIn);
-      if (entity != null && countAdd > 0 && client.world != null && client.player != null && this.settings.hasEnabledTextures()) {
-         Vec3d targetVelocityPos = ParticleWorld.entityVecForParticle(client, entity, 0.5F);
-         Vec3d spawnCenter = entity.getEyePos().add(0.0, (double)(-entity.getStandingEyeHeight() / 2.0F), 0.0);
+      if (entity != null && countAdd > 0 && client.level != null && client.player != null && this.settings.hasEnabledTextures()) {
+         Vec3 targetVelocityPos = ParticleWorld.entityVecForParticle(client, entity, 0.5F);
+         Vec3 spawnCenter = entity.getEyePosition().add(0.0, (double)(-entity.getEyeHeight() / 2.0F), 0.0);
          this.refreshEnabledTextures();
          if (!this.enabledTextures.isEmpty()) {
             for (int i = 0; i < countAdd; i++) {
-               Vec3d pos = ParticleWorld.randomSpawnPosition(client, this.random, this.settings, spawnCenter, entity);
+               Vec3 pos = ParticleWorld.randomSpawnPosition(client, this.random, this.settings, spawnCenter, entity);
                if (pos != null) {
                   ParticleTexture texture = this.randomParticleTexture();
                   if (texture != null) {
@@ -113,7 +113,7 @@ public final class ParticleSystem {
       }
    }
 
-   private void updateParticlesList(boolean clear, MinecraftClient client) {
+   private void updateParticlesList(boolean clear, Minecraft client) {
       if (clear) {
          this.particles.clear();
       } else if (!this.particles.isEmpty()) {

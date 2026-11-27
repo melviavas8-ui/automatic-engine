@@ -4,12 +4,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.text.ClickEvent.RunCommand;
-import net.minecraft.text.HoverEvent.ShowText;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.ClickEvent.RunCommand;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent.ShowText;
+import net.minecraft.network.chat.MutableComponent;
 import daamky.ua.api.command.Command;
 import daamky.ua.api.command.CommandManager;
 import daamky.ua.api.command.helpers.Paginator;
@@ -26,11 +26,11 @@ public final class HelpCommand extends Command {
       if (args.length != 0 && !this.isInteger(args[0])) {
          Command command = manager.getCommand(args[0]);
          if (command == null) {
-            this.logDirect("Command '" + args[0] + "' not found.", Formatting.RED);
+            this.logDirect("Command '" + args[0] + "' not found.", ChatFormatting.RED);
          } else {
-            this.logDirectRaw(Text.literal(getLine()));
+            this.logDirectRaw(Component.literal(getLine()));
             this.logDirect(command.getName().toUpperCase());
-            this.logDirectRaw(Text.literal(getLine()));
+            this.logDirectRaw(Component.literal(getLine()));
 
             for (String line : command.getLongDesc()) {
                if (!line.isEmpty()) {
@@ -38,7 +38,7 @@ public final class HelpCommand extends Command {
                }
             }
 
-            this.logDirectRaw(Text.literal(getLine()));
+            this.logDirectRaw(Component.literal(getLine()));
          }
       } else {
          int page = args.length > 0 && this.isInteger(args[0]) ? Integer.parseInt(args[0]) : 1;
@@ -47,19 +47,19 @@ public final class HelpCommand extends Command {
          paginator.setPage(page);
          paginator.display(
             () -> {
-               this.logDirectRaw(Text.literal(getLine()));
+               this.logDirectRaw(Component.literal(getLine()));
                this.logDirect("Available commands");
-               this.logDirectRaw(Text.literal(getLine()));
+               this.logDirectRaw(Component.literal(getLine()));
             },
             commandx -> {
                String fullName = manager.getPrefix() + commandx.getName();
-               MutableText hover = Text.literal(fullName)
-                  .formatted(Formatting.WHITE)
-                  .append(Text.literal("\n" + commandx.getShortDesc()).formatted(Formatting.GRAY));
-               return Text.literal(fullName)
-                  .formatted(Formatting.WHITE)
-                  .append(Text.literal(" - " + commandx.getShortDesc()).formatted(Formatting.GRAY))
-                  .styled(
+               MutableComponent hover = Component.literal(fullName)
+                  .withStyle(ChatFormatting.WHITE)
+                  .append(Component.literal("\n" + commandx.getShortDesc()).withStyle(ChatFormatting.GRAY));
+               return Component.literal(fullName)
+                  .withStyle(ChatFormatting.WHITE)
+                  .append(Component.literal(" - " + commandx.getShortDesc()).withStyle(ChatFormatting.GRAY))
+                  .withStyle(
                      style -> style.withHoverEvent(new ShowText(hover)).withClickEvent(new RunCommand(manager.getPrefix() + label + " " + commandx.getName()))
                   );
             },
@@ -88,9 +88,9 @@ public final class HelpCommand extends Command {
    }
 
    public static String getLine() {
-      MinecraftClient mc = MinecraftClient.getInstance();
-      int dashCount = mc != null && mc.textRenderer != null
-         ? Math.max(18, Math.min(80, mc.getWindow().getScaledWidth() / Math.max(4, mc.textRenderer.getWidth("-")) / 3))
+      Minecraft mc = Minecraft.getInstance();
+      int dashCount = mc != null && mc.font != null
+         ? Math.max(18, Math.min(80, mc.getWindow().getGuiScaledWidth() / Math.max(4, mc.font.width("-")) / 3))
          : 24;
       return "§8§m" + "-".repeat(dashCount);
    }

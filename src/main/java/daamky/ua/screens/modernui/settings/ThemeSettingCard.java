@@ -2,8 +2,8 @@ package daamky.ua.screens.modernui.settings;
 
 import java.awt.Color;
 import java.util.List;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.MouseButtonEvent;
 import daamky.ua.api.settings.impl.ThemeSetting;
 import daamky.ua.api.theme.ClientTheme;
 import daamky.ua.api.theme.ThemeManager;
@@ -32,7 +32,7 @@ final class ThemeSettingCard extends SettingCardComponent<ThemeSetting> {
    }
 
    @Override
-   void render(DrawContext graphics, SettingCardContext context, float cardX, float y, int mouseX, int mouseY) {
+   void render(GuiGraphics graphics, SettingCardContext context, float cardX, float y, int mouseX, int mouseY) {
       this.markRow(cardX, y, this.height(context));
       this.state.expandAnimation.setDirection(this.state.expanded ? Direction.FORWARDS : Direction.BACKWARDS);
       float boxX = cardX + 8.0F;
@@ -54,7 +54,7 @@ final class ThemeSettingCard extends SettingCardComponent<ThemeSetting> {
    }
 
    @Override
-   void renderOverlay(DrawContext graphics, SettingCardContext context) {
+   void renderOverlay(GuiGraphics graphics, SettingCardContext context) {
       float animation = context.clamp(this.state.expandAnimation.getOutput().floatValue(), 0.0F, 1.0F);
       if (this.state.visible && !(animation <= 0.01F)) {
          List<ClientTheme> themes = ThemeManager.themes();
@@ -115,7 +115,7 @@ final class ThemeSettingCard extends SettingCardComponent<ThemeSetting> {
    }
 
    @Override
-   boolean mouseClickedOverlay(Click event, SettingCardContext context) {
+   boolean mouseClickedOverlay(MouseButtonEvent event, SettingCardContext context) {
       if (event.button() == 0 && this.state.visible && this.state.expanded) {
          int visibleRows = Math.min(7, ThemeManager.themes().size());
          float viewportY = this.state.optionY + 2.0F;
@@ -154,7 +154,7 @@ final class ThemeSettingCard extends SettingCardComponent<ThemeSetting> {
    }
 
    @Override
-   boolean mouseClicked(Click event, boolean doubled, SettingCardContext context) {
+   boolean mouseClicked(MouseButtonEvent event, boolean doubled, SettingCardContext context) {
       if (!context.inside(event.x(), event.y(), this.state.boxX, this.state.boxY, this.state.boxWidth, this.state.boxHeight)) {
          return false;
       } else {

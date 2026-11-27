@@ -5,10 +5,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.network.packet.s2c.play.GameMessageS2CPacket;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ClickType;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.PacketEvent;
 import daamky.ua.api.events.impl.TickEvent;
@@ -60,7 +60,7 @@ public final class AutoDuel extends Module {
 
    @SubscribeEvent
    private void onTick(TickEvent event) {
-      if (mc.player != null && mc.world != null && mc.player.networkHandler != null && mc.interactionManager != null) {
+      if (mc.player != null && mc.level != null && mc.player.connection != null && mc.gameMode != null) {
          this.handleDuelLogic();
          this.handleScreenInteraction();
       }
@@ -68,7 +68,7 @@ public final class AutoDuel extends Module {
 
    @SubscribeEvent
    private void onPacket(PacketEvent event) {
-      if (event.isReceive() && event.getPacket() instanceof GameMessageS2CPacket chat) {
+      if (event.isReceive() && event.getPacket() instanceof ClientboundSystemChatPacket chat) {
          String text = chat.content().getString().toLowerCase(Locale.ROOT);
          if (text.contains("начало") && text.contains("через") && text.contains("секунд")
             || text.contains("дуэли") && text.contains("запрещено") && text.contains("команд")) {
@@ -107,21 +107,21 @@ public final class AutoDuel extends Module {
 
    private void sendDuelRequest(String player) {
       if (this.moneyMode.getValue()) {
-         mc.player.networkHandler.sendChatCommand("duel " + player + " " + this.money.getValue());
+         mc.player.connection.sendCommand("duel " + player + " " + this.money.getValue());
       } else {
-         mc.player.networkHandler.sendChatCommand("duel " + player);
+         mc.player.connection.sendCommand("duel " + player);
       }
    }
 
    private void handleScreenInteraction() {
-      if (mc.currentScreen != null) {
-         ScreenHandler title = mc.player.currentScreenHandler;
-         if (title instanceof ScreenHandler) {
-            String titlex = mc.currentScreen.getTitle().getString().toLowerCase(Locale.ROOT);
+      if (mc.screen != null) {
+         AbstractContainerMenu title = mc.player.containerMenu;
+         if (title instanceof AbstractContainerMenu) {
+            String titlex = mc.screen.getTitle().getString().toLowerCase(Locale.ROOT);
             if (titlex.contains("выбор набора") && this.choiceCounter.finished(150.0)) {
                int slotId = this.getKitSlot();
                if (slotId >= 0) {
-                  mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, slotId, 0, SlotActionType.QUICK_MOVE, mc.player);
+                  mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, slotId, 0, ClickType.QUICK_MOVE, mc.player);
                }
 
                this.choiceCounter.reset();
@@ -129,7 +129,7 @@ public final class AutoDuel extends Module {
             }
 
             if (titlex.contains("настройка поединка") && this.confirmCounter.finished(150.0)) {
-               mc.interactionManager.clickSlot(title.syncId, 0, 0, SlotActionType.QUICK_MOVE, mc.player);
+               mc.gameMode.handleInventoryMouseClick(title.containerId, 0, 0, ClickType.QUICK_MOVE, mc.player);
                this.confirmCounter.reset();
             }
 
@@ -157,8 +157,8 @@ public final class AutoDuel extends Module {
 
    private List<String> getOnlinePlayers() {
       List<String> players = new ArrayList<>();
-      if (mc.player != null && mc.player.networkHandler != null) {
-         for (PlayerListEntry info : mc.player.networkHandler.getPlayerList()) {
+      if (mc.player != null && mc.player.connection != null) {
+         for (PlayerInfo info : mc.player.connection.getOnlinePlayers()) {
             GameProfile profile = info.getProfile();
             String name = profile.name();
             if (NICK_PATTERN.matcher(name).matches()) {

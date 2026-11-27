@@ -1,10 +1,5 @@
 package daamky.ua.api.module.impl.player;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.item.ItemStack;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.util.Hand;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.InputEvent;
 import daamky.ua.api.events.impl.TickEvent;
@@ -14,6 +9,11 @@ import daamky.ua.api.settings.impl.MultiModeSetting;
 import daamky.ua.utils.inventory.InventoryFlowManager;
 import daamky.ua.utils.inventory.InventoryTask;
 import daamky.ua.utils.inventory.interaction.PlayerInteractionHelper;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
 
 public final class AutoUse extends Module {
    private static final int PRE_USE_STOP_TICKS = 3;
@@ -52,8 +52,8 @@ public final class AutoUse extends Module {
 
    @SubscribeEvent
    private void onTick(TickEvent.Post event) {
-      MinecraftClient client = event.getClient();
-      if (client.player == null || client.world == null || client.options == null) {
+      Minecraft client = event.getClient();
+      if (client.player == null || client.level == null || client.options == null) {
          this.finishUsing(false);
       } else if (this.stopping) {
          this.updateStopping();
@@ -61,10 +61,10 @@ public final class AutoUse extends Module {
          this.enforceFullStop();
          this.updateUsing(client);
       } else if (!this.targets.isSelected("Eat")
-         || !client.player.getHungerManager().isNotFull()
+         || !client.player.getFoodData().needsFood()
          || !this.prepareUsing(InventoryTask.getFoodMaxSaturationSlot())) {
-         if (this.targets.isSelected("Invisible") && !PlayerInteractionHelper.isPotionActive(StatusEffects.INVISIBILITY)) {
-            this.prepareUsing(InventoryTask.getPotion(StatusEffects.INVISIBILITY));
+         if (this.targets.isSelected("Invisible") && !PlayerInteractionHelper.isPotionActive(MobEffects.INVISIBILITY)) {
+            this.prepareUsing(InventoryTask.getPotion(MobEffects.INVISIBILITY));
          }
       }
    }
@@ -97,11 +97,11 @@ public final class AutoUse extends Module {
 
    private boolean startUsing(Slot slot) {
       if (mc.player != null && mc.options != null && slot != null) {
-         ItemStack stack = slot.getStack();
-         if (!stack.isEmpty() && !mc.player.getItemCooldownManager().isCoolingDown(stack)) {
-            ItemStack offhand = mc.player.getOffHandStack();
-            if (!ItemStack.areItemsAndComponentsEqual(offhand, stack)) {
-               InventoryTask.swapHand(slot, Hand.OFF_HAND, false, true);
+         ItemStack stack = slot.getItem();
+         if (!stack.isEmpty() && !mc.player.getCooldowns().isOnCooldown(stack)) {
+            ItemStack offhand = mc.player.getOffhandItem();
+            if (!ItemStack.isSameItemSameComponents(offhand, stack)) {
+               InventoryTask.swapHand(slot, InteractionHand.OFF_HAND, false, true);
                this.restoreSlot = slot;
             } else {
                this.restoreSlot = null;
@@ -111,8 +111,8 @@ public final class AutoUse extends Module {
             this.useStarted = false;
             this.useStartTicks = 0;
             this.enforceFullStop();
-            mc.options.useKey.setPressed(true);
-            PlayerInteractionHelper.interactItem(Hand.OFF_HAND);
+            mc.options.keyUse.setDown(true);
+            PlayerInteractionHelper.interactItem(InteractionHand.OFF_HAND);
             return true;
          } else {
             return false;
@@ -122,13 +122,13 @@ public final class AutoUse extends Module {
       }
    }
 
-   private void updateUsing(MinecraftClient client) {
+   private void updateUsing(Minecraft client) {
       this.useStartTicks++;
       if (client.player.isUsingItem()) {
          this.useStarted = true;
-         client.options.useKey.setPressed(true);
+         client.options.keyUse.setDown(true);
       } else if (!this.useStarted && this.useStartTicks < 4) {
-         client.options.useKey.setPressed(true);
+         client.options.keyUse.setDown(true);
       } else {
          this.finishUsing(true);
       }
@@ -136,8 +136,8 @@ public final class AutoUse extends Module {
 
    private boolean validSlot(Slot slot) {
       if (mc.player != null && slot != null) {
-         ItemStack stack = slot.getStack();
-         return !stack.isEmpty() && !mc.player.getItemCooldownManager().isCoolingDown(stack);
+         ItemStack stack = slot.getItem();
+         return !stack.isEmpty() && !mc.player.getCooldowns().isOnCooldown(stack);
       } else {
          return false;
       }
@@ -145,28 +145,28 @@ public final class AutoUse extends Module {
 
    private void enforceFullStop() {
       if (mc.options != null) {
-         mc.options.forwardKey.setPressed(false);
-         mc.options.backKey.setPressed(false);
-         mc.options.leftKey.setPressed(false);
-         mc.options.rightKey.setPressed(false);
-         mc.options.jumpKey.setPressed(false);
-         mc.options.sneakKey.setPressed(false);
-         mc.options.sprintKey.setPressed(false);
+         mc.options.keyUp.setDown(false);
+         mc.options.keyDown.setDown(false);
+         mc.options.keyLeft.setDown(false);
+         mc.options.keyRight.setDown(false);
+         mc.options.keyJump.setDown(false);
+         mc.options.keyShift.setDown(false);
+         mc.options.keySprint.setDown(false);
       }
 
       if (mc.player != null) {
          mc.player.setSprinting(false);
-         mc.player.setVelocity(0.0, mc.player.getVelocity().y, 0.0);
+         mc.player.setDeltaMovement(0.0, mc.player.getDeltaMovement().y, 0.0);
       }
    }
 
    private void finishUsing(boolean restoreItem) {
       if (mc.options != null) {
-         mc.options.useKey.setPressed(false);
+         mc.options.keyUse.setDown(false);
       }
 
       if (restoreItem && this.restoreSlot != null && mc.player != null) {
-         InventoryTask.swapHand(this.restoreSlot, Hand.OFF_HAND, false, true);
+         InventoryTask.swapHand(this.restoreSlot, InteractionHand.OFF_HAND, false, true);
       }
 
       this.resetState();

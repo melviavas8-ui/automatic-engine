@@ -3,19 +3,19 @@ package daamky.ua.utils.render.sky;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import com.mojang.blaze3d.vertex.VertexFormatElement;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
 import java.nio.ByteBuffer;
 import java.util.OptionalInt;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
 import org.joml.Matrix4f;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
@@ -26,9 +26,9 @@ public final class CustomSkyRenderer {
    private static final int VERTEX_COUNT = 36;
    private static final int VERTEX_SIZE = 12;
    private static final float SKY_SIZE = 100.0F;
-   private static final Identifier PIPELINE_ID = Identifier.of("daamky", "pipeline/world/ambience_sky");
-   private static final Identifier VERTEX_SHADER = Identifier.of("mre", "core/ambience_sky");
-   private static final Identifier FRAGMENT_SHADER = Identifier.of("mre", "core/ambience_sky");
+   private static final Identifier PIPELINE_ID = Identifier.fromNamespaceAndPath("daamky", "pipeline/world/ambience_sky");
+   private static final Identifier VERTEX_SHADER = Identifier.fromNamespaceAndPath("mre", "core/ambience_sky");
+   private static final Identifier FRAGMENT_SHADER = Identifier.fromNamespaceAndPath("mre", "core/ambience_sky");
    private static final Matrix4f projectionMatrix = new Matrix4f();
    private static final Matrix4f viewMatrix = new Matrix4f();
    private static final Matrix4f skyViewMatrix = new Matrix4f();
@@ -57,9 +57,9 @@ public final class CustomSkyRenderer {
       }
    }
 
-   public static void renderCustomSky(Framebuffer renderTarget, int skyColor, float speed, float intensity, int mode) {
-      if (!disabledAfterError && renderTarget != null && renderTarget.getColorAttachmentView() != null) {
-         if (renderTarget.textureWidth > 0 && renderTarget.textureHeight > 0) {
+   public static void renderCustomSky(RenderTarget renderTarget, int skyColor, float speed, float intensity, int mode) {
+      if (!disabledAfterError && renderTarget != null && renderTarget.getColorTextureView() != null) {
+         if (renderTarget.width > 0 && renderTarget.height > 0) {
             init();
             if (pipeline != null && uniformBuffer != null && skyDataBuffer != null && vertexBuffer != null) {
                try {
@@ -84,7 +84,7 @@ public final class CustomSkyRenderer {
                      .withLocation(PIPELINE_ID)
                      .withVertexShader(VERTEX_SHADER)
                      .withFragmentShader(FRAGMENT_SHADER)
-                     .withVertexFormat(format, DrawMode.TRIANGLES)
+                     .withVertexFormat(format, Mode.TRIANGLES)
                      .withUniform("Uniforms", UniformType.UNIFORM_BUFFER)
                      .withUniform("SkyData", UniformType.UNIFORM_BUFFER)
                      .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
@@ -118,11 +118,11 @@ public final class CustomSkyRenderer {
       }
    }
 
-   private static void renderSky(Framebuffer target, int skyColor, float speed, float intensity, int mode) {
+   private static void renderSky(RenderTarget target, int skyColor, float speed, float intensity, int mode) {
       CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
       writeUniforms(encoder);
       writeSkyData(encoder, skyColor, speed, intensity, mode);
-      RenderPass renderPass = encoder.createRenderPass(() -> "daamky:block_overlay", target.getColorAttachmentView(), OptionalInt.empty());
+      RenderPass renderPass = encoder.createRenderPass(() -> "daamky:block_overlay", target.getColorTextureView(), OptionalInt.empty());
 
       try {
          renderPass.setPipeline(pipeline);

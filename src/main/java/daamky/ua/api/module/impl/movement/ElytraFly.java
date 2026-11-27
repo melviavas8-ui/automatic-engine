@@ -1,13 +1,13 @@
 package daamky.ua.api.module.impl.movement;
 
 import java.util.concurrent.ThreadLocalRandom;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
-import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket.Mode;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket.PositionAndOnGround;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.Pos;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.TickEvent;
 import daamky.ua.api.module.Module;
@@ -46,7 +46,7 @@ public final class ElytraFly extends Module {
 
    @SubscribeEvent
    private void onUpdate(TickEvent.Pre event) {
-      if (mc.player != null && mc.world != null && mc.interactionManager != null && mc.options != null) {
+      if (mc.player != null && mc.level != null && mc.gameMode != null && mc.options != null) {
          int fireworkHotbarSlot = InventoryUtils.findItemInHotbar(Items.FIREWORK_ROCKET);
          int fireworkInventorySlot = InventoryUtils.findItemInInventory(Items.FIREWORK_ROCKET);
          if (fireworkHotbarSlot != -1 || fireworkInventorySlot != -1) {
@@ -71,22 +71,22 @@ public final class ElytraFly extends Module {
    }
 
    private void handleAutoJump() {
-      if (mc.player.isOnGround() && !mc.options.jumpKey.isPressed()) {
-         mc.options.jumpKey.setPressed(true);
+      if (mc.player.onGround() && !mc.options.keyJump.isDown()) {
+         mc.options.keyJump.setDown(true);
          this.forcedJump = true;
-      } else if (!mc.player.isOnGround()) {
+      } else if (!mc.player.onGround()) {
          this.releaseJump();
       }
    }
 
    private void handleTakeoff(int elytraSlot) {
-      if (!mc.player.isTouchingWater() && !mc.player.isOnGround() && !mc.player.isGliding()) {
-         boolean elytraEquipped = mc.player.getEquippedStack(EquipmentSlot.CHEST).isOf(Items.ELYTRA);
+      if (!mc.player.isInWater() && !mc.player.onGround() && !mc.player.isFallFlying()) {
+         boolean elytraEquipped = mc.player.getItemBySlot(EquipmentSlot.CHEST).is(Items.ELYTRA);
          if (!elytraEquipped) {
             this.swapChestWithHotbar(elytraSlot);
          }
 
-         mc.player.networkHandler.sendPacket(new ClientCommandC2SPacket(mc.player, Mode.START_FALL_FLYING));
+         mc.player.connection.send(new ServerboundPlayerCommandPacket(mc.player, Action.START_FALL_FLYING));
          this.fireworkArmed = true;
          if (!elytraEquipped) {
             this.swapChestWithHotbar(elytraSlot);
@@ -103,11 +103,11 @@ public final class ElytraFly extends Module {
    }
 
    private void swapChestWithHotbar(int hotbarSlot) {
-      mc.interactionManager.clickSlot(mc.player.playerScreenHandler.syncId, 6, hotbarSlot, SlotActionType.SWAP, mc.player);
+      mc.gameMode.handleInventoryMouseClick(mc.player.inventoryMenu.containerId, 6, hotbarSlot, ClickType.SWAP, mc.player);
    }
 
    private void handleGrim269() {
-      if (mc.player.isGliding()) {
+      if (mc.player.isFallFlying()) {
          if (this.packetCounter % 3 == 0) {
             this.movePlayerRandomly(0.02);
          }
@@ -125,7 +125,7 @@ public final class ElytraFly extends Module {
    }
 
    private void handleGrim271() {
-      if (mc.player.isGliding()) {
+      if (mc.player.isFallFlying()) {
          if (this.packetCounter % 2 == 0) {
             this.movePlayerRandomly(0.03);
          }
@@ -145,7 +145,7 @@ public final class ElytraFly extends Module {
    private void movePlayerRandomly(double horizontalRange) {
       ThreadLocalRandom random = ThreadLocalRandom.current();
       mc.player
-         .setPosition(
+         .setPos(
             mc.player.getX() + (random.nextDouble() - 0.5) * horizontalRange,
             mc.player.getY(),
             mc.player.getZ() + (random.nextDouble() - 0.5) * horizontalRange
@@ -157,9 +157,9 @@ public final class ElytraFly extends Module {
 
       for (int i = 0; i < count; i++) {
          mc.player
-            .networkHandler
-            .sendPacket(
-               new PositionAndOnGround(
+            .connection
+            .send(
+               new Pos(
                   mc.player.getX() + (random.nextDouble() - 0.5) * horizontalRange,
                   mc.player.getY() + (random.nextDouble() - 0.5) * verticalRange,
                   mc.player.getZ() + (random.nextDouble() - 0.5) * horizontalRange,
@@ -172,9 +172,9 @@ public final class ElytraFly extends Module {
 
    private void randomizeVelocity(double baseMultiplier, double randomRange) {
       ThreadLocalRandom random = ThreadLocalRandom.current();
-      Vec3d velocity = mc.player.getVelocity();
+      Vec3 velocity = mc.player.getDeltaMovement();
       mc.player
-         .setVelocity(
+         .setDeltaMovement(
             velocity.x * (baseMultiplier + random.nextDouble() * randomRange),
             velocity.y * (baseMultiplier + random.nextDouble() * randomRange),
             velocity.z * (baseMultiplier + random.nextDouble() * randomRange)
@@ -183,7 +183,7 @@ public final class ElytraFly extends Module {
 
    private void releaseJump() {
       if (this.forcedJump && mc.options != null) {
-         mc.options.jumpKey.setPressed(false);
+         mc.options.keyJump.setDown(false);
       }
 
       this.forcedJump = false;

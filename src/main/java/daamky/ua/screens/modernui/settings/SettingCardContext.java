@@ -3,8 +3,8 @@ package daamky.ua.screens.modernui.settings;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
 import org.lwjgl.glfw.GLFW;
 import daamky.ua.api.settings.impl.BindSetting;
 import daamky.ua.api.settings.impl.ColorSetting;
@@ -34,7 +34,7 @@ final class SettingCardContext {
    SettingCardContext() {
    }
 
-   void renderClippedText(DrawContext graphics, FontType font, String text, float x, float y, float width, float size, int color) {
+   void renderClippedText(GuiGraphics graphics, FontType font, String text, float x, float y, float width, float size, int color) {
       Render2D.pushScissor(graphics, x, y - 2.0F, width, size + 6.0F);
       Render2D.text(font, text == null ? "" : text, x, y, size, this.multiplyAlpha(color, this.visualAlpha));
       Render2D.popScissor(graphics);
@@ -72,7 +72,7 @@ final class SettingCardContext {
       }
    }
 
-   void renderWrappedText(DrawContext graphics, FontType font, List<String> lines, float x, float y, float width, float size, float lineHeight, int color) {
+   void renderWrappedText(GuiGraphics graphics, FontType font, List<String> lines, float x, float y, float width, float size, float lineHeight, int color) {
       for (int i = 0; i < lines.size(); i++) {
          this.renderClippedText(graphics, font, lines.get(i), x, y + lineHeight * (float)i, width, size, color);
       }
@@ -140,9 +140,9 @@ final class SettingCardContext {
    }
 
    String getClipboard() {
-      MinecraftClient minecraft = MinecraftClient.getInstance();
+      Minecraft minecraft = Minecraft.getInstance();
       if (minecraft != null && minecraft.getWindow() != null) {
-         String clipboard = GLFW.glfwGetClipboardString(minecraft.getWindow().getHandle());
+         String clipboard = GLFW.glfwGetClipboardString(minecraft.getWindow().handle());
          return clipboard == null ? "" : clipboard;
       } else {
          return "";
@@ -150,9 +150,9 @@ final class SettingCardContext {
    }
 
    void setClipboard(String text) {
-      MinecraftClient minecraft = MinecraftClient.getInstance();
+      Minecraft minecraft = Minecraft.getInstance();
       if (minecraft != null && minecraft.getWindow() != null) {
-         GLFW.glfwSetClipboardString(minecraft.getWindow().getHandle(), text == null ? "" : text);
+         GLFW.glfwSetClipboardString(minecraft.getWindow().handle(), text == null ? "" : text);
       }
    }
 

@@ -1,28 +1,28 @@
 package daamky.ua.utils.render.ui.arc;
 
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import net.minecraft.client.gui.ScreenRect;
-import net.minecraft.client.gui.render.state.SimpleGuiElementRenderState;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.texture.TextureSetup;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.gui.render.TextureSetup;
+import net.minecraft.client.gui.render.state.GuiElementRenderState;
 import org.joml.Matrix3x2f;
 
-final class ArcRenderState implements SimpleGuiElementRenderState {
+final class ArcRenderState implements GuiElementRenderState {
    private final BuiltArc arc;
    private final Matrix3x2f pose;
-   private final ScreenRect scissorArea;
-   private final ScreenRect bounds;
+   private final ScreenRectangle scissorArea;
+   private final ScreenRectangle bounds;
 
-   ArcRenderState(Matrix3x2f pose, BuiltArc arc, ScreenRect scissorArea) {
+   ArcRenderState(Matrix3x2f pose, BuiltArc arc, ScreenRectangle scissorArea) {
       this.arc = arc;
       this.pose = pose;
       this.scissorArea = scissorArea;
-      ScreenRect transformedBounds = new ScreenRect(Math.round(arc.x()), Math.round(arc.y()), Math.round(arc.size()), Math.round(arc.size()))
-         .transformEachVertex(this.pose);
+      ScreenRectangle transformedBounds = new ScreenRectangle(Math.round(arc.x()), Math.round(arc.y()), Math.round(arc.size()), Math.round(arc.size()))
+         .transformMaxBounds(this.pose);
       this.bounds = scissorArea == null ? transformedBounds : scissorArea.intersection(transformedBounds);
    }
 
-   public void setupVertices(VertexConsumer vertices) {
+   public void buildVertices(VertexConsumer vertices) {
       int batchIndex = ArcRenderer.getInstance().reserve(this.arc);
       if (batchIndex >= 0) {
          float x0 = this.arc.x();
@@ -37,7 +37,7 @@ final class ArcRenderState implements SimpleGuiElementRenderState {
    }
 
    private void vertex(VertexConsumer consumer, float x, float y, int coordX, int coordY, int batchIndex) {
-      consumer.vertex(this.pose, x, y).color(coordX, coordY, 255, 255).lineWidth((float)(batchIndex + 1));
+      consumer.addVertexWith2DPose(this.pose, x, y).setColor(coordX, coordY, 255, 255).setLineWidth((float)(batchIndex + 1));
    }
 
    public RenderPipeline pipeline() {
@@ -45,14 +45,14 @@ final class ArcRenderState implements SimpleGuiElementRenderState {
    }
 
    public TextureSetup textureSetup() {
-      return TextureSetup.empty();
+      return TextureSetup.noTexture();
    }
 
-   public ScreenRect scissorArea() {
+   public ScreenRectangle scissorArea() {
       return this.scissorArea;
    }
 
-   public ScreenRect bounds() {
+   public ScreenRectangle bounds() {
       return this.bounds;
    }
 }

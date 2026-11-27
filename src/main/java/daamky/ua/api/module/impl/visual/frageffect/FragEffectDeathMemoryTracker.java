@@ -4,10 +4,10 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Consumer;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 
 /**
  * Запоминает цели, по которым мы били, и определяет момент убийства.
@@ -21,7 +21,7 @@ public final class FragEffectDeathMemoryTracker {
    private static final int MAX_MEMORIES = 12;
    private static final long MEMORY_LIFETIME_MS = 2500L;
    private static final long CONFIRMED_DEATH_GRACE_MS = 300L;
-   private final MinecraftClient minecraft = MinecraftClient.getInstance();
+   private final Minecraft minecraft = Minecraft.getInstance();
    private final List<DeathMemory> memories = new ArrayList<>();
    public String lastReason = "";
 
@@ -29,8 +29,8 @@ public final class FragEffectDeathMemoryTracker {
    }
 
    public void remember(LivingEntity entity, boolean allowNonPlayer) {
-      if (entity != null && entity != this.minecraft.player && entity.age >= 2 && entity.isAlive()) {
-         if (allowNonPlayer || entity instanceof PlayerEntity) {
+      if (entity != null && entity != this.minecraft.player && entity.tickCount >= 2 && entity.isAlive()) {
+         if (allowNonPlayer || entity instanceof Player) {
             for (DeathMemory memory : this.memories) {
                if (memory.matches(entity)) {
                   memory.refresh(entity);
@@ -127,16 +127,16 @@ public final class FragEffectDeathMemoryTracker {
       }
 
       /** Каждый тик запоминаем последнее известное состояние живой цели. */
-      private void observe(MinecraftClient mc) {
+      private void observe(Minecraft mc) {
          if (this.entity != null && !this.entity.isRemoved() && this.entity.getHealth() > 0.0F) {
             this.lastHealth = this.entity.getHealth() + this.entity.getAbsorptionAmount();
             if (mc.player != null) {
-               this.lastDistSq = mc.player.squaredDistanceTo(this.entity);
+               this.lastDistSq = mc.player.distanceToSqr(this.entity);
             }
          }
       }
 
-      private boolean shouldTrigger(MinecraftClient mc) {
+      private boolean shouldTrigger(Minecraft mc) {
          return this.deathPacket || isConfirmedDead(this.entity) || this.looksLikeKill(mc);
       }
 
@@ -144,11 +144,11 @@ public final class FragEffectDeathMemoryTracker {
        * Сервер убрал сущность сразу после удара (без анимации смерти).
        * Считаем это убийством, если причина удаления KILLED, либо цель была рядом и почти мертва.
        */
-      private boolean looksLikeKill(MinecraftClient mc) {
-         if (this.entity == null || mc.world == null) {
+      private boolean looksLikeKill(Minecraft mc) {
+         if (this.entity == null || mc.level == null) {
             return false;
          }
-         boolean gone = this.entity.isRemoved() || mc.world.getEntityById(this.entityId) == null;
+         boolean gone = this.entity.isRemoved() || mc.level.getEntity(this.entityId) == null;
          if (!gone) {
             return false;
          }
@@ -163,8 +163,8 @@ public final class FragEffectDeathMemoryTracker {
             && this.lastDistSq <= 49.0 && this.lastHealth <= 10.0F;
       }
 
-      private boolean shouldDiscard(MinecraftClient minecraft) {
-         return minecraft.world == null;
+      private boolean shouldDiscard(Minecraft minecraft) {
+         return minecraft.level == null;
       }
 
       private void markTriggered() {
@@ -177,7 +177,7 @@ public final class FragEffectDeathMemoryTracker {
       }
 
       private static boolean isConfirmedDead(LivingEntity living) {
-         return living != null && (living.getHealth() <= 0.0F || living.isDead() || living.deathTime > 0);
+         return living != null && (living.getHealth() <= 0.0F || living.isDeadOrDying() || living.deathTime > 0);
       }
    }
 }

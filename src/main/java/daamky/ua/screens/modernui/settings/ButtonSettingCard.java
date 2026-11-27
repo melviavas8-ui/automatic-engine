@@ -1,11 +1,11 @@
 package daamky.ua.screens.modernui.settings;
 
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
 import daamky.ua.api.drag.impl.ClientLanguage;
 import daamky.ua.api.settings.impl.ButtonSetting;
 import daamky.ua.utils.render.ui.Render2D;
 import daamky.ua.utils.render.ui.font.FontType;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.MouseButtonEvent;
 
 final class ButtonSettingCard extends SettingCardComponent<ButtonSetting> {
    ButtonSettingCard(ButtonSetting setting) {
@@ -23,7 +23,7 @@ final class ButtonSettingCard extends SettingCardComponent<ButtonSetting> {
    }
 
    @Override
-   void render(DrawContext graphics, SettingCardContext context, float cardX, float y, int mouseX, int mouseY) {
+   void render(GuiGraphics graphics, SettingCardContext context, float cardX, float y, int mouseX, int mouseY) {
       this.markRow(cardX, y, this.height(context));
       float boxX = cardX + 111.0F;
       float boxY = y - 2.5F;
@@ -49,7 +49,7 @@ final class ButtonSettingCard extends SettingCardComponent<ButtonSetting> {
    }
 
    @Override
-   boolean mouseClicked(Click event, boolean doubled, SettingCardContext context) {
+   boolean mouseClicked(MouseButtonEvent event, boolean doubled, SettingCardContext context) {
       if (event.button() == 0 && context.inside(event.x(), event.y(), this.state.boxX, this.state.boxY, this.state.boxWidth, this.state.boxHeight)) {
          this.setting.press();
          context.activeColor = null;

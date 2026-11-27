@@ -1,13 +1,13 @@
 package daamky.ua.api.module.impl.player;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.Blocks;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.PlayerCollisionEvent;
 import daamky.ua.api.events.impl.PushEvent;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.settings.impl.MultiModeSetting;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 
 public final class NoPush extends Module {
    private final MultiModeSetting ignoreSetting = this.register(

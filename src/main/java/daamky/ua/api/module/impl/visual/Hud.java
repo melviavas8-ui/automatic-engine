@@ -2,7 +2,7 @@ package daamky.ua.api.module.impl.visual;
 
 import java.awt.Color;
 import java.util.List;
-import net.minecraft.client.gui.Click;
+import net.minecraft.client.input.MouseButtonEvent;
 import daamky.ua.api.drag.core.ElementManager;
 import daamky.ua.api.drag.core.ElementScreen;
 import daamky.ua.api.drag.core.HudElement;
@@ -152,7 +152,7 @@ public class Hud extends Module {
    }
 
    public void renderHudLayer(DrawEvent event) {
-      if (mc.player != null && mc.world != null && mc.getWindow() != null && !LoadingVisualGuard.shouldSuppressHud(mc)) {
+      if (mc.player != null && mc.level != null && mc.getWindow() != null && !LoadingVisualGuard.shouldSuppressHud(mc)) {
          ElementScreen screen = ElementScreen.current();
          ElementManager elementManager = ElementManager.getInstance();
          elementManager.frame(screen);
@@ -181,7 +181,7 @@ public class Hud extends Module {
       }
    }
 
-   public boolean handleMouseClicked(Click event, boolean doubled) {
+   public boolean handleMouseClicked(MouseButtonEvent event, boolean doubled) {
       if (this.isEnabled() && event != null && event.button() == 0) {
          for (int i = this.elementsList.size() - 1; i >= 0; i--) {
             HudElement element = this.elementsList.get(i);

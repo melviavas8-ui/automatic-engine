@@ -1,18 +1,18 @@
 package daamky.ua.newmenu.render.liqvid;
 
+import com.mojang.blaze3d.opengl.GlDevice;
 import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.opengl.GlTexture;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
 import java.awt.Color;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.function.Consumer;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.GlBackend;
-import net.minecraft.client.texture.GlTexture;
-import net.minecraft.client.util.Window;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.lwjgl.opengl.GL11;
@@ -157,7 +157,7 @@ public final class BlurRenderer {
         drawBlur(x, y, width, height, radius, opacity, getBlurStrength());
     }
 
-    public static void drawBlur(DrawContext context, float x, float y, float width, float height, float radius, float opacity) {
+    public static void drawBlur(GuiGraphics context, float x, float y, float width, float height, float radius, float opacity) {
         if (context == null) {
             drawBlur(x, y, width, height, radius, opacity, getBlurStrength());
             return;
@@ -197,11 +197,11 @@ public final class BlurRenderer {
                 return;
             }
 
-            Window window = MinecraftClient.getInstance().getWindow();
+            Window window = Minecraft.getInstance().getWindow();
             float scale = ScreenScale.getScale();
             float maxRadius = Math.min(Math.abs(width), Math.abs(height)) * 0.5F;
             compositeProgram.bind();
-            compositeProgram.setVec2("location", x * scale, window.getFramebufferHeight() - height * scale - y * scale);
+            compositeProgram.setVec2("location", x * scale, window.getHeight() - height * scale - y * scale);
             compositeProgram.setVec2("rectSize", width * scale, height * scale);
             compositeProgram.setFloat("radius", Math.clamp(radius, 0.0F, maxRadius) * scale);
             compositeProgram.setFloat("opacity", Math.clamp(opacity, 0.0F, 1.0F));
@@ -212,7 +212,7 @@ public final class BlurRenderer {
             compositeProgram.setFloat("Saturation", 0.85F);
             compositeProgram.setFloat("Vignette", 0.3F);
             compositeProgram.setFloat("Grain", 0.018F);
-            compositeProgram.setVec2("screenSize", window.getFramebufferWidth(), window.getFramebufferHeight());
+            compositeProgram.setVec2("screenSize", window.getWidth(), window.getHeight());
             compositeProgram.setInt("Sampler0", 0);
             GlStateManager._activeTexture(GL13.GL_TEXTURE0);
             int previousSampler = GL11.glGetInteger(GL33.GL_SAMPLER_BINDING);
@@ -269,7 +269,7 @@ public final class BlurRenderer {
     }
 
     public static void drawLiquidGlass(
-            DrawContext context,
+            GuiGraphics context,
             float x,
             float y,
             float width,
@@ -332,7 +332,7 @@ public final class BlurRenderer {
     }
 
     public static void drawLiquidGlass(
-            DrawContext context,
+            GuiGraphics context,
             float x,
             float y,
             float width,
@@ -378,7 +378,7 @@ public final class BlurRenderer {
                 return;
             }
 
-            Window window = MinecraftClient.getInstance().getWindow();
+            Window window = Minecraft.getInstance().getWindow();
             float scale = ScreenScale.getScale();
             float maxRadius = Math.min(Math.abs(width), Math.abs(height)) * 0.5F;
             float clampedRadius = Math.clamp(radius, 0.0F, maxRadius);
@@ -392,7 +392,7 @@ public final class BlurRenderer {
 
             liquidGlassProgram.bind(modelView);
             liquidGlassProgram.setVec2("rectSize", Math.abs(width) * modelScaleX * scale, Math.abs(height) * modelScaleY * scale);
-            liquidGlassProgram.setVec2("screenSize", window.getFramebufferWidth(), window.getFramebufferHeight());
+            liquidGlassProgram.setVec2("screenSize", window.getWidth(), window.getHeight());
             liquidGlassProgram.setFloat("radius", clampedRadius * shapeScale * scale);
             liquidGlassProgram.setFloat("opacity", Math.clamp(opacity, 0.0F, 1.0F));
             liquidGlassProgram.setFloat("distortion", Math.max(0.0F, distortion));
@@ -439,22 +439,22 @@ public final class BlurRenderer {
      * where the bound framebuffer, viewport and matrices are unspecified.
      */
     private static void withMainFramebuffer(Consumer<MainFramebuffer> action) {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         Window window = client.getWindow();
-        Framebuffer framebuffer = client.getFramebuffer();
+        RenderTarget framebuffer = client.getMainRenderTarget();
         if (framebuffer == null
-                || !(framebuffer.getColorAttachment() instanceof GlTexture colorTexture)
-                || !(RenderSystem.getDevice() instanceof GlBackend backend)) {
+                || !(framebuffer.getColorTexture() instanceof GlTexture colorTexture)
+                || !(RenderSystem.getDevice() instanceof GlDevice backend)) {
             return;
         }
-        int width = window.getFramebufferWidth();
-        int height = window.getFramebufferHeight();
-        int scaledWidth = window.getScaledWidth();
-        int scaledHeight = window.getScaledHeight();
+        int width = window.getWidth();
+        int height = window.getHeight();
+        int scaledWidth = window.getGuiScaledWidth();
+        int scaledHeight = window.getGuiScaledHeight();
         if (width <= 0 || height <= 0 || scaledWidth <= 0 || scaledHeight <= 0) {
             return;
         }
-        int mainFbo = colorTexture.getOrCreateFramebuffer(backend.getBufferManager(), framebuffer.getDepthAttachment());
+        int mainFbo = colorTexture.getFbo(backend.directStateAccess(), framebuffer.getDepthTexture());
 
         GlStateGuard glGuard = GlStateGuard.capture();
         int previousFbo = GlStateManager.getFrameBuffer(GL30.GL_FRAMEBUFFER);
@@ -494,12 +494,12 @@ public final class BlurRenderer {
         preparedStrength = blurStrength;
         ready = false;
 
-        Framebuffer framebuffer = MinecraftClient.getInstance().getFramebuffer();
-        if (framebuffer == null || !(framebuffer.getColorAttachment() instanceof GlTexture colorTexture)) {
+        RenderTarget framebuffer = Minecraft.getInstance().getMainRenderTarget();
+        if (framebuffer == null || !(framebuffer.getColorTexture() instanceof GlTexture colorTexture)) {
             logOnce("main framebuffer color attachment is not a GlTexture");
             return;
         }
-        int sourceTexture = colorTexture.getGlId();
+        int sourceTexture = colorTexture.glId();
 
         ensurePrograms();
         if (programsFailed) {

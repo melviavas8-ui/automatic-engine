@@ -5,7 +5,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Stream;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
 import daamky.ua.api.command.Command;
 import daamky.ua.api.command.helpers.TabCompleteHelper;
 import daamky.ua.api.module.Module;
@@ -23,7 +23,7 @@ public final class BindCommand extends Command {
    public void execute(String label, String[] args) {
       ModuleManager modules = Manager.getModules();
       if (modules == null) {
-         this.logDirect("Module manager is unavailable.", Formatting.RED);
+         this.logDirect("Module manager is unavailable.", ChatFormatting.RED);
       } else {
          String action = args.length > 0 ? args[0].toLowerCase(Locale.ROOT) : "list";
          switch (action) {
@@ -71,19 +71,19 @@ public final class BindCommand extends Command {
 
    private void setBind(ModuleManager modules, String[] args) {
       if (args.length < 3) {
-         this.logDirect("Usage: bind set <module> <key>", Formatting.RED);
+         this.logDirect("Usage: bind set <module> <key>", ChatFormatting.RED);
       } else {
          Module module = this.findModule(modules, args[1]);
          if (module == null) {
-            this.logDirect("Module not found: " + args[1], Formatting.RED);
+            this.logDirect("Module not found: " + args[1], ChatFormatting.RED);
          } else {
             int code = KeyHelper.getKeyCode(args[2]);
             if (code != -1 && code >= 0) {
                module.setBind(this.isMouseName(args[2]) ? KeyBind.mouse(code) : KeyBind.keyboard(code));
                this.saveConfig();
-               this.logDirect(module.getName() + " bound to " + module.getBind().getDisplayName(), Formatting.GREEN);
+               this.logDirect(module.getName() + " bound to " + module.getBind().getDisplayName(), ChatFormatting.GREEN);
             } else {
-               this.logDirect("Unknown key: " + args[2], Formatting.RED);
+               this.logDirect("Unknown key: " + args[2], ChatFormatting.RED);
             }
          }
       }
@@ -91,15 +91,15 @@ public final class BindCommand extends Command {
 
    private void clearBind(ModuleManager modules, String[] args) {
       if (args.length < 2) {
-         this.logDirect("Usage: bind remove <module>", Formatting.RED);
+         this.logDirect("Usage: bind remove <module>", ChatFormatting.RED);
       } else {
          Module module = this.findModule(modules, args[1]);
          if (module == null) {
-            this.logDirect("Module not found: " + args[1], Formatting.RED);
+            this.logDirect("Module not found: " + args[1], ChatFormatting.RED);
          } else {
             module.setBind(KeyBind.NONE);
             this.saveConfig();
-            this.logDirect(module.getName() + " bind removed.", Formatting.GREEN);
+            this.logDirect(module.getName() + " bind removed.", ChatFormatting.GREEN);
          }
       }
    }
@@ -110,7 +110,7 @@ public final class BindCommand extends Command {
       }
 
       this.saveConfig();
-      this.logDirect("All binds removed.", Formatting.GREEN);
+      this.logDirect("All binds removed.", ChatFormatting.GREEN);
    }
 
    private void listBinds(ModuleManager modules) {
@@ -120,7 +120,7 @@ public final class BindCommand extends Command {
          .sorted(Comparator.comparing(Module::getName, String.CASE_INSENSITIVE_ORDER))
          .toList();
       if (bound.isEmpty()) {
-         this.logDirect("No module binds.", Formatting.RED);
+         this.logDirect("No module binds.", ChatFormatting.RED);
       } else {
          for (Module module : bound) {
             this.logDirect(module.getName() + " -> " + module.getBind().getDisplayName());

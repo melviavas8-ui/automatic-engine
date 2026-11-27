@@ -1,10 +1,5 @@
 package daamky.ua.api.module.impl.combat.aura.rotations;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.module.impl.combat.AuraModule;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.api.module.impl.combat.aura.impl.RotateConstructor;
@@ -12,6 +7,10 @@ import daamky.ua.api.module.impl.combat.aura.impl.RotateConstructor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 public class NeuroAngle extends RotateConstructor {
     private final List<Float> yawHistory = new ArrayList<>();
@@ -29,16 +28,16 @@ public class NeuroAngle extends RotateConstructor {
     }
 
     @Override
-    public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3d aimPoint, Entity entity) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+    public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3 aimPoint, Entity entity) {
+        Minecraft mc = Minecraft.getInstance();
         AuraModule aura = AuraModule.getInstance();
         
         if (mc.player == null || entity == null || aura == null) {
             return currentAngle;
         }
 
-        float currentYaw = mc.player.getYaw();
-        float currentPitch = mc.player.getPitch();
+        float currentYaw = mc.player.getYRot();
+        float currentPitch = mc.player.getXRot();
 
         // Если включен сбор данных
         if (aura.isNeuroDatasetCaptureEnabled()) {
@@ -56,7 +55,7 @@ public class NeuroAngle extends RotateConstructor {
             return new Angle(finalYaw, finalPitch);
         } else {
             // Эмуляция стиля, если модель не подключена
-            float yawDelta = MathHelper.wrapDegrees(targetAngle.getYaw() - currentYaw);
+            float yawDelta = Mth.wrapDegrees(targetAngle.getYaw() - currentYaw);
             float pitchDelta = targetAngle.getPitch() - currentPitch;
             
             float noiseYaw = (random.nextFloat() - 0.5f) * 2.0f;
@@ -77,7 +76,7 @@ public class NeuroAngle extends RotateConstructor {
         float avgYawChange = 0;
         float avgPitchChange = 0;
         for (int i = 1; i < yawHistory.size(); i++) {
-            avgYawChange += MathHelper.wrapDegrees(yawHistory.get(i) - yawHistory.get(i - 1));
+            avgYawChange += Mth.wrapDegrees(yawHistory.get(i) - yawHistory.get(i - 1));
             avgPitchChange += pitchHistory.get(i) - pitchHistory.get(i - 1);
         }
         
@@ -91,7 +90,7 @@ public class NeuroAngle extends RotateConstructor {
     }
 
     @Override
-    public Vec3d randomValue() {
-        return Vec3d.ZERO;
+    public Vec3 randomValue() {
+        return Vec3.ZERO;
     }
 }

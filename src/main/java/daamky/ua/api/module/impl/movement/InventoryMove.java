@@ -1,22 +1,22 @@
 package daamky.ua.api.module.impl.movement;
 
+import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.blaze3d.platform.InputConstants.Key;
 import daamky.gui.GuiStyle;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.AnvilScreen;
-import net.minecraft.client.gui.screen.ingame.GenericContainerScreen;
-import net.minecraft.client.gui.screen.ingame.ShulkerBoxScreen;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.client.util.InputUtil.Key;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.c2s.play.ClickSlotC2SPacket;
-import net.minecraft.network.packet.c2s.play.CloseHandledScreenC2SPacket;
-import net.minecraft.network.packet.s2c.play.CloseScreenS2CPacket;
-import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AnvilScreen;
+import net.minecraft.client.gui.screens.inventory.ContainerScreen;
+import net.minecraft.client.gui.screens.inventory.ShulkerBoxScreen;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundContainerClosePacket;
+import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
+import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
+import net.minecraft.world.inventory.ClickType;
 import org.lwjgl.glfw.GLFW;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.CloseScreenEvent;
@@ -98,13 +98,13 @@ public final class InventoryMove extends Module {
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
+   public void onTick(Minecraft client) {
    }
 
    @SubscribeEvent
    private void onPreTick(TickEvent.Pre event) {
-      MinecraftClient client = event.getClient();
-      if (client.player != null && client.world != null) {
+      Minecraft client = event.getClient();
+      if (client.player != null && client.level != null) {
          this.processLegitMovement();
       } else {
          this.resetState();
@@ -114,24 +114,24 @@ public final class InventoryMove extends Module {
    @SubscribeEvent
    private void onPacket(PacketEvent event) {
       if (event.isSend()
-         && event.getPacket() instanceof CloseHandledScreenC2SPacket packet
+         && event.getPacket() instanceof ServerboundContainerClosePacket packet
          && this.isFunTimeMode()
-         && this.matchesCurrentContainer(packet.getSyncId())
-         && this.shouldDelayCloseScreen(mc.currentScreen)
+         && this.matchesCurrentContainer(packet.getContainerId())
+         && this.shouldDelayCloseScreen(mc.screen)
          && !this.bypassCloseEvent) {
          event.setCancelled(true);
          this.startDelayedClose();
-      } else if (event.isSend() && event.getPacket() instanceof ClickSlotC2SPacket packet && this.shouldHoldClickPacket(packet)) {
+      } else if (event.isSend() && event.getPacket() instanceof ServerboundContainerClickPacket packet && this.shouldHoldClickPacket(packet)) {
          this.packets.add(packet);
          event.setCancelled(true);
          this.packetsHeld = true;
-         this.heldContainerId = packet.syncId();
+         this.heldContainerId = packet.containerId();
          this.startSlowdownForInventoryClick(packet);
       } else {
-         if (event.isReceive() && event.getPacket() instanceof CloseScreenS2CPacket packet) {
+         if (event.isReceive() && event.getPacket() instanceof ClientboundContainerClosePacket packet) {
             if (this.shouldIgnoreServerClosePacket(packet)) {
                event.setCancelled(true);
-            } else if (this.isFunTimeMode() && this.matchesTrackedContainer(packet.getSyncId())) {
+            } else if (this.isFunTimeMode() && this.matchesTrackedContainer(packet.getContainerId())) {
                this.resetState();
             }
          }
@@ -181,14 +181,14 @@ public final class InventoryMove extends Module {
 
    @SubscribeEvent
    private void onScroll(HotBarScrollEvent event) {
-      if (MinecraftClient.getInstance().currentScreen != null && !(MinecraftClient.getInstance().currentScreen instanceof ChatScreen)) {
+      if (Minecraft.getInstance().screen != null && !(Minecraft.getInstance().screen instanceof ChatScreen)) {
          event.setCancelled(true);
       }
    }
 
    private void processLegitMovement() {
       if (!this.isClickGuiOpen()) {
-         boolean hasOpenScreen = mc.currentScreen != null;
+         boolean hasOpenScreen = mc.screen != null;
          if (hasOpenScreen && this.inventoryOpened && this.containerChanged()) {
             this.resetState();
          }
@@ -242,11 +242,11 @@ public final class InventoryMove extends Module {
                if (this.softClickSlowdown) {
                   this.keepSoftClickMovement();
                } else if (!this.keysOverridden) {
-                  mc.options.forwardKey.setPressed(false);
-                  mc.options.backKey.setPressed(false);
-                  mc.options.leftKey.setPressed(false);
-                  mc.options.rightKey.setPressed(false);
-                  mc.options.jumpKey.setPressed(false);
+                  mc.options.keyUp.setDown(false);
+                  mc.options.keyDown.setDown(false);
+                  mc.options.keyLeft.setDown(false);
+                  mc.options.keyRight.setDown(false);
+                  mc.options.keyJump.setDown(false);
                   this.keysOverridden = true;
                }
 
@@ -356,16 +356,16 @@ public final class InventoryMove extends Module {
    }
 
    private void restoreKeyStates() {
-      boolean currentForward = this.isKeyPressed(mc.options.forwardKey);
-      boolean currentBack = this.isKeyPressed(mc.options.backKey);
-      boolean currentLeft = this.isKeyPressed(mc.options.leftKey);
-      boolean currentRight = this.isKeyPressed(mc.options.rightKey);
-      boolean currentJump = this.isKeyPressed(mc.options.jumpKey);
-      mc.options.forwardKey.setPressed(this.wasForwardPressed && currentForward);
-      mc.options.backKey.setPressed(this.wasBackPressed && currentBack);
-      mc.options.leftKey.setPressed(this.wasLeftPressed && currentLeft);
-      mc.options.rightKey.setPressed(this.wasRightPressed && currentRight);
-      mc.options.jumpKey.setPressed(this.wasJumpPressed && currentJump);
+      boolean currentForward = this.isKeyPressed(mc.options.keyUp);
+      boolean currentBack = this.isKeyPressed(mc.options.keyDown);
+      boolean currentLeft = this.isKeyPressed(mc.options.keyLeft);
+      boolean currentRight = this.isKeyPressed(mc.options.keyRight);
+      boolean currentJump = this.isKeyPressed(mc.options.keyJump);
+      mc.options.keyUp.setDown(this.wasForwardPressed && currentForward);
+      mc.options.keyDown.setDown(this.wasBackPressed && currentBack);
+      mc.options.keyLeft.setDown(this.wasLeftPressed && currentLeft);
+      mc.options.keyRight.setDown(this.wasRightPressed && currentRight);
+      mc.options.keyJump.setDown(this.wasJumpPressed && currentJump);
       this.keysOverridden = false;
    }
 
@@ -395,7 +395,7 @@ public final class InventoryMove extends Module {
 
    private void stopInventorySprint() {
       if (mc.options != null) {
-         mc.options.sprintKey.setPressed(false);
+         mc.options.keySprint.setDown(false);
       }
    }
 
@@ -404,7 +404,7 @@ public final class InventoryMove extends Module {
          this.stopPlayerSprintBeforeClose();
       } else {
          if (mc.options != null) {
-            mc.options.sprintKey.setPressed(true);
+            mc.options.keySprint.setDown(true);
          }
 
          if (mc.player != null && !mc.player.isSprinting()) {
@@ -429,16 +429,16 @@ public final class InventoryMove extends Module {
 
    private void restoreSprintKeyState() {
       if (mc.options != null) {
-         mc.options.sprintKey.setPressed(this.isKeyPressed(mc.options.sprintKey));
+         mc.options.keySprint.setDown(this.isKeyPressed(mc.options.keySprint));
       }
    }
 
    private boolean isInventoryScreenOpen() {
-      return mc.currentScreen != null && !(mc.currentScreen instanceof ChatScreen);
+      return mc.screen != null && !(mc.screen instanceof ChatScreen);
    }
 
    private boolean isClickGuiOpen() {
-      return mc.currentScreen instanceof ClickGui || GuiStyle.isClientGui(mc.currentScreen);
+      return mc.screen instanceof ClickGui || GuiStyle.isClientGui(mc.screen);
    }
 
    private boolean shouldForceInventorySprint() {
@@ -503,26 +503,26 @@ public final class InventoryMove extends Module {
          && screen != null
          && !(screen instanceof ChatScreen)
          && !(screen instanceof ClickGui) && !GuiStyle.isClientGui(screen)
-         && !(screen instanceof GenericContainerScreen)
+         && !(screen instanceof ContainerScreen)
          && !(screen instanceof ShulkerBoxScreen)
          && !(screen instanceof AnvilScreen);
    }
 
-   private boolean shouldIgnoreServerClosePacket(CloseScreenS2CPacket packet) {
+   private boolean shouldIgnoreServerClosePacket(ClientboundContainerClosePacket packet) {
       return this.isFunTimeMode()
          && packet != null
-         && this.matchesTrackedContainer(packet.getSyncId())
+         && this.matchesTrackedContainer(packet.getContainerId())
          && (this.delayedClosePending || this.movePhase == InventoryMove.MovePhase.CLOSE_SCREEN);
    }
 
-   private void startSlowdownForInventoryClick(ClickSlotC2SPacket packet) {
+   private void startSlowdownForInventoryClick(ServerboundContainerClickPacket packet) {
       if (this.isFunTimeMode() && this.movePhase == InventoryMove.MovePhase.ALLOW_MOVEMENT && this.hasDirectionalMovementInput()) {
-         SlotActionType clickType = packet.actionType();
-         if (clickType == SlotActionType.PICKUP
-            || clickType == SlotActionType.QUICK_CRAFT
-            || clickType == SlotActionType.PICKUP_ALL
-            || clickType == SlotActionType.QUICK_MOVE
-            || clickType == SlotActionType.THROW) {
+         ClickType clickType = packet.clickType();
+         if (clickType == ClickType.PICKUP
+            || clickType == ClickType.QUICK_CRAFT
+            || clickType == ClickType.PICKUP_ALL
+            || clickType == ClickType.QUICK_MOVE
+            || clickType == ClickType.THROW) {
             this.softClickSlowdown = true;
             this.keepSoftClickMovement();
             this.movePhase = InventoryMove.MovePhase.SLOWING_DOWN;
@@ -531,9 +531,9 @@ public final class InventoryMove extends Module {
       }
    }
 
-   private boolean shouldHoldClickPacket(ClickSlotC2SPacket packet) {
+   private boolean shouldHoldClickPacket(ServerboundContainerClickPacket packet) {
       if (this.isFunTimeMode() && packet != null && InventoryFlowManager.shouldSkipExecution()) {
-         int packetContainerId = packet.syncId();
+         int packetContainerId = packet.containerId();
          int currentContainerId = this.currentContainerId();
          if (currentContainerId != -1 && packetContainerId != currentContainerId) {
             this.resetState();
@@ -572,15 +572,15 @@ public final class InventoryMove extends Module {
    }
 
    private int currentContainerId() {
-      return mc.player != null && mc.player.currentScreenHandler != null ? mc.player.currentScreenHandler.syncId : -1;
+      return mc.player != null && mc.player.containerMenu != null ? mc.player.containerMenu.containerId : -1;
    }
 
    private boolean hasCloseMovement() {
       if (mc.player == null) {
          return false;
       } else {
-         double motionX = mc.player.getVelocity().x;
-         double motionZ = mc.player.getVelocity().z;
+         double motionX = mc.player.getDeltaMovement().x;
+         double motionZ = mc.player.getDeltaMovement().z;
          return motionX * motionX + motionZ * motionZ > 1.0E-4;
       }
    }
@@ -605,20 +605,20 @@ public final class InventoryMove extends Module {
    }
 
    private void captureMovementKeyStates() {
-      this.wasForwardPressed = this.isKeyPressed(mc.options.forwardKey);
-      this.wasBackPressed = this.isKeyPressed(mc.options.backKey);
-      this.wasLeftPressed = this.isKeyPressed(mc.options.leftKey);
-      this.wasRightPressed = this.isKeyPressed(mc.options.rightKey);
-      this.wasJumpPressed = this.isKeyPressed(mc.options.jumpKey);
+      this.wasForwardPressed = this.isKeyPressed(mc.options.keyUp);
+      this.wasBackPressed = this.isKeyPressed(mc.options.keyDown);
+      this.wasLeftPressed = this.isKeyPressed(mc.options.keyLeft);
+      this.wasRightPressed = this.isKeyPressed(mc.options.keyRight);
+      this.wasJumpPressed = this.isKeyPressed(mc.options.keyJump);
    }
 
    private boolean hasDirectionalMovementInput() {
       return mc.options != null
          && (
-            this.isKeyPressed(mc.options.forwardKey)
-               || this.isKeyPressed(mc.options.backKey)
-               || this.isKeyPressed(mc.options.leftKey)
-               || this.isKeyPressed(mc.options.rightKey)
+            this.isKeyPressed(mc.options.keyUp)
+               || this.isKeyPressed(mc.options.keyDown)
+               || this.isKeyPressed(mc.options.keyLeft)
+               || this.isKeyPressed(mc.options.keyRight)
          );
    }
 
@@ -635,16 +635,16 @@ public final class InventoryMove extends Module {
       }
    }
 
-   private boolean isKeyPressed(KeyBinding key) {
+   private boolean isKeyPressed(KeyMapping key) {
       if (mc.getWindow() == null) {
          return false;
       } else {
-         Key inputKey = InputUtil.fromTranslationKey(key.getBoundKeyTranslationKey());
-         long handle = mc.getWindow().getHandle();
+         Key inputKey = InputConstants.getKey(key.saveString());
+         long handle = mc.getWindow().handle();
 
-         return switch (inputKey.getCategory()) {
-            case KEYSYM -> InputUtil.isKeyPressed(mc.getWindow(), inputKey.getCode());
-            case MOUSE -> GLFW.glfwGetMouseButton(handle, inputKey.getCode()) == 1;
+         return switch (inputKey.getType()) {
+            case KEYSYM -> InputConstants.isKeyDown(mc.getWindow(), inputKey.getValue());
+            case MOUSE -> GLFW.glfwGetMouseButton(handle, inputKey.getValue()) == 1;
             default -> false;
          };
       }

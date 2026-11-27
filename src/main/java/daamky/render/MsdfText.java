@@ -2,11 +2,8 @@ package daamky.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
-import net.minecraft.client.texture.*;
-import net.minecraft.client.gl.*;
 import net.minecraft.client.gui.*;
 import net.minecraft.client.gui.render.*;
-import net.minecraft.client.render.*;
 import org.joml.Matrix3x2f;
 
 public final class MsdfText {
@@ -65,7 +62,7 @@ public final class MsdfText {
         boolean useSdf = !msdfMode && f.sdfView != null;
         var view = useSdf ? f.sdfView : f.msdfView;
         if (view == null) return pen - x;
-        b.submit(useSdf ? Gfx.SDF : Gfx.MSDF, TextureSetup.of(view, RenderSystem.getSamplerCache().get(FilterMode.LINEAR)));
+        b.submit(useSdf ? Gfx.SDF : Gfx.MSDF, TextureSetup.singleTexture(view, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR)));
         return pen - x;
     }
 }

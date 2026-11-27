@@ -4,9 +4,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import daamky.ua.utils.string.chat.ChatMessage;
 
 public abstract class Command {
@@ -65,14 +65,14 @@ public abstract class Command {
       ChatMessage.brandmessage(message);
    }
 
-   protected void logDirect(String message, Formatting formatting) {
+   protected void logDirect(String message, ChatFormatting formatting) {
       CommandManager manager = CommandManager.getInstance();
       if (manager == null) {
          ChatMessage.brandmessage(message);
       } else {
-         if (formatting == Formatting.RED) {
+         if (formatting == ChatFormatting.RED) {
             manager.sendError(message);
-         } else if (formatting == Formatting.GREEN) {
+         } else if (formatting == ChatFormatting.GREEN) {
             manager.sendSuccess(message);
          } else {
             manager.sendMessage(message);
@@ -80,19 +80,19 @@ public abstract class Command {
       }
    }
 
-   protected void logDirect(Text text) {
+   protected void logDirect(Component text) {
       ChatMessage.brandmessage(text);
    }
 
-   protected void logDirect(MutableText text) {
+   protected void logDirect(MutableComponent text) {
       ChatMessage.brandmessage(text);
    }
 
-   protected void logDirectRaw(Text text) {
+   protected void logDirectRaw(Component text) {
       CommandManager.getInstance().sendRaw(text);
    }
 
-   protected void logDirectRaw(MutableText text) {
+   protected void logDirectRaw(MutableComponent text) {
       CommandManager.getInstance().sendRaw(text);
    }
 }

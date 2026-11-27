@@ -1,12 +1,12 @@
 package daamky.ua.common.proxy;
 
-import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.components.Button;
 
 public class ProxyServer {
    public static boolean proxyEnabled = false;
    public static Proxy proxy = new Proxy();
    public static Proxy lastUsedProxy = new Proxy();
-   public static ButtonWidget proxyMenuButton;
+   public static Button proxyMenuButton;
 
    public ProxyServer() {
    }

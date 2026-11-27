@@ -1,19 +1,19 @@
 package daamky.ua.mixin;
 
-import net.minecraft.client.render.ChunkRenderingDataPreparer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import daamky.ua.api.events.impl.ChunkOcclusionEvent;
 import daamky.ua.manager.Manager;
+import net.minecraft.client.renderer.SectionOcclusionGraph;
 
-@Mixin({ChunkRenderingDataPreparer.class})
+@Mixin({SectionOcclusionGraph.class})
 public abstract class SectionOcclusionGraphMixin {
    public SectionOcclusionGraphMixin() {
    }
 
    @ModifyVariable(
-      method = {"updateSectionOcclusionGraph"},
+      method = {"update"},
       at = @At("HEAD"),
       argsOnly = true,
       ordinal = 0

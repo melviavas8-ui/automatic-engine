@@ -9,27 +9,27 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import net.minecraft.block.Block;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.item.Item.TooltipContext;
-import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.network.packet.s2c.play.GameMessageS2CPacket;
-import net.minecraft.screen.CraftingScreenHandler;
-import net.minecraft.screen.GenericContainerScreenHandler;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.text.Text;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult.Type;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.CraftingMenu;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Item.TooltipContext;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult.Type;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.drag.impl.Notifications;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.PacketEvent;
@@ -113,8 +113,8 @@ public final class ExpCrafter extends Module {
    private int antiAfkPathIndex = 0;
    private int antiAfkStuckTicks = 0;
    private int antiAfkRepathAttempts = 0;
-   private Vec3d antiAfkLastPosition = Vec3d.ZERO;
-   private Vec3d antiAfkPreviousPosition = Vec3d.ZERO;
+   private Vec3 antiAfkLastPosition = Vec3.ZERO;
+   private Vec3 antiAfkPreviousPosition = Vec3.ZERO;
    private boolean antiAfkPositionInitialized = false;
    private BlockPos antiAfkBackTarget = null;
    private BlockPos antiAfkTableTarget = null;
@@ -154,7 +154,7 @@ public final class ExpCrafter extends Module {
    @SubscribeEvent
    private void onChat(PacketEvent event) {
       if (this.isEnabled()) {
-         if (event.isReceive() && event.getPacket() instanceof GameMessageS2CPacket packet) {
+         if (event.isReceive() && event.getPacket() instanceof ClientboundSystemChatPacket packet) {
             if (packet.content() != null) {
                String msg = packet.content().getString().toLowerCase(Locale.ROOT);
                if (msg.contains("после входа на режим") && msg.contains("аукцион")) {
@@ -289,9 +289,9 @@ public final class ExpCrafter extends Module {
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
+   public void onTick(Minecraft client) {
       if (this.isEnabled()) {
-         if (mc.player != null && mc.world != null && mc.interactionManager != null) {
+         if (mc.player != null && mc.level != null && mc.gameMode != null) {
             if (!this.tickAntiAfk()) {
                this.tickRepost();
                this.tickClanInvest();
@@ -434,7 +434,7 @@ public final class ExpCrafter extends Module {
                return;
             }
 
-            mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, new BlockHitResult(this.chestPos.toCenterPos(), Direction.UP, this.chestPos, false));
+            mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(this.chestPos.getCenter(), Direction.UP, this.chestPos, false));
             this.chestStepTimer.reset();
             this.chestPhase = ExpCrafter.ChestPhase.TAKE_ITEMS;
             break;
@@ -443,7 +443,7 @@ public final class ExpCrafter extends Module {
                return;
             }
 
-            if (!(mc.player.currentScreenHandler instanceof GenericContainerScreenHandler handler)) {
+            if (!(mc.player.containerMenu instanceof ChestMenu handler)) {
                this.chestTransferStep = 0;
                this.chestTookGold = false;
                this.chestTookDiamond = false;
@@ -477,8 +477,8 @@ public final class ExpCrafter extends Module {
                return;
             }
 
-            if (mc.currentScreen != null) {
-               mc.player.closeHandledScreen();
+            if (mc.screen != null) {
+               mc.player.closeContainer();
             }
 
             if (this.tablePos != null) {
@@ -511,15 +511,15 @@ public final class ExpCrafter extends Module {
          this.sendMsg("[Chest] Верстак не найден рядом!");
          this.setEnabled(false);
       } else {
-         mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, new BlockHitResult(this.tablePos.toCenterPos(), Direction.UP, this.tablePos, false));
+         mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(this.tablePos.getCenter(), Direction.UP, this.tablePos, false));
          this.timer.reset();
          this.state = ExpCrafter.State.CRAFT_NUGGETS;
       }
    }
 
    private void closeTableChest() {
-      if (mc.player.currentScreenHandler instanceof CraftingScreenHandler) {
-         mc.player.closeHandledScreen();
+      if (mc.player.containerMenu instanceof CraftingMenu) {
+         mc.player.closeContainer();
       }
 
       this.chestPhase = ExpCrafter.ChestPhase.ROTATE_TO_CHEST_PUT;
@@ -552,7 +552,7 @@ public final class ExpCrafter extends Module {
                return;
             }
 
-            mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, new BlockHitResult(this.chestPos.toCenterPos(), Direction.UP, this.chestPos, false));
+            mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(this.chestPos.getCenter(), Direction.UP, this.chestPos, false));
             this.chestStepTimer.reset();
             this.chestPhase = ExpCrafter.ChestPhase.PUT_EXP;
             break;
@@ -561,7 +561,7 @@ public final class ExpCrafter extends Module {
                return;
             }
 
-            if (!(mc.player.currentScreenHandler instanceof GenericContainerScreenHandler handler)) {
+            if (!(mc.player.containerMenu instanceof ChestMenu handler)) {
                this.chestPhase = ExpCrafter.ChestPhase.IDLE;
                this.state = ExpCrafter.State.DONE;
                return;
@@ -580,8 +580,8 @@ public final class ExpCrafter extends Module {
                return;
             }
 
-            if (mc.currentScreen != null) {
-               mc.player.closeHandledScreen();
+            if (mc.screen != null) {
+               mc.player.closeContainer();
             }
 
             this.chestPhase = ExpCrafter.ChestPhase.IDLE;
@@ -606,14 +606,14 @@ public final class ExpCrafter extends Module {
 
    private void startSmoothRotateTo(BlockPos pos) {
       if (mc.player != null) {
-         Vec3d center = pos.toCenterPos();
-         Vec3d eyes = mc.player.getEyePos();
+         Vec3 center = pos.getCenter();
+         Vec3 eyes = mc.player.getEyePosition();
          double dx = center.x - eyes.x;
          double dy = center.y - eyes.y;
          double dz = center.z - eyes.z;
          double dist = Math.sqrt(dx * dx + dz * dz);
-         this.startYaw = mc.player.getYaw();
-         this.startPitch = mc.player.getPitch();
+         this.startYaw = mc.player.getYRot();
+         this.startPitch = mc.player.getXRot();
          this.targetYaw = (float)Math.toDegrees(Math.atan2(-dx, dz));
          this.targetPitch = (float)(-Math.toDegrees(Math.atan2(dy, dist)));
          float yawDiff = this.targetYaw - this.startYaw;
@@ -635,10 +635,10 @@ public final class ExpCrafter extends Module {
 
    private void startStrongRotateTo(BlockPos pos) {
       if (mc.player != null) {
-         Vec3d aimPoint = pos.toCenterPos().add((Math.random() - 0.5) * 0.22, (Math.random() - 0.5) * 0.18, (Math.random() - 0.5) * 0.22);
+         Vec3 aimPoint = pos.getCenter().add((Math.random() - 0.5) * 0.22, (Math.random() - 0.5) * 0.18, (Math.random() - 0.5) * 0.22);
          float[] rotations = this.calculateRotations(aimPoint);
-         this.startYaw = mc.player.getYaw();
-         this.startPitch = mc.player.getPitch();
+         this.startYaw = mc.player.getYRot();
+         this.startPitch = mc.player.getXRot();
          this.targetYaw = rotations[0];
          this.targetPitch = rotations[1];
          float yawDiff = this.targetYaw - this.startYaw;
@@ -671,14 +671,14 @@ public final class ExpCrafter extends Module {
    }
 
    private BlockPos findNearbyChest() {
-      if (mc.player != null && mc.world != null) {
-         BlockPos origin = mc.player.getBlockPos();
+      if (mc.player != null && mc.level != null) {
+         BlockPos origin = mc.player.blockPosition();
 
          for (int dx = -4; dx <= 4; dx++) {
             for (int dy = -2; dy <= 2; dy++) {
                for (int dz = -4; dz <= 4; dz++) {
-                  BlockPos p = origin.add(dx, dy, dz);
-                  Block block = mc.world.getBlockState(p).getBlock();
+                  BlockPos p = origin.offset(dx, dy, dz);
+                  Block block = mc.level.getBlockState(p).getBlock();
                   if (block == Blocks.CHEST || block == Blocks.TRAPPED_CHEST) {
                      return p;
                   }
@@ -693,16 +693,16 @@ public final class ExpCrafter extends Module {
    }
 
    private BlockPos findNearbyTable() {
-      if (mc.player != null && mc.world != null) {
-         BlockPos origin = mc.player.getBlockPos();
+      if (mc.player != null && mc.level != null) {
+         BlockPos origin = mc.player.blockPosition();
          BlockPos nearest = null;
          int nearestDistance = Integer.MAX_VALUE;
 
          for (int dx = -4; dx <= 4; dx++) {
             for (int dy = -2; dy <= 2; dy++) {
                for (int dz = -4; dz <= 4; dz++) {
-                  BlockPos p = origin.add(dx, dy, dz);
-                  if (mc.world.getBlockState(p).getBlock() == Blocks.CRAFTING_TABLE) {
+                  BlockPos p = origin.offset(dx, dy, dz);
+                  if (mc.level.getBlockState(p).getBlock() == Blocks.CRAFTING_TABLE) {
                      int distance = dx * dx + dy * dy + dz * dz;
                      if (distance < nearestDistance) {
                         nearest = p;
@@ -720,15 +720,15 @@ public final class ExpCrafter extends Module {
    }
 
    private BlockHitResult getLookedAtCraftingTable() {
-      if (mc.crosshairTarget instanceof BlockHitResult bhr && bhr.getType() == Type.BLOCK) {
-         return mc.world.getBlockState(bhr.getBlockPos()).getBlock() == Blocks.CRAFTING_TABLE ? bhr : null;
+      if (mc.hitResult instanceof BlockHitResult bhr && bhr.getType() == Type.BLOCK) {
+         return mc.level.getBlockState(bhr.getBlockPos()).getBlock() == Blocks.CRAFTING_TABLE ? bhr : null;
       }
 
       return null;
    }
 
-   private float[] calculateRotations(Vec3d target) {
-      Vec3d eyes = mc.player.getEyePos();
+   private float[] calculateRotations(Vec3 target) {
+      Vec3 eyes = mc.player.getEyePosition();
       double dx = target.x - eyes.x;
       double dy = target.y - eyes.y;
       double dz = target.z - eyes.z;
@@ -739,19 +739,19 @@ public final class ExpCrafter extends Module {
    }
 
    private void applyAim(float yaw, float pitch) {
-      mc.player.setYaw(yaw);
-      mc.player.setPitch(pitch);
-      mc.player.setHeadYaw(yaw);
-      mc.player.setBodyYaw(yaw);
+      mc.player.setYRot(yaw);
+      mc.player.setXRot(pitch);
+      mc.player.setYHeadRot(yaw);
+      mc.player.setYBodyRot(yaw);
    }
 
-   private boolean takeOneStackFromChest(GenericContainerScreenHandler handler, Item item) {
+   private boolean takeOneStackFromChest(ChestMenu handler, Item item) {
       int containerSize = handler.slots.size() - 36;
 
       for (int i = 0; i < containerSize; i++) {
-         ItemStack stack = ((Slot)handler.slots.get(i)).getStack();
+         ItemStack stack = ((Slot)handler.slots.get(i)).getItem();
          if (stack.getItem() == item && !stack.isEmpty()) {
-            this.clickSlot(handler, i, 0, SlotActionType.QUICK_MOVE);
+            this.clickSlot(handler, i, 0, ClickType.QUICK_MOVE);
             return true;
          }
       }
@@ -759,13 +759,13 @@ public final class ExpCrafter extends Module {
       return false;
    }
 
-   private boolean putOneExpStackToChest(GenericContainerScreenHandler handler) {
+   private boolean putOneExpStackToChest(ChestMenu handler) {
       int containerSize = handler.slots.size() - 36;
 
       for (int i = containerSize; i < handler.slots.size(); i++) {
-         ItemStack stack = ((Slot)handler.slots.get(i)).getStack();
+         ItemStack stack = ((Slot)handler.slots.get(i)).getItem();
          if (stack.getItem() == Items.EXPERIENCE_BOTTLE && !stack.isEmpty()) {
-            this.clickSlot(handler, i, 0, SlotActionType.QUICK_MOVE);
+            this.clickSlot(handler, i, 0, ClickType.QUICK_MOVE);
             return true;
          }
       }
@@ -804,7 +804,7 @@ public final class ExpCrafter extends Module {
       this.antiAfkIntervalMs = this.getAntiAfkDelay();
       this.antiAfkRecoveryPhase = ExpCrafter.AntiAfkRecoveryPhase.WAIT_STABILIZE;
       this.antiAfkRecoveryTimer.reset();
-      this.antiAfkTrackedWorld = mc.world;
+      this.antiAfkTrackedWorld = mc.level;
       this.antiAfkTrackedPlayer = mc.player;
       this.antiAfkJoinDetected = false;
       this.antiAfkLastTableProbeAt = 0L;
@@ -843,8 +843,8 @@ public final class ExpCrafter extends Module {
 
    @Override
    protected void onDisable() {
-      if (mc.player != null && mc.currentScreen != null) {
-         mc.player.closeHandledScreen();
+      if (mc.player != null && mc.screen != null) {
+         mc.player.closeContainer();
       }
 
       this.state = ExpCrafter.State.OPEN_TABLE;
@@ -893,8 +893,8 @@ public final class ExpCrafter extends Module {
 
    private void tickBuy(Item targetItem, String maxPriceStr, String searchQuery, ExpCrafter.State nextState) {
       if (this.hasRequiredItemForState(targetItem)) {
-         if (mc.currentScreen != null) {
-            mc.player.closeHandledScreen();
+         if (mc.screen != null) {
+            mc.player.closeContainer();
          }
 
          this.buyPhase = ExpCrafter.BuyPhase.OPEN_AH;
@@ -909,8 +909,8 @@ public final class ExpCrafter extends Module {
          } else {
             switch (this.buyPhase) {
                case OPEN_AH:
-                  if (mc.currentScreen != null) {
-                     mc.player.closeHandledScreen();
+                  if (mc.screen != null) {
+                     mc.player.closeContainer();
                      this.buyTimer.reset();
                      return;
                   }
@@ -924,7 +924,7 @@ public final class ExpCrafter extends Module {
                      return;
                   }
 
-                  if (mc.player.currentScreenHandler instanceof GenericContainerScreenHandler) {
+                  if (mc.player.containerMenu instanceof ChestMenu) {
                      this.buyPhase = ExpCrafter.BuyPhase.SEARCH;
                      this.buyTimer.reset();
                   } else if (this.buyTimer.finished(3000.0)) {
@@ -937,7 +937,7 @@ public final class ExpCrafter extends Module {
                      return;
                   }
 
-                  if (!(mc.player.currentScreenHandler instanceof GenericContainerScreenHandler)) {
+                  if (!(mc.player.containerMenu instanceof ChestMenu)) {
                      this.buyPhase = ExpCrafter.BuyPhase.OPEN_AH;
                      this.buyTimer.reset();
                      return;
@@ -959,7 +959,7 @@ public final class ExpCrafter extends Module {
                      return;
                   }
 
-                  if (!(mc.player.currentScreenHandler instanceof GenericContainerScreenHandler handler)) {
+                  if (!(mc.player.containerMenu instanceof ChestMenu handler)) {
                      this.buyPhase = ExpCrafter.BuyPhase.OPEN_AH;
                      this.buyTimer.reset();
                      return;
@@ -972,7 +972,7 @@ public final class ExpCrafter extends Module {
                      return;
                   }
 
-                  this.clickSlot(handler, refreshSlot, 0, SlotActionType.PICKUP);
+                  this.clickSlot(handler, refreshSlot, 0, ClickType.PICKUP);
                   this.buyPhase = ExpCrafter.BuyPhase.WAIT_REFRESH;
                   this.buyTimer.reset();
                   break;
@@ -989,24 +989,24 @@ public final class ExpCrafter extends Module {
                      return;
                   }
 
-                  if (!(mc.player.currentScreenHandler instanceof GenericContainerScreenHandler handler)) {
+                  if (!(mc.player.containerMenu instanceof ChestMenu handler)) {
                      this.buyPhase = ExpCrafter.BuyPhase.OPEN_AH;
                      this.buyTargetSlot = -1;
                      this.buyTimer.reset();
                      return;
                   }
 
-                  this.clickSlot(handler, this.buyTargetSlot, 0, SlotActionType.QUICK_MOVE);
+                  this.clickSlot(handler, this.buyTargetSlot, 0, ClickType.QUICK_MOVE);
                   this.buyPhase = ExpCrafter.BuyPhase.WAIT_CLOSE;
                   this.buyTimer.reset();
                   break;
                case WAIT_CLOSE:
-                  if (mc.player.currentScreenHandler instanceof GenericContainerScreenHandler) {
+                  if (mc.player.containerMenu instanceof ChestMenu) {
                      if (!this.buyTimer.finished((double)this.getAuctionCloseDelay())) {
                         return;
                      }
 
-                     mc.player.closeHandledScreen();
+                     mc.player.closeContainer();
                   }
 
                   if (this.hasRequiredItemForState(targetItem)) {
@@ -1033,7 +1033,7 @@ public final class ExpCrafter extends Module {
    }
 
    private int findCheapSlot(Item targetItem, int maxPrice) {
-      if (mc.player.currentScreenHandler instanceof GenericContainerScreenHandler handler) {
+      if (mc.player.containerMenu instanceof ChestMenu handler) {
          int var13 = handler.slots.size() - 36;
          int minCount = this.unitPriceBuyEnabled.getValue() ? 1 : (int)this.minBuyCount.getValue().doubleValue();
          if (this.unitPriceBuyEnabled.getValue()) {
@@ -1044,7 +1044,7 @@ public final class ExpCrafter extends Module {
             long bestPrice = Long.MAX_VALUE;
 
             for (int i = 0; i < var13; i++) {
-               ItemStack stack = ((Slot)handler.slots.get(i)).getStack();
+               ItemStack stack = ((Slot)handler.slots.get(i)).getItem();
                if (stack.getItem() == targetItem && !stack.isEmpty() && stack.getCount() >= minCount) {
                   long price = this.extractPrice(stack);
                   if (price > 0L && price <= (long)maxPrice && price < bestPrice) {
@@ -1062,7 +1062,7 @@ public final class ExpCrafter extends Module {
    }
 
    private int findBestSlotByUnitPrice(
-      GenericContainerScreenHandler handler, int containerSize, Item targetItem, int maxPrice, int minCount, boolean requireFullStack
+      ChestMenu handler, int containerSize, Item targetItem, int maxPrice, int minCount, boolean requireFullStack
    ) {
       int bestSlot = -1;
       long bestPrice = Long.MAX_VALUE;
@@ -1070,7 +1070,7 @@ public final class ExpCrafter extends Module {
       double maxUnitPrice = (double)maxPrice / 64.0;
 
       for (int i = 0; i < containerSize; i++) {
-         ItemStack stack = ((Slot)handler.slots.get(i)).getStack();
+         ItemStack stack = ((Slot)handler.slots.get(i)).getItem();
          if (stack.getItem() == targetItem && !stack.isEmpty() && stack.getCount() >= minCount && (!requireFullStack || stack.getCount() >= 64)) {
             long price = this.extractPrice(stack);
             if (price > 0L) {
@@ -1089,9 +1089,9 @@ public final class ExpCrafter extends Module {
 
    private long extractPrice(ItemStack stack) {
       try {
-         TooltipContext context = mc.world == null ? TooltipContext.DEFAULT : TooltipContext.create(mc.world);
+         TooltipContext context = mc.level == null ? TooltipContext.EMPTY : TooltipContext.of(mc.level);
 
-         for (Text lineText : stack.getTooltip(context, mc.player, mc.options.advancedItemTooltips ? TooltipType.ADVANCED : TooltipType.BASIC)) {
+         for (Component lineText : stack.getTooltipLines(context, mc.player, mc.options.advancedItemTooltips ? TooltipFlag.ADVANCED : TooltipFlag.NORMAL)) {
             String line = lineText.getString();
             if (line.contains("Цена") || line.contains("Цeна") || line.contains("Ценa") || line.contains("Цeнa") || line.contains("Курс")) {
                String priceString = line.replaceAll("[^\\d]", "");
@@ -1118,8 +1118,8 @@ public final class ExpCrafter extends Module {
                this.repostPending = false;
                this.repostSucceeded = false;
                this.repostAttempt++;
-               if (mc.currentScreen != null) {
-                  mc.player.closeHandledScreen();
+               if (mc.screen != null) {
+                  mc.player.closeContainer();
                }
 
                this.repostPhase = ExpCrafter.RepostPhase.OPEN_AH;
@@ -1142,7 +1142,7 @@ public final class ExpCrafter extends Module {
                return;
             }
 
-            if (!(mc.player.currentScreenHandler instanceof GenericContainerScreenHandler handler)) {
+            if (!(mc.player.containerMenu instanceof ChestMenu handler)) {
                this.repostPhase = ExpCrafter.RepostPhase.OPEN_AH;
                this.repostActionDelayMs = this.randomDelay(700L, 1000L);
                this.repostStepTimer.reset();
@@ -1151,14 +1151,14 @@ public final class ExpCrafter extends Module {
 
             int slot = this.findSlotByName(handler, "Хранилище");
             if (slot == -1) {
-               mc.player.closeHandledScreen();
+               mc.player.closeContainer();
                this.repostPhase = ExpCrafter.RepostPhase.OPEN_AH;
                this.repostActionDelayMs = this.randomDelay(700L, 1000L);
                this.repostStepTimer.reset();
                return;
             }
 
-            this.clickSlot(handler, slot, 0, SlotActionType.PICKUP);
+            this.clickSlot(handler, slot, 0, ClickType.PICKUP);
             this.repostPhase = ExpCrafter.RepostPhase.CLICK_REPOST;
             this.repostActionDelayMs = this.randomDelay(550L, 900L);
             this.repostStepTimer.reset();
@@ -1168,7 +1168,7 @@ public final class ExpCrafter extends Module {
                return;
             }
 
-            if (!(mc.player.currentScreenHandler instanceof GenericContainerScreenHandler handler)) {
+            if (!(mc.player.containerMenu instanceof ChestMenu handler)) {
                this.repostPhase = ExpCrafter.RepostPhase.OPEN_AH;
                this.repostActionDelayMs = this.randomDelay(700L, 1000L);
                this.repostStepTimer.reset();
@@ -1177,14 +1177,14 @@ public final class ExpCrafter extends Module {
 
             int repostSlot = this.findSlotByName(handler, "Перевыставить предметы");
             if (repostSlot == -1) {
-               mc.player.closeHandledScreen();
+               mc.player.closeContainer();
                this.repostPhase = ExpCrafter.RepostPhase.OPEN_AH;
                this.repostActionDelayMs = this.randomDelay(700L, 1000L);
                this.repostStepTimer.reset();
                return;
             }
 
-            this.clickSlot(handler, repostSlot, 0, SlotActionType.PICKUP);
+            this.clickSlot(handler, repostSlot, 0, ClickType.PICKUP);
             this.repostPhase = ExpCrafter.RepostPhase.CLOSE;
             this.repostActionDelayMs = this.randomDelay(700L, 1000L);
             this.repostStepTimer.reset();
@@ -1198,8 +1198,8 @@ public final class ExpCrafter extends Module {
                return;
             }
 
-            if (mc.player.currentScreenHandler instanceof GenericContainerScreenHandler) {
-               mc.player.closeHandledScreen();
+            if (mc.player.containerMenu instanceof ChestMenu) {
+               mc.player.closeContainer();
             }
 
             this.repostPhase = ExpCrafter.RepostPhase.IDLE;
@@ -1222,8 +1222,8 @@ public final class ExpCrafter extends Module {
    }
 
    private void finishRepost() {
-      if (mc.player.currentScreenHandler instanceof GenericContainerScreenHandler) {
-         mc.player.closeHandledScreen();
+      if (mc.player.containerMenu instanceof ChestMenu) {
+         mc.player.closeContainer();
       }
 
       this.repostPhase = ExpCrafter.RepostPhase.IDLE;
@@ -1238,12 +1238,12 @@ public final class ExpCrafter extends Module {
       this.sendMsg("Перевыставлено, продолжаю продажу.");
    }
 
-   private int findSlotByName(GenericContainerScreenHandler handler, String name) {
+   private int findSlotByName(ChestMenu handler, String name) {
       int containerSize = handler.slots.size() - 36;
 
       for (int i = 0; i < containerSize; i++) {
-         ItemStack stack = ((Slot)handler.slots.get(i)).getStack();
-         if (!stack.isEmpty() && stack.getName().getString().contains(name)) {
+         ItemStack stack = ((Slot)handler.slots.get(i)).getItem();
+         if (!stack.isEmpty() && stack.getHoverName().getString().contains(name)) {
             return i;
          }
       }
@@ -1251,11 +1251,11 @@ public final class ExpCrafter extends Module {
       return -1;
    }
 
-   private int findSlotByItem(GenericContainerScreenHandler handler, Item item) {
+   private int findSlotByItem(ChestMenu handler, Item item) {
       int containerSize = handler.slots.size() - 36;
 
       for (int i = 0; i < containerSize; i++) {
-         ItemStack stack = ((Slot)handler.slots.get(i)).getStack();
+         ItemStack stack = ((Slot)handler.slots.get(i)).getItem();
          if (!stack.isEmpty() && stack.getItem() == item) {
             return i;
          }
@@ -1264,7 +1264,7 @@ public final class ExpCrafter extends Module {
       return -1;
    }
 
-   private int findAuctionRefreshSlot(GenericContainerScreenHandler handler) {
+   private int findAuctionRefreshSlot(ChestMenu handler) {
       int refreshSlot = this.findSlotByItem(handler, Items.NETHER_STAR);
       if (refreshSlot != -1) {
          return refreshSlot;
@@ -1272,9 +1272,9 @@ public final class ExpCrafter extends Module {
          int containerSize = handler.slots.size() - 36;
 
          for (int i = 0; i < containerSize; i++) {
-            ItemStack stack = ((Slot)handler.slots.get(i)).getStack();
+            ItemStack stack = ((Slot)handler.slots.get(i)).getItem();
             if (!stack.isEmpty()) {
-               String name = stack.getName().getString().toLowerCase(Locale.ROOT);
+               String name = stack.getHoverName().getString().toLowerCase(Locale.ROOT);
                if (name.contains("обнов") || name.contains("refresh")) {
                   return i;
                }
@@ -1282,15 +1282,15 @@ public final class ExpCrafter extends Module {
          }
 
          int fallbackSlot = containerSize - 5;
-         return fallbackSlot >= 0 && fallbackSlot < containerSize && !handler.getSlot(fallbackSlot).getStack().isEmpty() ? fallbackSlot : -1;
+         return fallbackSlot >= 0 && fallbackSlot < containerSize && !handler.getSlot(fallbackSlot).getItem().isEmpty() ? fallbackSlot : -1;
       }
    }
 
    private boolean forceCloseAuctionScreen() {
       if (mc.player == null) {
          return false;
-      } else if (mc.player.currentScreenHandler instanceof GenericContainerScreenHandler) {
-         mc.player.closeHandledScreen();
+      } else if (mc.player.containerMenu instanceof ChestMenu) {
+         mc.player.closeContainer();
          return true;
       } else {
          return false;
@@ -1300,7 +1300,7 @@ public final class ExpCrafter extends Module {
    private void tickClanInvest() {
       if (this.clanInvestEnabled.getValue()) {
          if (!this.balancePending) {
-            if (mc.currentScreen == null && !this.rotating && this.antiAfkStage == 0) {
+            if (mc.screen == null && !this.rotating && this.antiAfkStage == 0) {
                if (!this.repostPending && this.repostPhase == ExpCrafter.RepostPhase.IDLE) {
                   if (this.state == ExpCrafter.State.SELL || this.state == ExpCrafter.State.SELL_VERIFY || this.state == ExpCrafter.State.DONE) {
                      long intervalMs = (long)(this.clanInvestInterval.getValue() * 1000.0);
@@ -1386,11 +1386,11 @@ public final class ExpCrafter extends Module {
                this.homeTablePos = this.tablePos;
             }
 
-            mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, visibleTable);
+            mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, visibleTable);
             this.timer.reset();
             this.state = ExpCrafter.State.CRAFT_NUGGETS;
          } else {
-            if (this.tablePos == null || mc.world.getBlockState(this.tablePos).getBlock() != Blocks.CRAFTING_TABLE) {
+            if (this.tablePos == null || mc.level.getBlockState(this.tablePos).getBlock() != Blocks.CRAFTING_TABLE) {
                this.tablePos = this.getValidHomeTable();
                if (this.tablePos == null) {
                   this.tablePos = this.findNearbyTable();
@@ -1410,14 +1410,14 @@ public final class ExpCrafter extends Module {
             }
          }
       } else {
-         if (mc.crosshairTarget instanceof BlockHitResult bhr && bhr.getType() == Type.BLOCK) {
+         if (mc.hitResult instanceof BlockHitResult bhr && bhr.getType() == Type.BLOCK) {
             BlockPos pos = bhr.getBlockPos();
-            if (mc.world.getBlockState(pos).getBlock() == Blocks.CRAFTING_TABLE) {
+            if (mc.level.getBlockState(pos).getBlock() == Blocks.CRAFTING_TABLE) {
                if (this.homeTablePos == null) {
                   this.homeTablePos = pos;
                }
 
-               mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, new BlockHitResult(pos.toCenterPos(), Direction.UP, pos, false));
+               mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(pos.getCenter(), Direction.UP, pos, false));
                this.timer.reset();
                this.state = ExpCrafter.State.CRAFT_NUGGETS;
                return;
@@ -1430,7 +1430,7 @@ public final class ExpCrafter extends Module {
    }
 
    private void craftNuggets() {
-      if (mc.player.currentScreenHandler instanceof CraftingScreenHandler handler) {
+      if (mc.player.containerMenu instanceof CraftingMenu handler) {
          if (this.nuggetCraftStep == 0 && this.countInInventory(Items.GOLD_INGOT) == 0) {
             if (!this.clearCraftingGridStep(handler)) {
                this.timer.reset();
@@ -1445,20 +1445,20 @@ public final class ExpCrafter extends Module {
                this.state = ExpCrafter.State.CRAFT_EXP;
                this.timer.reset();
             } else {
-               this.clickSlot(handler, this.nuggetSourceSlot, 0, SlotActionType.PICKUP);
+               this.clickSlot(handler, this.nuggetSourceSlot, 0, ClickType.PICKUP);
                this.nuggetCraftStep = 1;
                this.timer.reset();
             }
          } else if (this.nuggetCraftStep == 1) {
-            if (handler.getCursorStack().getItem() != Items.GOLD_INGOT) {
+            if (handler.getCarried().getItem() != Items.GOLD_INGOT) {
                this.resetNuggetCraftState();
                this.timer.reset();
             } else {
-               this.clickSlot(handler, 1, 0, SlotActionType.PICKUP);
+               this.clickSlot(handler, 1, 0, ClickType.PICKUP);
                this.nuggetCraftStep = 2;
                this.timer.reset();
             }
-         } else if (handler.getSlot(0).getStack().isEmpty()) {
+         } else if (handler.getSlot(0).getItem().isEmpty()) {
             this.nuggetResultWaitTicks++;
             if (this.nuggetResultWaitTicks > 20) {
                this.sendMsg("Результат крафта золота не появился, модуль остановлен.");
@@ -1467,7 +1467,7 @@ public final class ExpCrafter extends Module {
                this.timer.reset();
             }
          } else {
-            this.clickSlot(handler, 0, 0, SlotActionType.QUICK_MOVE);
+            this.clickSlot(handler, 0, 0, ClickType.QUICK_MOVE);
             this.resetNuggetCraftState();
             this.timer.reset();
          }
@@ -1483,7 +1483,7 @@ public final class ExpCrafter extends Module {
    }
 
    private void craftExp() {
-      if (mc.player.currentScreenHandler instanceof CraftingScreenHandler handler) {
+      if (mc.player.containerMenu instanceof CraftingMenu handler) {
          if (this.expCraftStep == -1) {
             if (!this.clearCraftingGridStep(handler)) {
                this.timer.reset();
@@ -1511,7 +1511,7 @@ public final class ExpCrafter extends Module {
                this.timer.reset();
             }
          } else if (this.expCraftStep == 2) {
-            if (this.countExpCraftsInGrid(handler) > 0 && !handler.getSlot(0).getStack().isEmpty()) {
+            if (this.countExpCraftsInGrid(handler) > 0 && !handler.getSlot(0).getItem().isEmpty()) {
                this.resetExpCraftState();
                this.state = ExpCrafter.State.CRAFT_EXP_TAKE;
                this.timer.reset();
@@ -1547,10 +1547,10 @@ public final class ExpCrafter extends Module {
    }
 
    private void craftExpTake() {
-      if (mc.player.currentScreenHandler instanceof CraftingScreenHandler handler) {
-         ItemStack result = handler.getSlot(0).getStack();
+      if (mc.player.containerMenu instanceof CraftingMenu handler) {
+         ItemStack result = handler.getSlot(0).getItem();
          if (!result.isEmpty()) {
-            this.clickSlot(handler, 0, 0, SlotActionType.QUICK_MOVE);
+            this.clickSlot(handler, 0, 0, ClickType.QUICK_MOVE);
             this.timer.reset();
          } else {
             int craftsInGrid = this.countExpCraftsInGrid(handler);
@@ -1580,8 +1580,8 @@ public final class ExpCrafter extends Module {
    }
 
    private void closeTable() {
-      if (mc.player.currentScreenHandler instanceof CraftingScreenHandler) {
-         mc.player.closeHandledScreen();
+      if (mc.player.containerMenu instanceof CraftingMenu) {
+         mc.player.closeContainer();
       }
 
       this.resetCraftClickState();
@@ -1601,7 +1601,7 @@ public final class ExpCrafter extends Module {
             int hotbarSlot = -1;
 
             for (int i = 0; i < 9; i++) {
-               ItemStack s = mc.player.getInventory().getStack(i);
+               ItemStack s = mc.player.getInventory().getItem(i);
                if (s.getItem() == Items.EXPERIENCE_BOTTLE && s.getCount() >= 64) {
                   hotbarSlot = i;
                   break;
@@ -1610,14 +1610,14 @@ public final class ExpCrafter extends Module {
 
             if (hotbarSlot == -1) {
                for (int ix = 9; ix < 36; ix++) {
-                  ItemStack s = mc.player.getInventory().getStack(ix);
+                  ItemStack s = mc.player.getInventory().getItem(ix);
                   if (s.getItem() == Items.EXPERIENCE_BOTTLE && s.getCount() >= 64) {
                      int freeHotbar = this.findFreeHotbarSlot();
                      if (freeHotbar == -1) {
                         freeHotbar = 0;
                      }
 
-                     mc.interactionManager.clickSlot(mc.player.playerScreenHandler.syncId, ix, freeHotbar, SlotActionType.SWAP, mc.player);
+                     mc.gameMode.handleInventoryMouseClick(mc.player.inventoryMenu.containerId, ix, freeHotbar, ClickType.SWAP, mc.player);
                      this.pendingSellHotbarSlot = freeHotbar;
                      this.sellSelectionConfirmed = false;
                      this.state = ExpCrafter.State.SELL_VERIFY;
@@ -1653,7 +1653,7 @@ public final class ExpCrafter extends Module {
                this.sellSelectionConfirmed = true;
                this.timer.reset();
             } else {
-               ItemStack handStack = mc.player.getInventory().getStack(selectedSlot);
+               ItemStack handStack = mc.player.getInventory().getItem(selectedSlot);
                if (handStack.getItem() == Items.EXPERIENCE_BOTTLE && handStack.getCount() >= 64) {
                   this.sendCommand("/ah sell " + this.sellPrice.getValue());
                   this.pendingSellHotbarSlot = -1;
@@ -1671,17 +1671,17 @@ public final class ExpCrafter extends Module {
       }
    }
 
-   private void clickSlot(ScreenHandler handler, int slotId, int button, SlotActionType type) {
-      if (mc.interactionManager != null && mc.player != null) {
-         mc.interactionManager.clickSlot(handler.syncId, slotId, button, type, mc.player);
+   private void clickSlot(AbstractContainerMenu handler, int slotId, int button, ClickType type) {
+      if (mc.gameMode != null && mc.player != null) {
+         mc.gameMode.handleInventoryMouseClick(handler.containerId, slotId, button, type, mc.player);
       }
    }
 
-   private boolean clearCraftingGridStep(CraftingScreenHandler handler) {
-      if (handler.getCursorStack().isEmpty()) {
+   private boolean clearCraftingGridStep(CraftingMenu handler) {
+      if (handler.getCarried().isEmpty()) {
          for (int i = 1; i <= 9; i++) {
-            if (!handler.getSlot(i).getStack().isEmpty()) {
-               this.clickSlot(handler, i, 0, SlotActionType.QUICK_MOVE);
+            if (!handler.getSlot(i).getItem().isEmpty()) {
+               this.clickSlot(handler, i, 0, ClickType.QUICK_MOVE);
                return false;
             }
          }
@@ -1689,8 +1689,8 @@ public final class ExpCrafter extends Module {
          return true;
       } else {
          for (int ix = 10; ix < handler.slots.size(); ix++) {
-            if (handler.getSlot(ix).getStack().isEmpty()) {
-               this.clickSlot(handler, ix, 0, SlotActionType.PICKUP);
+            if (handler.getSlot(ix).getItem().isEmpty()) {
+               this.clickSlot(handler, ix, 0, ClickType.PICKUP);
                break;
             }
          }
@@ -1699,9 +1699,9 @@ public final class ExpCrafter extends Module {
       }
    }
 
-   private int findInHandler(CraftingScreenHandler handler, Item item) {
+   private int findInHandler(CraftingMenu handler, Item item) {
       for (int i = 10; i < handler.slots.size(); i++) {
-         if (handler.getSlot(i).getStack().getItem() == item) {
+         if (handler.getSlot(i).getItem().getItem() == item) {
             return i;
          }
       }
@@ -1709,12 +1709,12 @@ public final class ExpCrafter extends Module {
       return -1;
    }
 
-   private int findLargestInHandler(CraftingScreenHandler handler, Item item) {
+   private int findLargestInHandler(CraftingMenu handler, Item item) {
       int bestSlot = -1;
       int bestCount = 0;
 
       for (int i = 10; i < handler.slots.size(); i++) {
-         ItemStack stack = handler.getSlot(i).getStack();
+         ItemStack stack = handler.getSlot(i).getItem();
          if (stack.getItem() == item && stack.getCount() > bestCount) {
             bestSlot = i;
             bestCount = stack.getCount();
@@ -1724,7 +1724,7 @@ public final class ExpCrafter extends Module {
       return bestSlot;
    }
 
-   private ExpCrafter.PlacementResult spreadWholeStackAcrossSlotsStep(CraftingScreenHandler handler, Item item, int[] targetSlots) {
+   private ExpCrafter.PlacementResult spreadWholeStackAcrossSlotsStep(CraftingMenu handler, Item item, int[] targetSlots) {
       int stateSlot = targetSlots[0];
       if (this.placementTargetSlot != stateSlot || this.placementItem != item) {
          this.resetPlacementState();
@@ -1738,29 +1738,29 @@ public final class ExpCrafter extends Module {
             this.resetPlacementState();
             return ExpCrafter.PlacementResult.FAILED;
          } else {
-            this.clickSlot(handler, this.placementSourceSlot, 0, SlotActionType.PICKUP);
+            this.clickSlot(handler, this.placementSourceSlot, 0, ClickType.PICKUP);
             return ExpCrafter.PlacementResult.IN_PROGRESS;
          }
       } else {
-         ItemStack cursor = handler.getCursorStack();
+         ItemStack cursor = handler.getCarried();
          if (this.quickCraftStage > 1 || !cursor.isEmpty() && cursor.getItem() == item) {
             if (this.quickCraftStage == 0) {
-               this.clickSlot(handler, -999, ScreenHandler.packQuickCraftData(0, 0), SlotActionType.QUICK_CRAFT);
+               this.clickSlot(handler, -999, AbstractContainerMenu.getQuickcraftMask(0, 0), ClickType.QUICK_CRAFT);
                this.quickCraftStage = 1;
                return ExpCrafter.PlacementResult.IN_PROGRESS;
             } else if (this.quickCraftStage == 1 && this.quickCraftSlotIndex < targetSlots.length) {
-               this.clickSlot(handler, targetSlots[this.quickCraftSlotIndex], ScreenHandler.packQuickCraftData(1, 0), SlotActionType.QUICK_CRAFT);
+               this.clickSlot(handler, targetSlots[this.quickCraftSlotIndex], AbstractContainerMenu.getQuickcraftMask(1, 0), ClickType.QUICK_CRAFT);
                this.quickCraftSlotIndex++;
                return ExpCrafter.PlacementResult.IN_PROGRESS;
             } else if (this.quickCraftStage == 1) {
-               this.clickSlot(handler, -999, ScreenHandler.packQuickCraftData(2, 0), SlotActionType.QUICK_CRAFT);
+               this.clickSlot(handler, -999, AbstractContainerMenu.getQuickcraftMask(2, 0), ClickType.QUICK_CRAFT);
                this.quickCraftStage = 2;
                return ExpCrafter.PlacementResult.IN_PROGRESS;
-            } else if (this.quickCraftStage != 2 || handler.getCursorStack().isEmpty()) {
+            } else if (this.quickCraftStage != 2 || handler.getCarried().isEmpty()) {
                this.quickCraftStage = 3;
 
                for (int targetSlot : targetSlots) {
-                  ItemStack stack = handler.getSlot(targetSlot).getStack();
+                  ItemStack stack = handler.getSlot(targetSlot).getItem();
                   if (stack.getItem() != item || stack.isEmpty()) {
                      this.resetPlacementState();
                      return ExpCrafter.PlacementResult.FAILED;
@@ -1769,17 +1769,17 @@ public final class ExpCrafter extends Module {
 
                this.resetPlacementState();
                return ExpCrafter.PlacementResult.DONE;
-            } else if (handler.getCursorStack().getItem() != item) {
+            } else if (handler.getCarried().getItem() != item) {
                this.resetPlacementState();
                return ExpCrafter.PlacementResult.FAILED;
             } else {
-               this.clickSlot(handler, this.placementSourceSlot, 0, SlotActionType.PICKUP);
+               this.clickSlot(handler, this.placementSourceSlot, 0, ClickType.PICKUP);
                this.quickCraftStage = 3;
                return ExpCrafter.PlacementResult.IN_PROGRESS;
             }
          } else {
             if (this.quickCraftStage == 1) {
-               this.clickSlot(handler, -999, ScreenHandler.packQuickCraftData(2, 0), SlotActionType.QUICK_CRAFT);
+               this.clickSlot(handler, -999, AbstractContainerMenu.getQuickcraftMask(2, 0), ClickType.QUICK_CRAFT);
             }
 
             this.resetPlacementState();
@@ -1788,7 +1788,7 @@ public final class ExpCrafter extends Module {
       }
    }
 
-   private ExpCrafter.PlacementResult placeWholeStackIntoSlotStep(CraftingScreenHandler handler, Item item, int targetSlot) {
+   private ExpCrafter.PlacementResult placeWholeStackIntoSlotStep(CraftingMenu handler, Item item, int targetSlot) {
       if (this.placementTargetSlot != targetSlot || this.placementItem != item) {
          this.resetPlacementState();
          this.placementTargetSlot = targetSlot;
@@ -1801,13 +1801,13 @@ public final class ExpCrafter extends Module {
             this.resetPlacementState();
             return ExpCrafter.PlacementResult.FAILED;
          } else {
-            this.clickSlot(handler, this.placementSourceSlot, 0, SlotActionType.PICKUP);
+            this.clickSlot(handler, this.placementSourceSlot, 0, ClickType.PICKUP);
             return ExpCrafter.PlacementResult.IN_PROGRESS;
          }
       } else {
-         ItemStack cursor = handler.getCursorStack();
+         ItemStack cursor = handler.getCarried();
          if (!cursor.isEmpty() && cursor.getItem() == item) {
-            this.clickSlot(handler, targetSlot, 0, SlotActionType.PICKUP);
+            this.clickSlot(handler, targetSlot, 0, ClickType.PICKUP);
             this.resetPlacementState();
             return ExpCrafter.PlacementResult.DONE;
          } else {
@@ -1843,12 +1843,12 @@ public final class ExpCrafter extends Module {
       this.resetExpCraftState();
    }
 
-   private int countExpCraftsInGrid(CraftingScreenHandler handler) {
-      ItemStack top = handler.getSlot(2).getStack();
-      ItemStack left = handler.getSlot(4).getStack();
-      ItemStack center = handler.getSlot(5).getStack();
-      ItemStack right = handler.getSlot(6).getStack();
-      ItemStack bottom = handler.getSlot(8).getStack();
+   private int countExpCraftsInGrid(CraftingMenu handler) {
+      ItemStack top = handler.getSlot(2).getItem();
+      ItemStack left = handler.getSlot(4).getItem();
+      ItemStack center = handler.getSlot(5).getItem();
+      ItemStack right = handler.getSlot(6).getItem();
+      ItemStack bottom = handler.getSlot(8).getItem();
       return top.getItem() == Items.GOLD_NUGGET
             && left.getItem() == Items.GOLD_NUGGET
             && right.getItem() == Items.GOLD_NUGGET
@@ -1865,7 +1865,7 @@ public final class ExpCrafter extends Module {
          int count = 0;
 
          for (int i = 0; i < 36; i++) {
-            ItemStack s = mc.player.getInventory().getStack(i);
+            ItemStack s = mc.player.getInventory().getItem(i);
             if (s.getItem() == item) {
                count += s.getCount();
             }
@@ -1893,7 +1893,7 @@ public final class ExpCrafter extends Module {
 
    private int findFreeHotbarSlot() {
       for (int i = 0; i < 9; i++) {
-         if (mc.player.getInventory().getStack(i).isEmpty()) {
+         if (mc.player.getInventory().getItem(i).isEmpty()) {
             return i;
          }
       }
@@ -1905,12 +1905,12 @@ public final class ExpCrafter extends Module {
       this.antiAfkStage = 0;
       this.antiAfkTimer.reset();
       if (mc.options != null) {
-         mc.options.forwardKey.setPressed(false);
-         mc.options.backKey.setPressed(false);
-         mc.options.leftKey.setPressed(false);
-         mc.options.rightKey.setPressed(false);
-         mc.options.sprintKey.setPressed(false);
-         mc.options.jumpKey.setPressed(false);
+         mc.options.keyUp.setDown(false);
+         mc.options.keyDown.setDown(false);
+         mc.options.keyLeft.setDown(false);
+         mc.options.keyRight.setDown(false);
+         mc.options.keySprint.setDown(false);
+         mc.options.keyJump.setDown(false);
       }
    }
 
@@ -1961,23 +1961,23 @@ public final class ExpCrafter extends Module {
    }
 
    private void sendCommand(String cmd) {
-      if (mc.player != null && mc.player.networkHandler != null) {
+      if (mc.player != null && mc.player.connection != null) {
          String command = cmd.startsWith("/") ? cmd.substring(1) : cmd;
-         mc.player.networkHandler.sendChatCommand(command);
+         mc.player.connection.sendCommand(command);
       }
    }
 
    private boolean tickAntiAfk() {
-      if (mc.options == null || mc.player == null || mc.world == null) {
+      if (mc.options == null || mc.player == null || mc.level == null) {
          return false;
       } else if (!this.antiAfkEnabled.getValue()) {
          this.antiAfkRecoveryPhase = ExpCrafter.AntiAfkRecoveryPhase.NONE;
-         this.antiAfkTrackedWorld = mc.world;
+         this.antiAfkTrackedWorld = mc.level;
          this.antiAfkTrackedPlayer = mc.player;
          this.resetAntiAfkMovement();
          return false;
       } else {
-         Vec3d currentPosition = this.getPlayerPosition();
+         Vec3 currentPosition = this.getPlayerPosition();
          boolean sessionChanged = this.updateAntiAfkSessionTracking();
          if (this.antiAfkRecoveryPhase != ExpCrafter.AntiAfkRecoveryPhase.NONE) {
             return this.tickAntiAfkRecovery(currentPosition, sessionChanged);
@@ -1988,13 +1988,13 @@ public final class ExpCrafter extends Module {
             if (!this.antiAfkPositionInitialized) {
                this.antiAfkPreviousPosition = currentPosition;
                this.antiAfkPositionInitialized = true;
-            } else if (currentPosition.squaredDistanceTo(this.antiAfkPreviousPosition) > 25.0) {
+            } else if (currentPosition.distanceToSqr(this.antiAfkPreviousPosition) > 25.0) {
                this.startAntiAfkRecovery(currentPosition);
                return true;
             }
 
             this.antiAfkPreviousPosition = currentPosition;
-            if (mc.currentScreen != null) {
+            if (mc.screen != null) {
                if (this.antiAfkStage != 0) {
                   this.cancelAntiAfkRoute();
                }
@@ -2002,7 +2002,7 @@ public final class ExpCrafter extends Module {
                return false;
             } else {
                BlockPos validHome = this.getValidHomeTable();
-               if (this.antiAfkStage == 0 && validHome != null && this.horizontalDistanceSquared(mc.player.getBlockPos(), validHome) > 16) {
+               if (this.antiAfkStage == 0 && validHome != null && this.horizontalDistanceSquared(mc.player.blockPosition(), validHome) > 16) {
                   long now = System.currentTimeMillis();
                   if (now >= this.antiAfkHomeRetryAt) {
                      this.antiAfkHomeRetryAt = now + 1000L;
@@ -2071,7 +2071,7 @@ public final class ExpCrafter extends Module {
                                  this.setMovement(true, false);
                               }
 
-                              if (currentPosition.squaredDistanceTo(this.antiAfkLastPosition) < 4.0E-4) {
+                              if (currentPosition.distanceToSqr(this.antiAfkLastPosition) < 4.0E-4) {
                                  this.antiAfkStuckTicks++;
                               } else {
                                  this.antiAfkStuckTicks = 0;
@@ -2113,7 +2113,7 @@ public final class ExpCrafter extends Module {
       }
    }
 
-   private void startAntiAfkRecovery(Vec3d currentPosition) {
+   private void startAntiAfkRecovery(Vec3 currentPosition) {
       if (this.antiAfkRecoveryPhase != ExpCrafter.AntiAfkRecoveryPhase.WAIT_REJOIN) {
          this.cancelAntiAfkRoute();
          this.rotating = false;
@@ -2137,8 +2137,8 @@ public final class ExpCrafter extends Module {
             this.sellPaused = true;
          }
 
-         if (mc.player.currentScreenHandler instanceof GenericContainerScreenHandler || mc.player.currentScreenHandler instanceof CraftingScreenHandler) {
-            mc.player.closeHandledScreen();
+         if (mc.player.containerMenu instanceof ChestMenu || mc.player.containerMenu instanceof CraftingMenu) {
+            mc.player.closeContainer();
          }
 
          this.antiAfkRecoveryPhase = ExpCrafter.AntiAfkRecoveryPhase.WAIT_REJOIN;
@@ -2151,7 +2151,7 @@ public final class ExpCrafter extends Module {
    }
 
    private void startPostJoinStabilization() {
-      if (this.antiAfkEnabled.getValue() && mc.player != null && mc.world != null) {
+      if (this.antiAfkEnabled.getValue() && mc.player != null && mc.level != null) {
          this.cancelAntiAfkRoute();
          this.rotating = false;
          this.waitingTableRotation = false;
@@ -2163,7 +2163,7 @@ public final class ExpCrafter extends Module {
          this.antiAfkPreviousPosition = this.getPlayerPosition();
          this.antiAfkPositionInitialized = true;
          this.antiAfkJoinDetected = true;
-         this.antiAfkTrackedWorld = mc.world;
+         this.antiAfkTrackedWorld = mc.level;
          this.antiAfkTrackedPlayer = mc.player;
          this.sendMsg("Сервер ещё загружает режим. Жду 15 сек.");
       }
@@ -2179,18 +2179,18 @@ public final class ExpCrafter extends Module {
 
    private boolean updateAntiAfkSessionTracking() {
       if (this.antiAfkTrackedWorld != null && this.antiAfkTrackedPlayer != null) {
-         boolean changed = this.antiAfkTrackedWorld != mc.world || this.antiAfkTrackedPlayer != mc.player;
-         this.antiAfkTrackedWorld = mc.world;
+         boolean changed = this.antiAfkTrackedWorld != mc.level || this.antiAfkTrackedPlayer != mc.player;
+         this.antiAfkTrackedWorld = mc.level;
          this.antiAfkTrackedPlayer = mc.player;
          return changed;
       } else {
-         this.antiAfkTrackedWorld = mc.world;
+         this.antiAfkTrackedWorld = mc.level;
          this.antiAfkTrackedPlayer = mc.player;
          return false;
       }
    }
 
-   private boolean tickAntiAfkRecovery(Vec3d currentPosition, boolean sessionChanged) {
+   private boolean tickAntiAfkRecovery(Vec3 currentPosition, boolean sessionChanged) {
       this.setMovement(false, false);
       if (this.antiAfkRecoveryPhase == ExpCrafter.AntiAfkRecoveryPhase.WAIT_REJOIN) {
          if (!this.antiAfkRecoveryTimer.finished(5000.0)) {
@@ -2218,7 +2218,7 @@ public final class ExpCrafter extends Module {
             tableNearby = this.findNearestTable() != null;
          }
 
-         boolean joined = sessionChanged || currentPosition.squaredDistanceTo(this.antiAfkPreviousPosition) > 25.0 || tableNearby;
+         boolean joined = sessionChanged || currentPosition.distanceToSqr(this.antiAfkPreviousPosition) > 25.0 || tableNearby;
          if (!joined) {
             if (!this.antiAfkRecoveryTimer.finished(10000.0)) {
                return true;
@@ -2237,7 +2237,7 @@ public final class ExpCrafter extends Module {
             return true;
          }
       } else {
-         boolean movedAbruptly = currentPosition.squaredDistanceTo(this.antiAfkPreviousPosition) > 25.0;
+         boolean movedAbruptly = currentPosition.distanceToSqr(this.antiAfkPreviousPosition) > 25.0;
          if (sessionChanged || movedAbruptly) {
             if (this.antiAfkJoinDetected) {
                this.startAntiAfkRecovery(currentPosition);
@@ -2266,10 +2266,10 @@ public final class ExpCrafter extends Module {
    }
 
    private boolean startAntiAfkRoute() {
-      if (!mc.player.isOnGround()) {
+      if (!mc.player.onGround()) {
          return false;
       } else {
-         BlockPos start = mc.player.getBlockPos();
+         BlockPos start = mc.player.blockPosition();
          this.antiAfkTableTarget = this.getValidHomeTable();
          if (this.antiAfkTableTarget == null) {
             this.antiAfkTableTarget = this.findNearestTable();
@@ -2282,14 +2282,14 @@ public final class ExpCrafter extends Module {
                this.homeTablePos = this.antiAfkTableTarget;
             }
 
-            float yaw = mc.player.getYaw();
+            float yaw = mc.player.getYRot();
             int backX = (int)Math.round(Math.sin(Math.toRadians((double)yaw)));
             int backZ = (int)Math.round(-Math.cos(Math.toRadians((double)yaw)));
             if (backX == 0 && backZ == 0) {
                backZ = -1;
             }
 
-            this.antiAfkBackTarget = start.add(backX * 2, 0, backZ * 2);
+            this.antiAfkBackTarget = start.offset(backX * 2, 0, backZ * 2);
             this.antiAfkRepathAttempts = 0;
             if (!this.setAntiAfkPath(this.antiAfkBackTarget, false)) {
                return false;
@@ -2305,7 +2305,7 @@ public final class ExpCrafter extends Module {
    }
 
    private boolean startReturnToNearestTable() {
-      if (!mc.player.isOnGround()) {
+      if (!mc.player.onGround()) {
          return false;
       } else {
          BlockPos nearest = this.getValidHomeTable();
@@ -2326,7 +2326,7 @@ public final class ExpCrafter extends Module {
    }
 
    private boolean startReturnToTable(BlockPos target) {
-      if (mc.player.isOnGround() && target != null && this.setAntiAfkPathToTable(target)) {
+      if (mc.player.onGround() && target != null && this.setAntiAfkPathToTable(target)) {
          this.tablePos = target;
          this.antiAfkTableTarget = target;
          this.antiAfkStage = 2;
@@ -2342,8 +2342,8 @@ public final class ExpCrafter extends Module {
    }
 
    private BlockPos getValidHomeTable() {
-      if (this.homeTablePos != null && mc.world != null) {
-         return mc.world.getBlockState(this.homeTablePos).getBlock() == Blocks.CRAFTING_TABLE ? this.homeTablePos : null;
+      if (this.homeTablePos != null && mc.level != null) {
+         return mc.level.getBlockState(this.homeTablePos).getBlock() == Blocks.CRAFTING_TABLE ? this.homeTablePos : null;
       } else {
          return null;
       }
@@ -2363,7 +2363,7 @@ public final class ExpCrafter extends Module {
    }
 
    private boolean setAntiAfkPath(BlockPos target, boolean tableTarget) {
-      BlockPos start = mc.player.getBlockPos();
+      BlockPos start = mc.player.blockPosition();
       List<BlockPos> path = this.findPath(start, target, tableTarget);
       if (path.isEmpty() && !start.equals(target)) {
          return false;
@@ -2401,7 +2401,7 @@ public final class ExpCrafter extends Module {
             }
 
             for (Direction direction : new Direction[]{Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST}) {
-               BlockPos next = current.offset(direction);
+               BlockPos next = current.relative(direction);
                if (!previous.containsKey(next) && this.isSafeStandPosition(next)) {
                   previous.put(next, current);
                   queue.addLast(next);
@@ -2431,24 +2431,24 @@ public final class ExpCrafter extends Module {
    }
 
    private boolean isSafeStandPosition(BlockPos pos) {
-      return mc.world.getBlockState(pos).getFluidState().isEmpty() && mc.world.getBlockState(pos.up()).getFluidState().isEmpty()
-         ? mc.world.getBlockState(pos).getCollisionShape(mc.world, pos).isEmpty()
-            && mc.world.getBlockState(pos.up()).getCollisionShape(mc.world, pos.up()).isEmpty()
-            && !mc.world.getBlockState(pos.down()).getCollisionShape(mc.world, pos.down()).isEmpty()
+      return mc.level.getBlockState(pos).getFluidState().isEmpty() && mc.level.getBlockState(pos.above()).getFluidState().isEmpty()
+         ? mc.level.getBlockState(pos).getCollisionShape(mc.level, pos).isEmpty()
+            && mc.level.getBlockState(pos.above()).getCollisionShape(mc.level, pos.above()).isEmpty()
+            && !mc.level.getBlockState(pos.below()).getCollisionShape(mc.level, pos.below()).isEmpty()
          : false;
    }
 
    private BlockPos findNearestTable() {
-      if (mc.player != null && mc.world != null) {
-         BlockPos origin = mc.player.getBlockPos();
+      if (mc.player != null && mc.level != null) {
+         BlockPos origin = mc.player.blockPosition();
          BlockPos nearest = null;
          int nearestDistance = Integer.MAX_VALUE;
 
          for (int dx = -24; dx <= 24; dx++) {
             for (int dy = -2; dy <= 2; dy++) {
                for (int dz = -24; dz <= 24; dz++) {
-                  BlockPos pos = origin.add(dx, dy, dz);
-                  if (mc.world.getBlockState(pos).getBlock() == Blocks.CRAFTING_TABLE) {
+                  BlockPos pos = origin.offset(dx, dy, dz);
+                  if (mc.level.getBlockState(pos).getBlock() == Blocks.CRAFTING_TABLE) {
                      int distance = dx * dx + dy * dy + dz * dz;
                      if (distance < nearestDistance) {
                         nearestDistance = distance;
@@ -2471,13 +2471,13 @@ public final class ExpCrafter extends Module {
       return dx * dx + dz * dz;
    }
 
-   private Vec3d getPlayerPosition() {
-      return new Vec3d(mc.player.getX(), mc.player.getY(), mc.player.getZ());
+   private Vec3 getPlayerPosition() {
+      return new Vec3(mc.player.getX(), mc.player.getY(), mc.player.getZ());
    }
 
    private void startAntiAfkTurn(float targetYaw) {
       this.antiAfkTurnPathIndex = this.antiAfkPathIndex;
-      this.antiAfkTurnStartYaw = mc.player.getYaw();
+      this.antiAfkTurnStartYaw = mc.player.getYRot();
       this.antiAfkTurnTargetYaw = this.normalizeYawAround(targetYaw, this.antiAfkTurnStartYaw);
       this.antiAfkTurnStartTime = System.currentTimeMillis();
       float difference = Math.abs(this.antiAfkTurnTargetYaw - this.antiAfkTurnStartYaw);
@@ -2488,7 +2488,7 @@ public final class ExpCrafter extends Module {
       long elapsed = System.currentTimeMillis() - this.antiAfkTurnStartTime;
       float progress = Math.min(1.0F, (float)elapsed / (float)this.antiAfkTurnDuration);
       float smooth = progress < 0.5F ? 2.0F * progress * progress : 1.0F - (float)Math.pow((double)(-2.0F * progress + 2.0F), 2.0) / 2.0F;
-      this.applyAim(this.antiAfkTurnStartYaw + (this.antiAfkTurnTargetYaw - this.antiAfkTurnStartYaw) * smooth, mc.player.getPitch());
+      this.applyAim(this.antiAfkTurnStartYaw + (this.antiAfkTurnTargetYaw - this.antiAfkTurnStartYaw) * smooth, mc.player.getXRot());
       return progress < 1.0F;
    }
 
@@ -2507,12 +2507,12 @@ public final class ExpCrafter extends Module {
    }
 
    private void setMovement(boolean forward, boolean back) {
-      mc.options.forwardKey.setPressed(forward);
-      mc.options.backKey.setPressed(back);
-      mc.options.leftKey.setPressed(false);
-      mc.options.rightKey.setPressed(false);
-      mc.options.sprintKey.setPressed(false);
-      mc.options.jumpKey.setPressed(false);
+      mc.options.keyUp.setDown(forward);
+      mc.options.keyDown.setDown(back);
+      mc.options.keyLeft.setDown(false);
+      mc.options.keyRight.setDown(false);
+      mc.options.keySprint.setDown(false);
+      mc.options.keyJump.setDown(false);
       mc.player.setSprinting(false);
    }
 

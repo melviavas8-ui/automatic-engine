@@ -2,12 +2,12 @@ package daamky.ua.api.module.impl.movement;
 
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.network.packet.c2s.common.CommonPongC2SPacket;
-import net.minecraft.network.packet.s2c.play.PlayerPositionLookS2CPacket;
-import net.minecraft.util.PlayerInput;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.common.ServerboundPongPacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.player.Input;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.InputEvent;
 import daamky.ua.api.events.impl.PacketEvent;
@@ -32,7 +32,7 @@ public final class Timer extends Module {
       new ModeSetting("Mode", "Custom sets a constant speed; Boost charges and releases timer speed while moving.", "Custom", "Custom")
    );
    private final NumberSetting speed = this.register(new NumberSetting("Speed", "Game speed multiplier for Custom mode.", 1.0, 0.1, 10.0, 0.1));
-   private final Queue<CommonPongC2SPacket> delayedTransactions = new ConcurrentLinkedQueue<>();
+   private final Queue<ServerboundPongPacket> delayedTransactions = new ConcurrentLinkedQueue<>();
    private Timer.Phase phase = Timer.Phase.CHARGING;
    private boolean cycleActive;
    private boolean airborne;
@@ -68,8 +68,8 @@ public final class Timer extends Module {
             this.stopCycle();
          }
       } else {
-         ClientPlayerEntity player = mc.player;
-         if (player != null && this.isMoving(player.input.playerInput)) {
+         LocalPlayer player = mc.player;
+         if (player != null && this.isMoving(player.input.keyPresses)) {
             long now = System.nanoTime();
             if (!this.cycleActive) {
                this.cycleActive = true;
@@ -87,7 +87,7 @@ public final class Timer extends Module {
 
    @SubscribeEvent
    private void onTick(TickEvent.Post event) {
-      ClientPlayerEntity player = event.getClient().player;
+      LocalPlayer player = event.getClient().player;
       if (player != null && this.cycleActive && this.phase == Timer.Phase.BOOSTING) {
          if (player.verticalCollision) {
             if (this.airborne) {
@@ -96,7 +96,7 @@ public final class Timer extends Module {
             }
          } else {
             this.airborne = true;
-            if (this.completedJumps >= 5 && player.getVelocity().y <= 0.0) {
+            if (this.completedJumps >= 5 && player.getDeltaMovement().y <= 0.0) {
                this.beginCharging();
             }
          }
@@ -105,8 +105,8 @@ public final class Timer extends Module {
 
    @SubscribeEvent
    private void onInput(InputEvent event) {
-      ClientPlayerEntity player = mc.player;
-      PlayerInput input = event.getInput();
+      LocalPlayer player = mc.player;
+      Input input = event.getInput();
       if (player != null && this.cycleActive && this.phase == Timer.Phase.BOOSTING && this.isMoving(input)) {
          this.groundTicks = player.verticalCollision ? this.groundTicks + 1 : 0;
          event.setSprinting(true);
@@ -121,10 +121,10 @@ public final class Timer extends Module {
    @SubscribeEvent
    private void onPacket(PacketEvent event) {
       if (this.mode.is("Boost") && !this.releasingTransactions) {
-         if (event.isSend() && this.cycleActive && event.getPacket() instanceof CommonPongC2SPacket packet) {
+         if (event.isSend() && this.cycleActive && event.getPacket() instanceof ServerboundPongPacket packet) {
             this.delayedTransactions.add(packet);
             event.cancel();
-         } else if (event.isReceive() && this.cycleActive && event.getPacket() instanceof PlayerPositionLookS2CPacket) {
+         } else if (event.isReceive() && this.cycleActive && event.getPacket() instanceof ClientboundPlayerPositionPacket) {
             this.beginCharging();
          }
       }
@@ -136,23 +136,23 @@ public final class Timer extends Module {
       if (timer != null && timer.isEnabled() && timer.mode.is("Boost")) {
          timerMultiplier = timer.cycleActive ? (timer.phase == Timer.Phase.CHARGING ? 0.25F : 2.0F) : 1.0F;
       } else if (timer != null && timer.isEnabled()) {
-         MinecraftClient client = MinecraftClient.getInstance();
-         boolean startingJump = client.player != null && client.options != null && client.player.isOnGround() && client.options.jumpKey.isPressed();
+         Minecraft client = Minecraft.getInstance();
+         boolean startingJump = client.player != null && client.options != null && client.player.onGround() && client.options.keyJump.isDown();
          timerMultiplier = startingJump ? 1.0F : Math.max(0.1F, timer.speed.getFloat());
       }
 
-      return MathHelper.clamp(timerMultiplier * boostMultiplier, 0.25F, 10.0F);
+      return Mth.clamp(timerMultiplier * boostMultiplier, 0.25F, 10.0F);
    }
 
    public static void setBoostMultiplier(float multiplier) {
-      boostMultiplier = MathHelper.clamp(multiplier, 0.25F, 10.0F);
+      boostMultiplier = Mth.clamp(multiplier, 0.25F, 10.0F);
    }
 
    public static void resetBoostMultiplier() {
       boostMultiplier = 1.0F;
    }
 
-   private boolean isMoving(PlayerInput input) {
+   private boolean isMoving(Input input) {
       return input.forward() || input.backward() || input.left() || input.right();
    }
 
@@ -184,13 +184,13 @@ public final class Timer extends Module {
    }
 
    private void flushTransactions() {
-      CommonPongC2SPacket packet;
+      ServerboundPongPacket packet;
       while ((packet = this.delayedTransactions.poll()) != null) {
-         if (mc.getNetworkHandler() != null) {
+         if (mc.getConnection() != null) {
             this.releasingTransactions = true;
 
             try {
-               mc.getNetworkHandler().sendPacket(packet);
+               mc.getConnection().send(packet);
             } finally {
                this.releasingTransactions = false;
             }

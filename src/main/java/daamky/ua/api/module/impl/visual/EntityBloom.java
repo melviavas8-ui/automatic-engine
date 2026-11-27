@@ -2,11 +2,11 @@
 package daamky.ua.api.module.impl.visual;
 
 import java.awt.Color;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.entity.state.EntityRenderState;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.entity.state.EntityRenderState;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.settings.impl.BooleanSetting;
@@ -140,17 +140,17 @@ public final class EntityBloom extends Module {
       if (!this.invisible.getValue() && entity.isInvisible()) {
          return false;
       } else {
-         MinecraftClient client = MinecraftClient.getInstance();
+         Minecraft client = Minecraft.getInstance();
          if (client.player == null) {
             return false;
          } else {
             double maxDistance = this.distance.getValue();
-            if (client.player.squaredDistanceTo(entity) > maxDistance * maxDistance) {
+            if (client.player.distanceToSqr(entity) > maxDistance * maxDistance) {
                return false;
             } else if (entity == client.player) {
                return this.self.getValue();
             } else {
-               return entity instanceof PlayerEntity ? this.players.getValue() : this.mobs.getValue();
+               return entity instanceof Player ? this.players.getValue() : this.mobs.getValue();
             }
          }
       }
@@ -184,11 +184,11 @@ public final class EntityBloom extends Module {
    }
 
    private float distanceScale(Entity entity) {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (client.player == null) {
          return 1.0F;
       } else {
-         double blocks = Math.sqrt(client.player.squaredDistanceTo(entity));
+         double blocks = Math.sqrt(client.player.distanceToSqr(entity));
          double scale = Math.pow(6.0 / Math.max(6.0, blocks), 0.32);
          return (float)Math.max(0.45, Math.min(1.0, scale));
       }

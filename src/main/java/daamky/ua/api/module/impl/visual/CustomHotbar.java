@@ -1,19 +1,19 @@
 package daamky.ua.api.module.impl.visual;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.item.ItemStack;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.utils.render.color.ColorUtil;
 import daamky.ua.utils.render.ui.Render2D;
 import daamky.ua.utils.render.ui.Render2DCoordinateSpace;
 import daamky.ua.utils.render.ui.font.FontType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
 
 public final class CustomHotbar extends Module {
    private static CustomHotbar instance;
-   private static final MinecraftClient mc = MinecraftClient.getInstance();
+   private static final Minecraft mc = Minecraft.getInstance();
    private static float animatedSelectedX;
    private static float lastHotbarX = Float.NaN;
    private static float lastHotbarY = Float.NaN;
@@ -32,11 +32,11 @@ public final class CustomHotbar extends Module {
       return instance != null && instance.isEnabled();
    }
 
-   public static void render(DrawContext graphics) {
+   public static void render(GuiGraphics graphics) {
       if (mc.player != null && mc.getWindow() != null) {
          Render2D.beginFrame(graphics);
-         int sw = mc.getWindow().getScaledWidth();
-         int sh = mc.getWindow().getScaledHeight();
+         int sw = mc.getWindow().getGuiScaledWidth();
+         int sh = mc.getWindow().getGuiScaledHeight();
          float slot = 17.5F;
          float gap = 2.5F;
          float width = slot * 9.0F + gap * 8.0F;
@@ -50,7 +50,7 @@ public final class CustomHotbar extends Module {
          float armorGroupGap = armorCount > 0 ? gap : 0.0F;
          float armorWidth = armorCount > 0 ? (float)armorCount * armorSlot + (float)(armorCount - 1) * armorGap : 0.0F;
          float armorX = x + width + armorGroupGap;
-         ItemStack offhandStack = mc.player.getOffHandStack();
+         ItemStack offhandStack = mc.player.getOffhandItem();
          updateLastOffhandStack(offhandStack);
          float offhandAlpha = animatedOffhandProgress(!offhandStack.isEmpty());
          float offhandArea = (slot + gap) * offhandAlpha;
@@ -91,7 +91,7 @@ public final class CustomHotbar extends Module {
 
          for (int ix = 0; ix < 9; ix++) {
             float sx = x + (float)ix * (slot + gap);
-            ItemStack stack = mc.player.getInventory().getStack(ix);
+            ItemStack stack = mc.player.getInventory().getItem(ix);
             if (!stack.isEmpty()) {
                renderVanillaItem(graphics, stack, sx + 1.5F, y + 1.5F, 14.0F);
             }
@@ -102,12 +102,12 @@ public final class CustomHotbar extends Module {
          }
 
          renderArmorItems(graphics, armorX, y, slot, armorSlot, armorGap, armorIcon);
-         graphics.createNewRootLayer();
+         graphics.nextStratum();
          Render2D.beginFrame(graphics);
 
          for (int ixx = 0; ixx < 9; ixx++) {
             float sx = x + (float)ixx * (slot + gap);
-            ItemStack stack = mc.player.getInventory().getStack(ixx);
+            ItemStack stack = mc.player.getInventory().getItem(ixx);
             if (stack.isEmpty()) {
                drawSlotNumber(ixx, sx, y, slot);
             } else {
@@ -127,22 +127,22 @@ public final class CustomHotbar extends Module {
          }
 
          Render2D.flush();
-         graphics.createNewRootLayer();
+         graphics.nextStratum();
       }
    }
 
-   private static void renderVanillaItem(DrawContext graphics, ItemStack stack, float x, float y, float size) {
+   private static void renderVanillaItem(GuiGraphics graphics, ItemStack stack, float x, float y, float size) {
       if (graphics != null && !stack.isEmpty() && !(size <= 0.0F)) {
          float scale = size / 16.0F;
-         graphics.getMatrices().pushMatrix();
+         graphics.pose().pushMatrix();
 
          try {
-            Render2DCoordinateSpace.applyGuiScaleIndependence(graphics.getMatrices());
-            graphics.getMatrices().translate(x, y);
-            graphics.getMatrices().scale(scale);
-            graphics.drawItem(stack, 0, 0);
+            Render2DCoordinateSpace.applyGuiScaleIndependence(graphics.pose());
+            graphics.pose().translate(x, y);
+            graphics.pose().scale(scale);
+            graphics.renderItem(stack, 0, 0);
          } finally {
-            graphics.getMatrices().popMatrix();
+            graphics.pose().popMatrix();
          }
       }
    }
@@ -151,7 +151,7 @@ public final class CustomHotbar extends Module {
       int count = 0;
 
       for (EquipmentSlot slot : ARMOR_SLOTS) {
-         ItemStack stack = mc.player.getEquippedStack(slot);
+         ItemStack stack = mc.player.getItemBySlot(slot);
          if (!stack.isEmpty()) {
             count++;
          }
@@ -160,11 +160,11 @@ public final class CustomHotbar extends Module {
       return count;
    }
 
-   private static void renderArmorItems(DrawContext graphics, float x, float y, float slotSize, float armorSlot, float gap, float iconSize) {
+   private static void renderArmorItems(GuiGraphics graphics, float x, float y, float slotSize, float armorSlot, float gap, float iconSize) {
       int index = 0;
 
       for (EquipmentSlot slot : ARMOR_SLOTS) {
-         ItemStack stack = mc.player.getEquippedStack(slot);
+         ItemStack stack = mc.player.getItemBySlot(slot);
          if (!stack.isEmpty()) {
             float sx = x + (float)index * (armorSlot + gap);
             renderVanillaItem(graphics, stack, sx + (armorSlot - iconSize) * 0.5F, y + (slotSize - iconSize) * 0.5F, iconSize);
@@ -177,7 +177,7 @@ public final class CustomHotbar extends Module {
       int index = 0;
 
       for (EquipmentSlot slot : ARMOR_SLOTS) {
-         ItemStack stack = mc.player.getEquippedStack(slot);
+         ItemStack stack = mc.player.getItemBySlot(slot);
          if (!stack.isEmpty()) {
             float sx = x + (float)index * (armorSlot + gap);
             drawItemDecorations(stack, sx + (armorSlot - iconSize) * 0.5F, y + (slotSize - iconSize) * 0.5F, iconSize, 1.0F);
@@ -198,10 +198,10 @@ public final class CustomHotbar extends Module {
       return cached.isEmpty()
          || cached.getItem() != current.getItem()
          || cached.getCount() != current.getCount()
-         || cached.getDamage() != current.getDamage()
-         || cached.isItemBarVisible() != current.isItemBarVisible()
-         || cached.getItemBarStep() != current.getItemBarStep()
-         || cached.getItemBarColor() != current.getItemBarColor();
+         || cached.getDamageValue() != current.getDamageValue()
+         || cached.isBarVisible() != current.isBarVisible()
+         || cached.getBarWidth() != current.getBarWidth()
+         || cached.getBarColor() != current.getBarColor();
    }
 
    private static void drawItemDecorations(ItemStack stack, float x, float y, float size, float alpha) {
@@ -212,13 +212,13 @@ public final class CustomHotbar extends Module {
    }
 
    private static void drawDurabilityBar(ItemStack stack, float x, float y, float size, float alpha) {
-      if (stack.isItemBarVisible()) {
+      if (stack.isBarVisible()) {
          float barWidth = Math.max(7.0F, size * 0.78F);
          float barHeight = Math.max(1.2F, size * 0.08F);
          float barX = x + (size - barWidth) * 0.5F;
          float barY = y + size - barHeight - Math.max(0.8F, size * 0.08F);
-         float fill = Math.max(0.0F, Math.min(1.0F, (float)stack.getItemBarStep() / 13.0F));
-         int barColor = stack.getItemBarColor();
+         float fill = Math.max(0.0F, Math.min(1.0F, (float)stack.getBarWidth() / 13.0F));
+         int barColor = stack.getBarColor();
          Render2D.rect(barX, barY, barWidth, barHeight, barHeight * 0.5F, ColorUtil.rgba(0, 0, 0, Math.round(150.0F * alpha)));
          Render2D.rect(
             barX,
@@ -232,7 +232,7 @@ public final class CustomHotbar extends Module {
    }
 
    private static void drawCooldownOverlay(ItemStack stack, float x, float y, float size, float alpha) {
-      float cooldown = mc.player.getItemCooldownManager().getCooldownProgress(stack, 0.0F);
+      float cooldown = mc.player.getCooldowns().getCooldownPercent(stack, 0.0F);
       if (!(cooldown <= 0.0F)) {
          float overlayHeight = size * Math.max(0.0F, Math.min(1.0F, cooldown));
          Render2D.rect(x, y + size - overlayHeight, size, overlayHeight, 1.0F, ColorUtil.rgba(0, 0, 0, Math.round(145.0F * alpha)));

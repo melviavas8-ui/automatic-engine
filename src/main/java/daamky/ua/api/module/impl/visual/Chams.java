@@ -1,11 +1,11 @@
 package daamky.ua.api.module.impl.visual;
 
 import java.awt.Color;
-import net.minecraft.client.option.Perspective;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.passive.AnimalEntity;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.client.CameraType;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.entity.player.Player;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.settings.impl.BooleanSetting;
@@ -48,19 +48,19 @@ public final class Chams extends Module {
 
    public boolean shouldRender(Entity entity) {
       if (this.isEnabled() && entity != null && mc.player != null) {
-         if (entity == mc.player && mc.options.getPerspective() == Perspective.FIRST_PERSON) {
+         if (entity == mc.player && mc.options.getCameraType() == CameraType.FIRST_PERSON) {
             return false;
          } else if (this.targets.isSelected("All")) {
             return true;
-         } else if (entity instanceof PlayerEntity) {
+         } else if (entity instanceof Player) {
             boolean friend = FriendUtils.isFriend(entity);
             return friend
                ? this.targets.isSelected("Friends") || this.targets.isSelected("Players")
                : this.targets.isSelected("Enemies") || this.targets.isSelected("Players");
-         } else if (entity instanceof AnimalEntity) {
+         } else if (entity instanceof Animal) {
             return this.targets.isSelected("Animals");
          } else {
-            return entity instanceof MobEntity ? this.targets.isSelected("Mobs") : this.targets.isSelected("Other");
+            return entity instanceof Mob ? this.targets.isSelected("Mobs") : this.targets.isSelected("Other");
          }
       } else {
          return false;

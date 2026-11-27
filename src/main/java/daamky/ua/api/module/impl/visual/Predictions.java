@@ -8,36 +8,36 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider.Immediate;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.util.math.MatrixStack.Entry;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.projectile.PersistentProjectileEntity;
-import net.minecraft.entity.projectile.TridentEntity;
-import net.minecraft.entity.projectile.thrown.EnderPearlEntity;
-import net.minecraft.item.BowItem;
-import net.minecraft.item.CrossbowItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.item.TridentItem;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult.Type;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RotationAxis;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.RaycastContext;
-import net.minecraft.world.RaycastContext.FluidHandling;
-import net.minecraft.world.RaycastContext.ShapeType;
+import net.minecraft.client.Camera;
+import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
+import net.minecraft.world.entity.projectile.arrow.ThrownTrident;
+import net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownEnderpearl;
+import net.minecraft.world.item.BowItem;
+import net.minecraft.world.item.CrossbowItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.TridentItem;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.ClipContext.Block;
+import net.minecraft.world.level.ClipContext.Fluid;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult.Type;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector4f;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.PoseStack.Pose;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.math.Axis;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.WorldRenderEvent;
 import daamky.ua.api.module.Module;
@@ -69,18 +69,18 @@ public final class Predictions extends Module {
    private static final String TEXTURE_CUBE = "Cube";
    private static final String TEXTURE_SQUARE = "Square";
    private static final String TEXTURE_RANDOM = "Random";
-   private static final Identifier PARTICLE_GLOW = Identifier.of("daamky", "textures/features/predictions/particles/glow.png");
-   private static final Identifier PARTICLE_STAR = Identifier.of("daamky", "textures/features/predictions/particles/star.png");
-   private static final Identifier PARTICLE_HEART = Identifier.of("daamky", "textures/features/predictions/particles/heart.png");
-   private static final Identifier PARTICLE_LIGHTNING = Identifier.of("daamky", "textures/features/predictions/particles/lightning.png");
-   private static final Identifier PARTICLE_TRIANGLE = Identifier.of("daamky", "textures/features/predictions/particles/triangle.png");
-   private static final Identifier PARTICLE_CROSS = Identifier.of("daamky", "textures/features/predictions/particles/cross.png");
-   private static final Identifier PARTICLE_CROWN = Identifier.of("daamky", "textures/features/predictions/particles/crown.png");
-   private static final Identifier PARTICLE_DOLLAR = Identifier.of("daamky", "textures/features/predictions/particles/dollar.png");
-   private static final Identifier PARTICLE_SQUARE = Identifier.of("daamky", "textures/features/predictions/particles/square.png");
-   private static final Identifier PARTICLE_SNOWFLAKE = Identifier.of("daamky", "textures/features/predictions/particles/snowflake.png");
-   private static final Identifier PARTICLE_SKULL = Identifier.of("daamky", "textures/features/predictions/particles/skull.png");
-   private static final Identifier PARTICLE_CUBE = Identifier.of("daamky", "textures/features/predictions/particles/cube.png");
+   private static final Identifier PARTICLE_GLOW = Identifier.fromNamespaceAndPath("daamky", "textures/features/predictions/particles/glow.png");
+   private static final Identifier PARTICLE_STAR = Identifier.fromNamespaceAndPath("daamky", "textures/features/predictions/particles/star.png");
+   private static final Identifier PARTICLE_HEART = Identifier.fromNamespaceAndPath("daamky", "textures/features/predictions/particles/heart.png");
+   private static final Identifier PARTICLE_LIGHTNING = Identifier.fromNamespaceAndPath("daamky", "textures/features/predictions/particles/lightning.png");
+   private static final Identifier PARTICLE_TRIANGLE = Identifier.fromNamespaceAndPath("daamky", "textures/features/predictions/particles/triangle.png");
+   private static final Identifier PARTICLE_CROSS = Identifier.fromNamespaceAndPath("daamky", "textures/features/predictions/particles/cross.png");
+   private static final Identifier PARTICLE_CROWN = Identifier.fromNamespaceAndPath("daamky", "textures/features/predictions/particles/crown.png");
+   private static final Identifier PARTICLE_DOLLAR = Identifier.fromNamespaceAndPath("daamky", "textures/features/predictions/particles/dollar.png");
+   private static final Identifier PARTICLE_SQUARE = Identifier.fromNamespaceAndPath("daamky", "textures/features/predictions/particles/square.png");
+   private static final Identifier PARTICLE_SNOWFLAKE = Identifier.fromNamespaceAndPath("daamky", "textures/features/predictions/particles/snowflake.png");
+   private static final Identifier PARTICLE_SKULL = Identifier.fromNamespaceAndPath("daamky", "textures/features/predictions/particles/skull.png");
+   private static final Identifier PARTICLE_CUBE = Identifier.fromNamespaceAndPath("daamky", "textures/features/predictions/particles/cube.png");
    private static final Predictions.ProjectileProfile PROFILE_PEARL = new Predictions.ProjectileProfile(0.99, 0.03);
    private static final Predictions.ProjectileProfile PROFILE_ITEM = new Predictions.ProjectileProfile(0.98, 0.04);
    private static final Predictions.ProjectileProfile PROFILE_ARROW = new Predictions.ProjectileProfile(0.99, 0.05);
@@ -124,9 +124,9 @@ public final class Predictions extends Module {
    private final ColorSetting particleColor = this.register(new ColorSetting("Particle Color", "Thrown object trail color.", new Color(185, 125, 255, 215)));
    private final Random random = new Random();
    private final List<Predictions.PredictionParticle> particles = new ArrayList<>();
-   private final List<Vec3d> simulationPoints = new ArrayList<>(181);
+   private final List<Vec3> simulationPoints = new ArrayList<>(181);
    private final Map<Integer, Long> lastParticleSpawnMs = new HashMap<>();
-   private final Set<RenderLayer> usedParticleRenderTypes = new HashSet<>();
+   private final Set<RenderType> usedParticleRenderTypes = new HashSet<>();
    private final Matrix4f inverseProjection = new Matrix4f();
    private final Matrix4f inverseView = new Matrix4f();
    private final Vector4f unprojectScratch = new Vector4f();
@@ -155,7 +155,7 @@ public final class Predictions extends Module {
 
    @SubscribeEvent
    private void onWorldRender(WorldRenderEvent event) {
-      if (mc.player != null && mc.world != null) {
+      if (mc.player != null && mc.level != null) {
          boolean trajectoryEnabled = this.render.isSelected("Trajectory");
          boolean particlesEnabled = this.render.isSelected("Particles");
          boolean landingEnabled = this.render.isSelected("Landing");
@@ -171,13 +171,13 @@ public final class Predictions extends Module {
                this.drawHeldPrediction(event.getPartialTicks(), simulationLimitSqr, lineWidthValue, landingEnabled);
             }
 
-            for (Entity entity : mc.world.getEntities()) {
+            for (Entity entity : mc.level.entitiesForRendering()) {
                Predictions.ProjectileTarget target = this.targetFor(entity);
                if (target != null && this.targets.isSelected(target.settingName()) && this.isInRange(entity)) {
-                  Vec3d velocity = entity.getVelocity();
+                  Vec3 velocity = entity.getDeltaMovement();
                   if (this.shouldRenderLive(entity, velocity)) {
                      Predictions.ProjectileProfile profile = this.profileFor(target);
-                     Vec3d start = entity.getLerpedPos(event.getPartialTicks());
+                     Vec3 start = entity.getPosition(event.getPartialTicks());
                      if (trajectoryEnabled) {
                         boolean hit = this.simulate(start, velocity, profile, 180, entity, simulationLimitSqr, this.simulationPoints);
                         this.drawPath(this.simulationPoints, hit, this.lineColor.getValue().getRGB(), lineWidthValue, landingEnabled);
@@ -207,16 +207,16 @@ public final class Predictions extends Module {
 
    private void drawHeldPrediction(float partialTicks, double simulationLimitSqr, float lineWidthValue, boolean landingEnabled) {
       if (this.targets.isSelected("Held") && mc.player != null) {
-         Predictions.HeldProjectile held = this.heldProjectile(mc.player, mc.player.getMainHandStack());
+         Predictions.HeldProjectile held = this.heldProjectile(mc.player, mc.player.getMainHandItem());
          if (held == null) {
-            held = this.heldProjectile(mc.player, mc.player.getOffHandStack());
+            held = this.heldProjectile(mc.player, mc.player.getOffhandItem());
          }
 
          if (held != null && this.targets.isSelected(held.target().settingName())) {
-            Predictions.AimRay ray = this.centerScreenRay(mc.gameRenderer.getCamera());
-            if (ray != null && !(ray.direction().lengthSquared() < 1.0E-6)) {
-               Vec3d start = ray.origin().add(ray.direction().multiply(0.05));
-               Vec3d velocity = ray.direction().multiply(held.speed());
+            Predictions.AimRay ray = this.centerScreenRay(mc.gameRenderer.getMainCamera());
+            if (ray != null && !(ray.direction().lengthSqr() < 1.0E-6)) {
+               Vec3 start = ray.origin().add(ray.direction().scale(0.05));
+               Vec3 velocity = ray.direction().scale(held.speed());
                boolean hit = this.simulate(start, velocity, this.profileFor(held.target()), 180, mc.player, simulationLimitSqr, this.simulationPoints);
                this.drawPath(this.simulationPoints, hit, this.lineColor.getValue().getRGB(), lineWidthValue, landingEnabled);
             }
@@ -225,29 +225,29 @@ public final class Predictions extends Module {
    }
 
    private Predictions.AimRay centerScreenRay(Camera camera) {
-      Vec3d cameraPos = Render3D.lastCameraPos;
+      Vec3 cameraPos = Render3D.lastCameraPos;
       if (cameraPos == null || !this.isFinite(cameraPos)) {
-         cameraPos = camera.getCameraPos();
+         cameraPos = camera.position();
       }
 
       Predictions.AimRay matrixRay = this.centerScreenRayFromMatrices(cameraPos);
       if (matrixRay != null) {
          return matrixRay;
       } else {
-         Vec3d direction = this.directionFromRotation(camera.getPitch(), camera.getYaw());
-         return this.isFinite(direction) && direction.lengthSquared() > 1.0E-6 ? new Predictions.AimRay(cameraPos, direction) : null;
+         Vec3 direction = this.directionFromRotation(camera.xRot(), camera.yRot());
+         return this.isFinite(direction) && direction.lengthSqr() > 1.0E-6 ? new Predictions.AimRay(cameraPos, direction) : null;
       }
    }
 
-   private Predictions.AimRay centerScreenRayFromMatrices(Vec3d cameraPos) {
+   private Predictions.AimRay centerScreenRayFromMatrices(Vec3 cameraPos) {
       try {
          this.inverseProjection.set(Render3D.lastProjMat).invert();
          this.inverseView.set(Render3D.lastModMat).invert();
-         Vec3d near = this.unprojectCenter(this.inverseProjection, this.inverseView, -1.0F);
-         Vec3d far = this.unprojectCenter(this.inverseProjection, this.inverseView, 1.0F);
+         Vec3 near = this.unprojectCenter(this.inverseProjection, this.inverseView, -1.0F);
+         Vec3 far = this.unprojectCenter(this.inverseProjection, this.inverseView, 1.0F);
          if (this.isFinite(near) && this.isFinite(far)) {
-            Vec3d direction = far.subtract(near);
-            return direction.lengthSquared() < 1.0E-8 ? null : new Predictions.AimRay(cameraPos.add(near), direction.normalize());
+            Vec3 direction = far.subtract(near);
+            return direction.lengthSqr() < 1.0E-8 ? null : new Predictions.AimRay(cameraPos.add(near), direction.normalize());
          } else {
             return null;
          }
@@ -256,7 +256,7 @@ public final class Predictions extends Module {
       }
    }
 
-   private Vec3d unprojectCenter(Matrix4f inverseProjection, Matrix4f inverseView, float z) {
+   private Vec3 unprojectCenter(Matrix4f inverseProjection, Matrix4f inverseView, float z) {
       Vector4f point = this.unprojectScratch.set(0.0F, 0.0F, z, 1.0F);
       inverseProjection.transform(point);
       if (Math.abs(point.w) > 1.0E-6F) {
@@ -268,22 +268,22 @@ public final class Predictions extends Module {
          point.div(point.w);
       }
 
-      return new Vec3d((double)point.x, (double)point.y, (double)point.z);
+      return new Vec3((double)point.x, (double)point.y, (double)point.z);
    }
 
-   private Vec3d directionFromRotation(float pitch, float yaw) {
+   private Vec3 directionFromRotation(float pitch, float yaw) {
       float pitchRad = pitch * (float) (Math.PI / 180.0);
       float yawRad = -yaw * (float) (Math.PI / 180.0);
-      float cosPitch = MathHelper.cos((double)pitchRad);
-      return new Vec3d(
-            (double)(MathHelper.sin((double)yawRad) * cosPitch),
-            (double)(-MathHelper.sin((double)pitchRad)),
-            (double)(MathHelper.cos((double)yawRad) * cosPitch)
+      float cosPitch = Mth.cos((double)pitchRad);
+      return new Vec3(
+            (double)(Mth.sin((double)yawRad) * cosPitch),
+            (double)(-Mth.sin((double)pitchRad)),
+            (double)(Mth.cos((double)yawRad) * cosPitch)
          )
          .normalize();
    }
 
-   private Predictions.HeldProjectile heldProjectile(PlayerEntity player, ItemStack stack) {
+   private Predictions.HeldProjectile heldProjectile(Player player, ItemStack stack) {
       if (stack != null && !stack.isEmpty()) {
          if (stack.getItem() == Items.ENDER_PEARL) {
             return new Predictions.HeldProjectile(Predictions.ProjectileTarget.PEARLS, 1.5);
@@ -291,7 +291,7 @@ public final class Predictions extends Module {
             if (!this.isUsing(player, stack)) {
                return null;
             } else {
-               float power = BowItem.getPullProgress(player.getItemUseTime());
+               float power = BowItem.getPowerForTime(player.getTicksUsingItem());
                return power > 0.1F ? new Predictions.HeldProjectile(Predictions.ProjectileTarget.ARROWS, (double)power * 3.0) : null;
             }
          } else if (stack.getItem() instanceof CrossbowItem) {
@@ -300,9 +300,9 @@ public final class Predictions extends Module {
             } else if (!this.isUsing(player, stack)) {
                return null;
             } else {
-               float charge = (float)player.getItemUseTime() / (float)CrossbowItem.getPullTime(stack, player);
+               float charge = (float)player.getTicksUsingItem() / (float)CrossbowItem.getChargeDuration(stack, player);
                return charge > 0.1F
-                  ? new Predictions.HeldProjectile(Predictions.ProjectileTarget.ARROWS, 3.15 * (double)MathHelper.clamp(charge, 0.0F, 1.0F))
+                  ? new Predictions.HeldProjectile(Predictions.ProjectileTarget.ARROWS, 3.15 * (double)Mth.clamp(charge, 0.0F, 1.0F))
                   : null;
             }
          } else if (!(stack.getItem() instanceof TridentItem)) {
@@ -310,7 +310,7 @@ public final class Predictions extends Module {
          } else if (!this.isUsing(player, stack)) {
             return null;
          } else {
-            float charge = MathHelper.clamp((float)player.getItemUseTime() / 10.0F, 0.0F, 1.0F);
+            float charge = Mth.clamp((float)player.getTicksUsingItem() / 10.0F, 0.0F, 1.0F);
             return charge > 0.1F ? new Predictions.HeldProjectile(Predictions.ProjectileTarget.TRIDENTS, 2.5 * (double)charge) : null;
          }
       } else {
@@ -318,32 +318,32 @@ public final class Predictions extends Module {
       }
    }
 
-   private boolean isUsing(PlayerEntity player, ItemStack stack) {
-      return player.isUsingItem() && !player.getActiveItem().isEmpty() && player.getActiveItem().getItem() == stack.getItem();
+   private boolean isUsing(Player player, ItemStack stack) {
+      return player.isUsingItem() && !player.getUseItem().isEmpty() && player.getUseItem().getItem() == stack.getItem();
    }
 
    private boolean simulate(
-      Vec3d start, Vec3d velocity, Predictions.ProjectileProfile profile, int maxTicks, Entity collider, double simulationLimitSqr, List<Vec3d> points
+      Vec3 start, Vec3 velocity, Predictions.ProjectileProfile profile, int maxTicks, Entity collider, double simulationLimitSqr, List<Vec3> points
    ) {
       points.clear();
       points.add(start);
-      Vec3d position = start;
-      Vec3d motion = velocity;
+      Vec3 position = start;
+      Vec3 motion = velocity;
       boolean hit = false;
 
       for (int i = 0; i < maxTicks; i++) {
-         Vec3d next = position.add(motion);
-         BlockHitResult blockHit = mc.world.raycast(new RaycastContext(position, next, ShapeType.COLLIDER, FluidHandling.NONE, collider));
+         Vec3 next = position.add(motion);
+         BlockHitResult blockHit = mc.level.clip(new ClipContext(position, next, Block.COLLIDER, Fluid.NONE, collider));
          if (blockHit != null && blockHit.getType() != Type.MISS) {
-            points.add(blockHit.getPos());
+            points.add(blockHit.getLocation());
             hit = true;
             break;
          }
 
          points.add(next);
          position = next;
-         motion = motion.multiply(profile.drag()).add(0.0, -profile.gravity(), 0.0);
-         if (next.y < -128.0 || next.squaredDistanceTo(start) > simulationLimitSqr) {
+         motion = motion.scale(profile.drag()).add(0.0, -profile.gravity(), 0.0);
+         if (next.y < -128.0 || next.distanceToSqr(start) > simulationLimitSqr) {
             break;
          }
       }
@@ -351,7 +351,7 @@ public final class Predictions extends Module {
       return hit;
    }
 
-   private void drawPath(List<Vec3d> points, boolean hit, int color, float lineWidthValue, boolean landingEnabled) {
+   private void drawPath(List<Vec3> points, boolean hit, int color, float lineWidthValue, boolean landingEnabled) {
       if (points.size() >= 2) {
          int count = points.size() - 1;
 
@@ -364,9 +364,9 @@ public final class Predictions extends Module {
          }
 
          if (landingEnabled && hit) {
-            Vec3d end = points.get(points.size() - 1);
+            Vec3 end = points.get(points.size() - 1);
             double size = 0.11;
-            Box marker = new Box(end.x - size, end.y - 0.015, end.z - size, end.x + size, end.y + 0.015, end.z + size);
+            AABB marker = new AABB(end.x - size, end.y - 0.015, end.z - size, end.x + size, end.y + 0.015, end.z + size);
             Render3D.drawBox(marker, ColorUtil.multAlpha(color, 0.65F), 1.0F, true, true, false);
             Render3D.drawBoxOverlay(marker, ColorUtil.multAlpha(color, 0.85F), 1.25F);
          }
@@ -385,25 +385,25 @@ public final class Predictions extends Module {
       } else {
          long elapsed = Math.max(1L, Math.min(50L, now - this.lastParticleUpdateMs));
          this.lastParticleUpdateMs = now;
-         return MathHelper.clamp((float)elapsed / 16.6667F, 0.25F, 3.0F);
+         return Mth.clamp((float)elapsed / 16.6667F, 0.25F, 3.0F);
       }
    }
 
-   private void spawnProjectileParticles(Entity entity, Vec3d position, Vec3d velocity, long now) {
+   private void spawnProjectileParticles(Entity entity, Vec3 position, Vec3 velocity, long now) {
       long last = this.lastParticleSpawnMs.getOrDefault(entity.getId(), 0L);
       if (now - last >= 42L) {
          this.lastParticleSpawnMs.put(entity.getId(), now);
          int count = Math.max(1, (int)Math.round(this.particleCount.getValue()));
-         double spread = Math.max(0.12, (double)entity.getWidth() * 0.8);
-         double height = Math.max(0.12, (double)entity.getHeight());
+         double spread = Math.max(0.12, (double)entity.getBbWidth() * 0.8);
+         double height = Math.max(0.12, (double)entity.getBbHeight());
          double motionRange = (double)this.particleSpeed.getFloat() / 18.0;
 
          for (int i = 0; i < count; i++) {
-            Vec3d spawn = position.add(this.randomRange(-spread, spread), this.random.nextDouble() * height, this.randomRange(-spread, spread));
-            Vec3d motion = new Vec3d(
+            Vec3 spawn = position.add(this.randomRange(-spread, spread), this.random.nextDouble() * height, this.randomRange(-spread, spread));
+            Vec3 motion = new Vec3(
                   this.randomRange(-motionRange, motionRange), this.randomRange(-motionRange, motionRange), this.randomRange(-motionRange, motionRange)
                )
-               .add(velocity.multiply(-0.018));
+               .add(velocity.scale(-0.018));
             this.particles
                .add(
                   new Predictions.PredictionParticle(
@@ -439,18 +439,18 @@ public final class Predictions extends Module {
 
    private void drawParticles(WorldRenderEvent event, long now) {
       if (!this.particles.isEmpty() && mc.gameRenderer != null) {
-         MatrixStack stack = event.getStack();
-         Immediate provider = mc.getBufferBuilders().getEntityVertexConsumers();
-         Vec3d cameraPos = mc.gameRenderer.getCamera().getCameraPos();
-         Quaternionf cameraRotation = mc.gameRenderer.getCamera().getRotation();
+         PoseStack stack = event.getStack();
+         BufferSource provider = mc.renderBuffers().bufferSource();
+         Vec3 cameraPos = mc.gameRenderer.getMainCamera().position();
+         Quaternionf cameraRotation = mc.gameRenderer.getMainCamera().rotation();
          this.usedParticleRenderTypes.clear();
 
          for (Predictions.PredictionParticle particle : this.particles) {
             this.renderParticle(stack, provider, cameraPos, cameraRotation, particle, now);
          }
 
-         for (RenderLayer type : this.usedParticleRenderTypes) {
-            provider.draw(type);
+         for (RenderType type : this.usedParticleRenderTypes) {
+            provider.endBatch(type);
          }
 
          this.usedParticleRenderTypes.clear();
@@ -458,7 +458,7 @@ public final class Predictions extends Module {
    }
 
    private void renderParticle(
-      MatrixStack stack, Immediate provider, Vec3d cameraPos, Quaternionf cameraRotation, Predictions.PredictionParticle particle, long now
+      PoseStack stack, BufferSource provider, Vec3 cameraPos, Quaternionf cameraRotation, Predictions.PredictionParticle particle, long now
    ) {
       float alpha = particle.alpha(now);
       if (!(alpha <= 0.01F)) {
@@ -483,23 +483,23 @@ public final class Predictions extends Module {
    }
 
    private void drawBillboard(
-      MatrixStack stack, Immediate provider, Identifier texture, Vec3d pos, Vec3d cameraPos, Quaternionf cameraRotation, float size, float rotation, int color
+      PoseStack stack, BufferSource provider, Identifier texture, Vec3 pos, Vec3 cameraPos, Quaternionf cameraRotation, float size, float rotation, int color
    ) {
       if (texture != null && !(size <= 0.001F) && ColorUtil.getAlpha(color) > 0) {
-         RenderLayer renderType = ClientPipelines.WORLD_PARTICLES_GLOW.apply(texture);
+         RenderType renderType = ClientPipelines.WORLD_PARTICLES_GLOW.apply(texture);
          this.usedParticleRenderTypes.add(renderType);
          VertexConsumer consumer = provider.getBuffer(renderType);
-         stack.push();
+         stack.pushPose();
          stack.translate(pos.x - cameraPos.x, pos.y - cameraPos.y, pos.z - cameraPos.z);
-         stack.multiply(cameraRotation);
-         stack.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(rotation));
-         Entry pose = stack.peek();
+         stack.mulPose(cameraRotation);
+         stack.mulPose(Axis.ZP.rotationDegrees(rotation));
+         Pose pose = stack.last();
          float half = size * 0.5F;
          WorldVertex.textured(consumer, pose, -half, -half, 0.0F, 0.0F, 0.0F, color);
          WorldVertex.textured(consumer, pose, half, -half, 0.0F, 1.0F, 0.0F, color);
          WorldVertex.textured(consumer, pose, half, half, 0.0F, 1.0F, 1.0F, color);
          WorldVertex.textured(consumer, pose, -half, half, 0.0F, 0.0F, 1.0F, color);
-         stack.pop();
+         stack.popPose();
       }
    }
 
@@ -532,26 +532,26 @@ public final class Predictions extends Module {
       return min + (max - min) * this.random.nextDouble();
    }
 
-   private boolean isFinite(Vec3d pos) {
+   private boolean isFinite(Vec3 pos) {
       return pos != null && Double.isFinite(pos.x) && Double.isFinite(pos.y) && Double.isFinite(pos.z);
    }
 
-   private boolean shouldRenderLive(Entity entity, Vec3d velocity) {
+   private boolean shouldRenderLive(Entity entity, Vec3 velocity) {
       return !(entity instanceof ItemEntity item)
-         ? velocity.lengthSquared() > 1.0E-5
-         : !this.isGroundedItem(item, velocity) && velocity.lengthSquared() > 1.0E-5;
+         ? velocity.lengthSqr() > 1.0E-5
+         : !this.isGroundedItem(item, velocity) && velocity.lengthSqr() > 1.0E-5;
    }
 
-   private boolean isGroundedItem(ItemEntity item, Vec3d velocity) {
-      if (item.isOnGround()) {
+   private boolean isGroundedItem(ItemEntity item, Vec3 velocity) {
+      if (item.onGround()) {
          return true;
-      } else if (mc.world == null) {
+      } else if (mc.level == null) {
          return false;
       } else {
-         Box box = item.getBoundingBox();
-         Vec3d from = new Vec3d(item.getX(), box.minY + 0.08, item.getZ());
-         Vec3d to = new Vec3d(item.getX(), box.minY - 0.16, item.getZ());
-         BlockHitResult hit = mc.world.raycast(new RaycastContext(from, to, ShapeType.COLLIDER, FluidHandling.NONE, item));
+         AABB box = item.getBoundingBox();
+         Vec3 from = new Vec3(item.getX(), box.minY + 0.08, item.getZ());
+         Vec3 to = new Vec3(item.getX(), box.minY - 0.16, item.getZ());
+         BlockHitResult hit = mc.level.clip(new ClipContext(from, to, Block.COLLIDER, Fluid.NONE, item));
          boolean blockUnderItem = hit != null && hit.getType() != Type.MISS;
          return blockUnderItem && velocity.y > -0.08;
       }
@@ -559,18 +559,18 @@ public final class Predictions extends Module {
 
    private boolean isInRange(Entity entity) {
       float maxRange = this.range.getFloat();
-      return maxRange <= 0.0F || mc.player == null || mc.player.squaredDistanceTo(entity) <= (double)(maxRange * maxRange);
+      return maxRange <= 0.0F || mc.player == null || mc.player.distanceToSqr(entity) <= (double)(maxRange * maxRange);
    }
 
    private Predictions.ProjectileTarget targetFor(Entity entity) {
-      if (entity instanceof EnderPearlEntity) {
+      if (entity instanceof ThrownEnderpearl) {
          return Predictions.ProjectileTarget.PEARLS;
-      } else if (entity instanceof TridentEntity) {
+      } else if (entity instanceof ThrownTrident) {
          return Predictions.ProjectileTarget.TRIDENTS;
-      } else if (entity instanceof PersistentProjectileEntity) {
+      } else if (entity instanceof AbstractArrow) {
          return Predictions.ProjectileTarget.ARROWS;
       } else {
-         if (entity instanceof ItemEntity item && !item.getStack().isEmpty()) {
+         if (entity instanceof ItemEntity item && !item.getItem().isEmpty()) {
             return Predictions.ProjectileTarget.ITEMS;
          }
 
@@ -586,7 +586,7 @@ public final class Predictions extends Module {
       };
    }
 
-   private static record AimRay(Vec3d origin, Vec3d direction) {
+   private static record AimRay(Vec3 origin, Vec3 direction) {
    }
 
    private static record HeldProjectile(Predictions.ProjectileTarget target, double speed) {
@@ -594,8 +594,8 @@ public final class Predictions extends Module {
 
    private static final class PredictionParticle {
       private final Identifier texture;
-      private Vec3d position;
-      private Vec3d motion;
+      private Vec3 position;
+      private Vec3 motion;
       private final long spawnMs;
       private final long lifetimeMs;
       private final int color;
@@ -604,7 +604,7 @@ public final class Predictions extends Module {
       private final float scale;
 
       private PredictionParticle(
-         Identifier texture, Vec3d position, Vec3d motion, long spawnMs, long lifetimeMs, int color, float rotation, double rotationSpeed, float scale
+         Identifier texture, Vec3 position, Vec3 motion, long spawnMs, long lifetimeMs, int color, float rotation, double rotationSpeed, float scale
       ) {
          this.texture = texture;
          this.position = position;
@@ -618,8 +618,8 @@ public final class Predictions extends Module {
       }
 
       private void update(float frameDelta) {
-         this.position = this.position.add(this.motion.multiply((double)frameDelta));
-         this.motion = this.motion.multiply(Math.pow(0.985, (double)frameDelta)).add(0.0, -0.0018 * (double)frameDelta, 0.0);
+         this.position = this.position.add(this.motion.scale((double)frameDelta));
+         this.motion = this.motion.scale(Math.pow(0.985, (double)frameDelta)).add(0.0, -0.0018 * (double)frameDelta, 0.0);
          this.rotation = this.rotation + this.rotationSpeed * frameDelta;
       }
 
@@ -628,7 +628,7 @@ public final class Predictions extends Module {
       }
 
       private float alpha(long now) {
-         float progress = MathHelper.clamp((float)(now - this.spawnMs) / (float)this.lifetimeMs, 0.0F, 1.0F);
+         float progress = Mth.clamp((float)(now - this.spawnMs) / (float)this.lifetimeMs, 0.0F, 1.0F);
          if (progress < 0.18F) {
             return progress / 0.18F;
          } else if (progress > 0.62F) {
@@ -643,7 +643,7 @@ public final class Predictions extends Module {
          return this.texture;
       }
 
-      private Vec3d position() {
+      private Vec3 position() {
          return this.position;
       }
 

@@ -2,10 +2,10 @@ package daamky.ua.screens.modernui.settings;
 
 import java.awt.Color;
 import java.util.List;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.input.CharInput;
-import net.minecraft.client.input.KeyInput;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import daamky.ua.api.drag.impl.ClientLanguage;
 import daamky.ua.api.settings.Setting;
 import daamky.ua.utils.render.animation.modernfx.Direction;
@@ -62,7 +62,7 @@ abstract class SettingCardComponent<T extends Setting<?>> {
       return this.layoutHeight(context) * this.state.visibilityProgress;
    }
 
-   void renderAnimated(DrawContext graphics, SettingCardContext context, float cardX, float y, int mouseX, int mouseY) {
+   void renderAnimated(GuiGraphics graphics, SettingCardContext context, float cardX, float y, int mouseX, int mouseY) {
       float progress = this.state.visibilityProgress;
       if (!(progress <= 0.01F)) {
          float height = this.height(context);
@@ -79,27 +79,27 @@ abstract class SettingCardComponent<T extends Setting<?>> {
       }
    }
 
-   abstract void render(DrawContext var1, SettingCardContext var2, float var3, float var4, int var5, int var6);
+   abstract void render(GuiGraphics var1, SettingCardContext var2, float var3, float var4, int var5, int var6);
 
-   void renderOverlay(DrawContext graphics, SettingCardContext context) {
+   void renderOverlay(GuiGraphics graphics, SettingCardContext context) {
    }
 
-   void renderFloatingOverlay(DrawContext graphics, SettingCardContext context) {
+   void renderFloatingOverlay(GuiGraphics graphics, SettingCardContext context) {
    }
 
-   boolean mouseClickedOverlay(Click event, SettingCardContext context) {
+   boolean mouseClickedOverlay(MouseButtonEvent event, SettingCardContext context) {
       return false;
    }
 
-   boolean mouseClicked(Click event, boolean doubled, SettingCardContext context) {
+   boolean mouseClicked(MouseButtonEvent event, boolean doubled, SettingCardContext context) {
       return false;
    }
 
-   boolean mouseReleased(Click event, SettingCardContext context) {
+   boolean mouseReleased(MouseButtonEvent event, SettingCardContext context) {
       return false;
    }
 
-   boolean mouseDragged(Click event, double dragX, double dragY, SettingCardContext context) {
+   boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY, SettingCardContext context) {
       return false;
    }
 
@@ -107,11 +107,11 @@ abstract class SettingCardComponent<T extends Setting<?>> {
       return false;
    }
 
-   boolean keyPressed(KeyInput event, SettingCardContext context) {
+   boolean keyPressed(KeyEvent event, SettingCardContext context) {
       return false;
    }
 
-   boolean charTyped(CharInput event, SettingCardContext context) {
+   boolean charTyped(CharacterEvent event, SettingCardContext context) {
       return false;
    }
 
@@ -137,14 +137,14 @@ abstract class SettingCardComponent<T extends Setting<?>> {
       return lineCount <= 0 ? 0.0F : 7.0F + (float)(lineCount - 1) * 5.5F;
    }
 
-   protected void renderNameAndDescription(DrawContext graphics, SettingCardContext context, float x, float y, float titleWidth, float descriptionWidth) {
+   protected void renderNameAndDescription(GuiGraphics graphics, SettingCardContext context, float x, float y, float titleWidth, float descriptionWidth) {
       context.renderClippedText(
          graphics, FontType.SEMIBOLD, ClientLanguage.tr(this.setting.getName()), x, y + 2.5F, titleWidth, 6.0F, new Color(225, 225, 225, 255).getRGB()
       );
       this.state.hoverDescriptionEnabled = false;
    }
 
-   private void renderHoverDescription(DrawContext graphics, SettingCardContext context) {
+   private void renderHoverDescription(GuiGraphics graphics, SettingCardContext context) {
       String description = ClientLanguage.trDescription(this.setting.getDescription());
       boolean hasDescription = this.state.hoverDescriptionEnabled && description != null && !description.isBlank();
       boolean hovered = hasDescription

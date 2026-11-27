@@ -1,8 +1,8 @@
 package daamky.ua.utils.modules.warden.rotation;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.util.Mth;
 
 public final class RotationController {
    private static RotationController.RotationControllerState state = RotationController.RotationControllerState.IDLE;
@@ -65,46 +65,46 @@ public final class RotationController {
    }
 
    private static boolean updateRotation(Rotation target, float turnYawSpeed, float turnPitchSpeed) {
-      ClientPlayerEntity player = MinecraftClient.getInstance().player;
+      LocalPlayer player = Minecraft.getInstance().player;
       if (player != null && target != null) {
-         float yawDelta = MathHelper.wrapDegrees(target.floatValue - player.getYaw());
-         float pitchDelta = target.floatValue2 - player.getPitch();
+         float yawDelta = Mth.wrapDegrees(target.floatValue - player.getYRot());
+         float pitchDelta = target.floatValue2 - player.getXRot();
          float totalDelta = Math.abs(yawDelta) + Math.abs(pitchDelta);
          float maximumYaw = totalDelta == 0.0F ? 0.0F : Math.abs(yawDelta / totalDelta) * turnYawSpeed;
          float maximumPitch = totalDelta == 0.0F ? 0.0F : Math.abs(pitchDelta / totalDelta) * turnPitchSpeed;
-         float nextYaw = player.getYaw() + MathHelper.clamp(yawDelta, -maximumYaw, maximumYaw);
-         float nextPitch = MathHelper.clamp(player.getPitch() + MathHelper.clamp(pitchDelta, -maximumPitch, maximumPitch), -90.0F, 90.0F);
-         Rotation patched = applySensitivityPatch(new Rotation(nextYaw, nextPitch), new Rotation(player.getYaw(), player.getPitch()));
+         float nextYaw = player.getYRot() + Mth.clamp(yawDelta, -maximumYaw, maximumYaw);
+         float nextPitch = Mth.clamp(player.getXRot() + Mth.clamp(pitchDelta, -maximumPitch, maximumPitch), -90.0F, 90.0F);
+         Rotation patched = applySensitivityPatch(new Rotation(nextYaw, nextPitch), new Rotation(player.getYRot(), player.getXRot()));
          applyToPlayer(player, patched);
          idleTicks = 0;
          float completionSpeed = state == RotationController.RotationControllerState.RESET
             ? (float)Math.hypot((double)returnYawSpeed, (double)returnPitchSpeed)
             : (float)Math.hypot((double)yawSpeed, (double)pitchSpeed);
-         return new Rotation(player.getYaw(), player.getPitch()).measure(target) < completionSpeed;
+         return new Rotation(player.getYRot(), player.getXRot()).measure(target) < completionSpeed;
       } else {
          return false;
       }
    }
 
    private static Rotation applySensitivityPatch(Rotation rotation, Rotation previous) {
-      MinecraftClient client = MinecraftClient.getInstance();
-      double sensitivity = (Double)client.options.getMouseSensitivity().getValue();
+      Minecraft client = Minecraft.getInstance();
+      double sensitivity = (Double)client.options.sensitivity().get();
       double gcd = Math.pow(sensitivity * 0.6F + 0.2F, 3.0) * 8.0;
       double step = gcd * 0.15F;
-      float yaw = (float)((double)previous.floatValue + Math.ceil((double)MathHelper.wrapDegrees(rotation.floatValue - previous.floatValue) / step) * step);
+      float yaw = (float)((double)previous.floatValue + Math.ceil((double)Mth.wrapDegrees(rotation.floatValue - previous.floatValue) / step) * step);
       float pitch = (float)((double)previous.floatValue2 + Math.ceil((double)(rotation.floatValue2 - previous.floatValue2) / step) * step);
-      return new Rotation(yaw, MathHelper.clamp(pitch, -90.0F, 90.0F));
+      return new Rotation(yaw, Mth.clamp(pitch, -90.0F, 90.0F));
    }
 
-   private static void applyToPlayer(ClientPlayerEntity player, Rotation rotation) {
-      player.setYaw(rotation.floatValue);
-      player.setPitch(rotation.floatValue2);
-      player.lastYaw = rotation.floatValue;
-      player.lastPitch = rotation.floatValue2;
-      player.headYaw = rotation.floatValue;
-      player.lastHeadYaw = rotation.floatValue;
-      player.bodyYaw = rotation.floatValue;
-      player.lastBodyYaw = rotation.floatValue;
+   private static void applyToPlayer(LocalPlayer player, Rotation rotation) {
+      player.setYRot(rotation.floatValue);
+      player.setXRot(rotation.floatValue2);
+      player.yRotO = rotation.floatValue;
+      player.xRotO = rotation.floatValue2;
+      player.yHeadRot = rotation.floatValue;
+      player.yHeadRotO = rotation.floatValue;
+      player.yBodyRot = rotation.floatValue;
+      player.yBodyRotO = rotation.floatValue;
    }
 
    private static void stop() {

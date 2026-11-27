@@ -4,7 +4,9 @@ import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.GpuDevice;
 import com.mojang.blaze3d.systems.RenderPass;
@@ -12,16 +14,14 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.textures.TextureFormat;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.OptionalInt;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 import org.lwjgl.system.MemoryStack;
@@ -30,9 +30,9 @@ import daamky.ua.utils.render.RenderSampler;
 public final class JumpCircleDistortionRenderer {
    public static final int MAX_CIRCLES = 8;
    private static final int UNIFORM_SIZE = 496;
-   private static final Identifier PIPELINE_ID = Identifier.of("daamky", "pipeline/post/jumpcircle/distortion");
-   private static final Identifier SHADER = Identifier.of("daamky", "post/jumpcircle/distortion");
-   private static final Identifier VERTEX_SHADER = Identifier.of("daamky", "post/fogblur/fogblur");
+   private static final Identifier PIPELINE_ID = Identifier.fromNamespaceAndPath("daamky", "pipeline/post/jumpcircle/distortion");
+   private static final Identifier SHADER = Identifier.fromNamespaceAndPath("daamky", "post/jumpcircle/distortion");
+   private static final Identifier VERTEX_SHADER = Identifier.fromNamespaceAndPath("daamky", "post/fogblur/fogblur");
    private static RenderPipeline pipeline;
    private static GpuBuffer uniformBuffer;
    private static GpuTexture sceneCopyTexture;
@@ -45,10 +45,10 @@ public final class JumpCircleDistortionRenderer {
    }
 
    public static void apply(
-      Framebuffer target,
+      RenderTarget target,
       Matrix4fc projectionMatrix,
       Matrix4fc viewMatrix,
-      Vec3d cameraPosition,
+      Vec3 cameraPosition,
       List<JumpCircleDistortionRenderer.Circle> circles,
       float distortionStrength,
       float groundLight
@@ -61,13 +61,13 @@ public final class JumpCircleDistortionRenderer {
          && circles != null
          && !circles.isEmpty()
          && !(distortionStrength <= 0.001F)
-         && target.textureWidth > 0
-         && target.textureHeight > 0
-         && target.getColorAttachment() != null
-         && target.getColorAttachmentView() != null
-         && target.getDepthAttachmentView() != null) {
+         && target.width > 0
+         && target.height > 0
+         && target.getColorTexture() != null
+         && target.getColorTextureView() != null
+         && target.getDepthTextureView() != null) {
          init();
-         if (pipeline != null && uniformBuffer != null && ensureSceneCopy(target.textureWidth, target.textureHeight)) {
+         if (pipeline != null && uniformBuffer != null && ensureSceneCopy(target.width, target.height)) {
             try {
                Matrix4f inverseViewProjection = new Matrix4f(projectionMatrix).mul(viewMatrix).invert();
                if (!isFinite(inverseViewProjection)) {
@@ -75,17 +75,17 @@ public final class JumpCircleDistortionRenderer {
                }
 
                CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
-               encoder.copyTextureToTexture(target.getColorAttachment(), sceneCopyTexture, 0, 0, 0, 0, 0, target.textureWidth, target.textureHeight);
+               encoder.copyTextureToTexture(target.getColorTexture(), sceneCopyTexture, 0, 0, 0, 0, 0, target.width, target.height);
                writeUniforms(
-                  encoder, inverseViewProjection, cameraPosition, target.textureWidth, target.textureHeight, circles, distortionStrength, groundLight
+                  encoder, inverseViewProjection, cameraPosition, target.width, target.height, circles, distortionStrength, groundLight
                );
-               RenderPass pass = encoder.createRenderPass(() -> "daamky:jump_circle_distortion", target.getColorAttachmentView(), OptionalInt.empty());
+               RenderPass pass = encoder.createRenderPass(() -> "daamky:jump_circle_distortion", target.getColorTextureView(), OptionalInt.empty());
 
                try {
                   pass.setPipeline(pipeline);
                   pass.setUniform("CircleDistortionData", uniformBuffer);
                   pass.bindTexture("SceneSampler", sceneCopyTextureView, RenderSampler.linear());
-                  pass.bindTexture("DepthSampler", target.getDepthAttachmentView(), RenderSampler.nearest());
+                  pass.bindTexture("DepthSampler", target.getDepthTextureView(), RenderSampler.nearest());
                   pass.draw(0, 6);
                } catch (Throwable var13) {
                   if (pass != null) {
@@ -120,7 +120,7 @@ public final class JumpCircleDistortionRenderer {
                      .withLocation(PIPELINE_ID)
                      .withVertexShader(VERTEX_SHADER)
                      .withFragmentShader(SHADER)
-                     .withVertexFormat(VertexFormats.EMPTY, DrawMode.TRIANGLES)
+                     .withVertexFormat(DefaultVertexFormat.EMPTY, Mode.TRIANGLES)
                      .withUniform("CircleDistortionData", UniformType.UNIFORM_BUFFER)
                      .withSampler("SceneSampler")
                      .withSampler("DepthSampler")
@@ -169,7 +169,7 @@ public final class JumpCircleDistortionRenderer {
    private static void writeUniforms(
       CommandEncoder encoder,
       Matrix4fc inverseViewProjection,
-      Vec3d cameraPosition,
+      Vec3 cameraPosition,
       int width,
       int height,
       List<JumpCircleDistortionRenderer.Circle> circles,
@@ -276,10 +276,10 @@ public final class JumpCircleDistortionRenderer {
    }
 
    public static record Circle(
-      Vec3d center, float radius, float progress, float alpha, float thickness, float seed, float red, float green, float blue, float style
+      Vec3 center, float radius, float progress, float alpha, float thickness, float seed, float red, float green, float blue, float style
    ) {
       private static final JumpCircleDistortionRenderer.Circle EMPTY = new JumpCircleDistortionRenderer.Circle(
-         Vec3d.ZERO, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F
+         Vec3.ZERO, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F
       );
    }
 }

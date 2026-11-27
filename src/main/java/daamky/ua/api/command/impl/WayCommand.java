@@ -4,8 +4,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Stream;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
 import daamky.ua.IMinecraft;
 import daamky.ua.api.command.Command;
 import daamky.ua.api.command.helpers.TabCompleteHelper;
@@ -20,7 +20,7 @@ public final class WayCommand extends Command implements IMinecraft {
    @Override
    public void execute(String label, String[] args) {
       if (mc.player == null) {
-         this.logDirect("Игрок недоступен.", Formatting.RED);
+         this.logDirect("Игрок недоступен.", ChatFormatting.RED);
       } else {
          WayRepository repository = WayRepository.getInstance();
          String action = args.length > 0 ? args[0].toLowerCase(Locale.ROOT) : "list";
@@ -39,7 +39,7 @@ public final class WayCommand extends Command implements IMinecraft {
             case "clearall":
                int count = repository.size();
                repository.clearListAndSave();
-               this.logDirect("Удалены все точки: " + count, Formatting.GREEN);
+               this.logDirect("Удалены все точки: " + count, ChatFormatting.GREEN);
                break;
             case "list":
                this.listWaypoints(repository);
@@ -81,30 +81,30 @@ public final class WayCommand extends Command implements IMinecraft {
 
    private void addWaypoint(WayRepository repository, String[] args) {
       if (args.length < 2) {
-         this.logDirect("Использование: .way add <название> [x y z]", Formatting.RED);
+         this.logDirect("Использование: .way add <название> [x y z]", ChatFormatting.RED);
       } else if (args.length != 2 && args.length != 5) {
-         this.logDirect("Координаты указываются полностью: x y z.", Formatting.RED);
+         this.logDirect("Координаты указываются полностью: x y z.", ChatFormatting.RED);
       } else {
          String server = repository.getCurrentServer();
          if (server.isBlank()) {
-            this.logDirect("Точку можно поставить только на сервере.", Formatting.RED);
+            this.logDirect("Точку можно поставить только на сервере.", ChatFormatting.RED);
          } else {
             String name = args[1];
             if (repository.hasWay(name, server)) {
-               this.logDirect("Точка с таким названием уже есть на этом сервере.", Formatting.RED);
+               this.logDirect("Точка с таким названием уже есть на этом сервере.", ChatFormatting.RED);
             } else {
-               BlockPos pos = mc.player.getBlockPos();
+               BlockPos pos = mc.player.blockPosition();
                if (args.length == 5) {
                   try {
                      pos = new BlockPos(Integer.parseInt(args[2]), Integer.parseInt(args[3]), Integer.parseInt(args[4]));
                   } catch (NumberFormatException var7) {
-                     this.logDirect("Неверные координаты.", Formatting.RED);
+                     this.logDirect("Неверные координаты.", ChatFormatting.RED);
                      return;
                   }
                }
 
                repository.addWayAndSave(name, pos, server);
-               this.logDirect("Точка " + name + " добавлена: " + pos.getX() + " " + pos.getY() + " " + pos.getZ(), Formatting.GREEN);
+               this.logDirect("Точка " + name + " добавлена: " + pos.getX() + " " + pos.getY() + " " + pos.getZ(), ChatFormatting.GREEN);
             }
          }
       }
@@ -112,18 +112,18 @@ public final class WayCommand extends Command implements IMinecraft {
 
    private void removeWaypoint(WayRepository repository, String[] args) {
       if (args.length < 2) {
-         this.logDirect("Использование: .way remove <название>", Formatting.RED);
+         this.logDirect("Использование: .way remove <название>", ChatFormatting.RED);
       } else {
          String server = repository.getCurrentServer();
          if (server.isBlank()) {
-            this.logDirect("Точки доступны только на сервере.", Formatting.RED);
+            this.logDirect("Точки доступны только на сервере.", ChatFormatting.RED);
          } else {
             String name = args[1];
             if (!repository.hasWay(name, server)) {
-               this.logDirect("Такой точки на этом сервере нет.", Formatting.RED);
+               this.logDirect("Такой точки на этом сервере нет.", ChatFormatting.RED);
             } else {
                repository.deleteWayAndSave(name, server);
-               this.logDirect("Точка " + name + " удалена.", Formatting.GREEN);
+               this.logDirect("Точка " + name + " удалена.", ChatFormatting.GREEN);
             }
          }
       }
@@ -132,21 +132,21 @@ public final class WayCommand extends Command implements IMinecraft {
    private void clearCurrentServer(WayRepository repository) {
       String server = repository.getCurrentServer();
       if (server.isBlank()) {
-         this.logDirect("Точки доступны только на сервере.", Formatting.RED);
+         this.logDirect("Точки доступны только на сервере.", ChatFormatting.RED);
       } else {
          int removed = repository.clearServerAndSave(server);
-         this.logDirect("Удалено точек на этом сервере: " + removed, Formatting.GREEN);
+         this.logDirect("Удалено точек на этом сервере: " + removed, ChatFormatting.GREEN);
       }
    }
 
    private void listWaypoints(WayRepository repository) {
       String server = repository.getCurrentServer();
       if (server.isBlank()) {
-         this.logDirect("Точки доступны только на сервере.", Formatting.RED);
+         this.logDirect("Точки доступны только на сервере.", ChatFormatting.RED);
       } else {
          List<Way> ways = repository.getWaysForServer(server);
          if (ways.isEmpty()) {
-            this.logDirect("На этом сервере точек нет.", Formatting.RED);
+            this.logDirect("На этом сервере точек нет.", ChatFormatting.RED);
          } else {
             for (Way way : ways) {
                BlockPos pos = way.pos();
@@ -158,7 +158,7 @@ public final class WayCommand extends Command implements IMinecraft {
 
    private Stream<String> coordinateSuggestions(int argCount, String prefix) {
       TabCompleteHelper helper = new TabCompleteHelper();
-      BlockPos pos = mc.player == null ? BlockPos.ORIGIN : mc.player.getBlockPos();
+      BlockPos pos = mc.player == null ? BlockPos.ZERO : mc.player.blockPosition();
       if (argCount == 3) {
          helper.append(String.valueOf(pos.getX()), "x");
       } else if (argCount == 4) {

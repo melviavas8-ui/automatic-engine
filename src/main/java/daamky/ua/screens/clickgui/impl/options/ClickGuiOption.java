@@ -3,10 +3,10 @@ package daamky.ua.screens.clickgui.impl.options;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BooleanSupplier;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.input.CharInput;
-import net.minecraft.client.input.KeyInput;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import daamky.ua.api.drag.impl.ClientLanguage;
 import daamky.ua.api.settings.Setting;
 import daamky.ua.screens.clickgui.impl.ClickGuiController;
@@ -41,7 +41,7 @@ public abstract class ClickGuiOption {
       return 22.0F;
    }
 
-   public final void render(DrawContext graphics, float x, float y, float width, float scale, float alpha) {
+   public final void render(GuiGraphics graphics, float x, float y, float width, float scale, float alpha) {
       float sw = width * scale;
       float sh = 22.0F * scale;
       this.x = x;
@@ -93,18 +93,18 @@ public abstract class ClickGuiOption {
       return this.interactiveThisFrame && this.visibleSupplier.getAsBoolean() && this.visibilityProgress() > 0.85F;
    }
 
-   public void renderOverlay(DrawContext graphics) {
+   public void renderOverlay(GuiGraphics graphics) {
    }
 
    public void setFadeMultiplier(float fadeMultiplier) {
       this.fadeMultiplier = this.clamp(fadeMultiplier, 0.0F, 1.0F);
    }
 
-   public boolean mouseClicked(Click event, boolean doubled) {
+   public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
       return false;
    }
 
-   public boolean wantsMousePriority(Click event) {
+   public boolean wantsMousePriority(MouseButtonEvent event) {
       return false;
    }
 
@@ -112,26 +112,26 @@ public abstract class ClickGuiOption {
       return false;
    }
 
-   public boolean mouseReleased(Click event) {
+   public boolean mouseReleased(MouseButtonEvent event) {
       return false;
    }
 
-   public boolean mouseDragged(Click event, double dragX, double dragY) {
+   public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
       return false;
    }
 
-   public boolean keyPressed(KeyInput event) {
+   public boolean keyPressed(KeyEvent event) {
       return false;
    }
 
-   public boolean charTyped(CharInput event) {
+   public boolean charTyped(CharacterEvent event) {
       return false;
    }
 
    public void closePopup() {
    }
 
-   protected abstract void renderControl(DrawContext var1, float var2, float var3, float var4, float var5, float var6, float var7);
+   protected abstract void renderControl(GuiGraphics var1, float var2, float var3, float var4, float var5, float var6, float var7);
 
    protected String name() {
       return ClientLanguage.tr(this.name);
@@ -171,7 +171,7 @@ public abstract class ClickGuiOption {
       Render2D.text(FontType.GUI_ICONS, icon, x, y, size * scale, this.iconColor());
    }
 
-   protected void renderOptionLabel(DrawContext graphics, String key, float textX, float textY, float textSize, float clipRight, float rowY, float rowHeight) {
+   protected void renderOptionLabel(GuiGraphics graphics, String key, float textX, float textY, float textSize, float clipRight, float rowY, float rowHeight) {
       float clipWidth = Math.max(0.0F, clipRight - textX);
       this.renderScrollingText(
          graphics, "label:" + key, this.name(), textX, textY, textSize, this.labelColor(), textX, rowY, clipWidth, rowHeight, textX, rowY, clipWidth, rowHeight
@@ -179,7 +179,7 @@ public abstract class ClickGuiOption {
    }
 
    protected void renderScrollingText(
-      DrawContext graphics,
+      GuiGraphics graphics,
       String key,
       String text,
       float textX,

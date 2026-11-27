@@ -1,10 +1,6 @@
 package daamky.ua.mixin;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
-import net.minecraft.client.render.Camera;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -19,6 +15,10 @@ import daamky.ua.api.module.impl.player.FreeLook;
 import daamky.ua.api.module.impl.visual.Animations;
 import daamky.ua.manager.Manager;
 import daamky.ua.utils.modules.warden.rotation.FreeLookController;
+import net.minecraft.client.Camera;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 
 @Mixin({Camera.class})
 public abstract class CameraMixin {
@@ -26,16 +26,16 @@ public abstract class CameraMixin {
    }
 
    @Shadow
-   protected abstract void setPos(double var1, double var3, double var5);
+   protected abstract void setPosition(double var1, double var3, double var5);
 
    @Shadow
-   protected abstract void moveBy(float var1, float var2, float var3);
+   protected abstract void move(float var1, float var2, float var3);
 
    @ModifyExpressionValue(
-      method = {"update"},
+      method = {"setup"},
       at = {@At(
          value = "INVOKE",
-         target = "Lnet/minecraft/entity/Entity;getYaw(F)F"
+         target = "Lnet/minecraft/world/entity/Entity;getViewYRot(F)F"
       )}
    )
    private float daamky$freeLookYaw(float original) {
@@ -53,10 +53,10 @@ public abstract class CameraMixin {
    }
 
    @ModifyExpressionValue(
-      method = {"update"},
+      method = {"setup"},
       at = {@At(
          value = "INVOKE",
-         target = "Lnet/minecraft/entity/Entity;getPitch(F)F"
+         target = "Lnet/minecraft/world/entity/Entity;getViewXRot(F)F"
       )}
    )
    private float daamky$freeLookPitch(float original) {
@@ -80,27 +80,27 @@ public abstract class CameraMixin {
    }
 
    @Inject(
-      method = {"setPos(Lnet/minecraft/util/math/Vec3d;)V"},
+      method = {"setPosition(Lnet/minecraft/world/phys/Vec3;)V"},
       at = {@At("HEAD")},
       cancellable = true,
       require = 0
    )
-   private void daamky$cameraPositionHook(Vec3d pos, CallbackInfo ci) {
+   private void daamky$cameraPositionHook(Vec3 pos, CallbackInfo ci) {
       CameraPositionEvent event = Manager.postEvent(new CameraPositionEvent(pos));
-      Vec3d nextPos = event.getPos();
+      Vec3 nextPos = event.getPos();
       if (nextPos != null && Double.isFinite(nextPos.x) && Double.isFinite(nextPos.y) && Double.isFinite(nextPos.z)) {
-         if (!(nextPos.squaredDistanceTo(pos) <= 1.0E-8)) {
-            this.setPos(nextPos.x, nextPos.y, nextPos.z);
+         if (!(nextPos.distanceToSqr(pos) <= 1.0E-8)) {
+            this.setPosition(nextPos.x, nextPos.y, nextPos.z);
             ci.cancel();
          }
       }
    }
 
    @ModifyExpressionValue(
-      method = {"update"},
+      method = {"setup"},
       at = {@At(
          value = "INVOKE",
-         target = "Lnet/minecraft/client/render/Camera;clipToSpace(F)F"
+         target = "Lnet/minecraft/client/Camera;getMaxZoom(F)F"
       )}
    )
    private float daamky$animateThirdPersonDistance(float zoom) {
@@ -108,14 +108,14 @@ public abstract class CameraMixin {
    }
 
    @Inject(
-      method = {"update"},
+      method = {"setup"},
       at = {@At("TAIL")}
    )
-   private void daamky$animateFirstPersonReturn(World level, Entity entity, boolean detached, boolean reverse, float partialTick, CallbackInfo ci) {
+   private void daamky$animateFirstPersonReturn(Level level, Entity entity, boolean detached, boolean reverse, float partialTick, CallbackInfo ci) {
       if (!detached && Animations.perspectiveEnabled()) {
          float remainingThirdPerson = Animations.perspectiveProgress(false);
          if (remainingThirdPerson > 0.001F) {
-            this.moveBy(-4.0F * remainingThirdPerson, 0.0F, 0.0F);
+            this.move(-4.0F * remainingThirdPerson, 0.0F, 0.0F);
          }
       }
    }

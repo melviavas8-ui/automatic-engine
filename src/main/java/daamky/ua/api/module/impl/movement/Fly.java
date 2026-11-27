@@ -2,16 +2,16 @@ package daamky.ua.api.module.impl.movement;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
-import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket.Mode;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.PacketEvent;
 import daamky.ua.api.module.Module;
@@ -78,22 +78,22 @@ public final class Fly extends Module {
       this.isSpeedRamping = false;
       this.missingElytraWarned = false;
       if (mc.player != null) {
-         Vec3d movement = mc.player.getVelocity();
-         mc.player.setVelocity(movement.x, 0.0, movement.z);
+         Vec3 movement = mc.player.getDeltaMovement();
+         mc.player.setDeltaMovement(movement.x, 0.0, movement.z);
       }
    }
 
    @SubscribeEvent
    private void onPacket(PacketEvent event) {
-      if (this.mode.is("ElytraUP") && !this.flushingPackets && event.isSend() && mc.player != null && mc.world != null) {
+      if (this.mode.is("ElytraUP") && !this.flushingPackets && event.isSend() && mc.player != null && mc.level != null) {
          this.bufferedPackets.add(event.getPacket());
          event.cancel();
       }
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
-      if (client.player != null && client.world != null && client.options != null) {
+   public void onTick(Minecraft client) {
+      if (client.player != null && client.level != null && client.options != null) {
          if (!this.mode.is("ElytraSpeed") && this.elytraSpeedRotationActive) {
             RotationController.hardReset();
             this.elytraSpeedRotationActive = false;
@@ -115,55 +115,55 @@ public final class Fly extends Module {
       }
    }
 
-   private void handleVanilla(MinecraftClient client) {
-      if (!this.mode.is("Dragon") || client.player.getAbilities().allowFlying && client.player.getAbilities().flying) {
+   private void handleVanilla(Minecraft client) {
+      if (!this.mode.is("Dragon") || client.player.getAbilities().mayfly && client.player.getAbilities().flying) {
          double[] direction = MoveUtil.calculateDirection(this.horizontal.getValue());
-         double verticalMotion = client.options.jumpKey.isPressed()
+         double verticalMotion = client.options.keyJump.isDown()
             ? this.vertical.getValue()
-            : (client.options.sneakKey.isPressed() ? -this.vertical.getValue() : 0.0);
+            : (client.options.keyShift.isDown() ? -this.vertical.getValue() : 0.0);
          if (!MoveUtil.hasPlayerMovement()) {
             direction[0] = 0.0;
             direction[1] = 0.0;
          }
 
-         client.player.setVelocity(direction[0], verticalMotion, direction[1]);
+         client.player.setDeltaMovement(direction[0], verticalMotion, direction[1]);
       }
    }
 
-   private void handleGlide(MinecraftClient client) {
-      if (client.player.isOnGround()) {
-         client.player.jump();
+   private void handleGlide(Minecraft client) {
+      if (client.player.onGround()) {
+         client.player.jumpFromGround();
       } else {
          double y = -0.01;
-         if (client.options.sneakKey.isPressed()) {
+         if (client.options.keyShift.isDown()) {
             y -= this.vertical.getValue();
-         } else if (client.options.jumpKey.isPressed()) {
+         } else if (client.options.keyJump.isDown()) {
             y += this.vertical.getValue();
          }
 
-         client.player.setVelocity(0.0, y, 0.0);
+         client.player.setDeltaMovement(0.0, y, 0.0);
          MoveUtil.setVelocity(this.horizontal.getValue());
       }
    }
 
-   private void handleDirectionalGlide(MinecraftClient client) {
-      if (client.player.isGliding()) {
+   private void handleDirectionalGlide(Minecraft client) {
+      if (client.player.isFallFlying()) {
          double forward = 0.085;
-         double yawRadians = Math.toRadians((double)client.player.getYaw());
+         double yawRadians = Math.toRadians((double)client.player.getYRot());
          double dx = -Math.sin(yawRadians) * forward;
          double dz = Math.cos(yawRadians) * forward;
-         Vec3d movement = client.player.getVelocity();
-         client.player.setVelocity(dx * 1.25, movement.y + 0.015, dz * 1.25);
+         Vec3 movement = client.player.getDeltaMovement();
+         client.player.setDeltaMovement(dx * 1.25, movement.y + 0.015, dz * 1.25);
          long now = System.currentTimeMillis();
          if (now - this.lastGlideNudge >= 12L) {
-            client.player.setPosition(client.player.getX() + dx, client.player.getY(), client.player.getZ() + dz);
+            client.player.setPos(client.player.getX() + dx, client.player.getY(), client.player.getZ() + dz);
             this.lastGlideNudge = now;
          }
       }
    }
 
-   private void handleElytraUp(MinecraftClient client) {
-      if (!client.player.getEquippedStack(EquipmentSlot.CHEST).isOf(Items.ELYTRA)) {
+   private void handleElytraUp(Minecraft client) {
+      if (!client.player.getItemBySlot(EquipmentSlot.CHEST).is(Items.ELYTRA)) {
          if (!this.missingElytraWarned) {
             ChatMessage.brandmessage("Элитра не надета!");
             this.missingElytraWarned = true;
@@ -173,9 +173,9 @@ public final class Fly extends Module {
       } else {
          this.missingElytraWarned = false;
          this.startElytraFlight(client);
-         if (client.player.isGliding()) {
-            Vec3d movement = client.player.getVelocity();
-            client.player.setVelocity(0.0, movement.y + 0.019, 0.0);
+         if (client.player.isFallFlying()) {
+            Vec3 movement = client.player.getDeltaMovement();
+            client.player.setDeltaMovement(0.0, movement.y + 0.019, 0.0);
             this.holdHorizontalRotation(client);
          }
 
@@ -187,7 +187,7 @@ public final class Fly extends Module {
       }
    }
 
-   private void handleHollyworld(MinecraftClient client) {
+   private void handleHollyworld(Minecraft client) {
       int elytraSlot = InventoryUtils.findItemInHotbar(Items.ELYTRA);
       if (elytraSlot < 0) {
          if (!this.missingElytraWarned) {
@@ -196,18 +196,18 @@ public final class Fly extends Module {
          }
       } else {
          this.missingElytraWarned = false;
-         if (client.player.isOnGround()) {
-            client.player.jump();
-         } else if (!client.player.isTouchingWater()) {
-            boolean equipped = client.player.getEquippedStack(EquipmentSlot.CHEST).isOf(Items.ELYTRA);
+         if (client.player.onGround()) {
+            client.player.jumpFromGround();
+         } else if (!client.player.isInWater()) {
+            boolean equipped = client.player.getItemBySlot(EquipmentSlot.CHEST).is(Items.ELYTRA);
             if (!equipped) {
                this.swapChestWithHotbar(client, elytraSlot);
             }
 
             this.startElytraFlight(client);
-            if (client.player.isGliding()) {
-               Vec3d movement = client.player.getVelocity();
-               client.player.setVelocity(0.0, movement.y + 0.049, 0.0);
+            if (client.player.isFallFlying()) {
+               Vec3 movement = client.player.getDeltaMovement();
+               client.player.setDeltaMovement(0.0, movement.y + 0.049, 0.0);
                this.holdHorizontalRotation(client);
             }
 
@@ -218,35 +218,35 @@ public final class Fly extends Module {
       }
    }
 
-   private void startElytraFlight(MinecraftClient client) {
-      if (client.player.isOnGround()) {
-         client.player.jump();
-      } else if (!client.player.isTouchingWater() && !client.player.isGliding()) {
+   private void startElytraFlight(Minecraft client) {
+      if (client.player.onGround()) {
+         client.player.jumpFromGround();
+      } else if (!client.player.isInWater() && !client.player.isFallFlying()) {
          long now = System.currentTimeMillis();
          if (now - this.lastElytraStart >= 110L) {
-            client.player.networkHandler.sendPacket(new ClientCommandC2SPacket(client.player, Mode.START_FALL_FLYING));
+            client.player.connection.send(new ServerboundPlayerCommandPacket(client.player, Action.START_FALL_FLYING));
             this.lastElytraStart = now;
          }
       }
    }
 
-   private void swapChestWithHotbar(MinecraftClient client, int hotbarSlot) {
-      if (client.interactionManager != null) {
-         client.interactionManager.clickSlot(client.player.playerScreenHandler.syncId, 6, hotbarSlot, SlotActionType.SWAP, client.player);
+   private void swapChestWithHotbar(Minecraft client, int hotbarSlot) {
+      if (client.gameMode != null) {
+         client.gameMode.handleInventoryMouseClick(client.player.inventoryMenu.containerId, 6, hotbarSlot, ClickType.SWAP, client.player);
       }
    }
 
-   private void holdHorizontalRotation(MinecraftClient client) {
-      AngleConnection.INSTANCE.rotateTo(new Angle(client.player.getYaw(), 0.0F), 1, AngleConfig.DEFAULT, TaskPriority.HIGH_IMPORTANCE_1, this);
+   private void holdHorizontalRotation(Minecraft client) {
+      AngleConnection.INSTANCE.rotateTo(new Angle(client.player.getYRot(), 0.0F), 1, AngleConfig.DEFAULT, TaskPriority.HIGH_IMPORTANCE_1, this);
    }
 
    private void flushPackets() {
-      if (!this.bufferedPackets.isEmpty() && mc.player != null && mc.player.networkHandler != null) {
+      if (!this.bufferedPackets.isEmpty() && mc.player != null && mc.player.connection != null) {
          this.flushingPackets = true;
 
          try {
             for (Packet<?> packet : this.bufferedPackets) {
-               mc.player.networkHandler.sendPacket(packet);
+               mc.player.connection.send(packet);
             }
 
             this.bufferedPackets.clear();
@@ -258,14 +258,14 @@ public final class Fly extends Module {
       }
    }
 
-   private void handleElytraSpeed(MinecraftClient client) {
-      if (client.player != null && client.world != null && client.player.networkHandler != null) {
+   private void handleElytraSpeed(Minecraft client) {
+      if (client.player != null && client.level != null && client.player.connection != null) {
          int elytra = InventoryUtils.findItemInHotbar(Items.ELYTRA);
          int previous = mc.player.getInventory().getSelectedSlot();
          InventoryUtils.syncSelectedHotbarSlot(elytra);
-         PlayerInteractionHelper.sendSequencedPacket(id -> new PlayerInteractItemC2SPacket(Hand.MAIN_HAND, id, mc.player.getYaw(), 70.0F));
-         PlayerInteractionHelper.sendSequencedPacket(id -> new PlayerInteractItemC2SPacket(Hand.MAIN_HAND, id, mc.player.getYaw(), 70.0F));
-         mc.player.networkHandler.sendPacket(new ClientCommandC2SPacket(mc.player, Mode.START_FALL_FLYING));
+         PlayerInteractionHelper.sendSequencedPacket(id -> new ServerboundUseItemPacket(InteractionHand.MAIN_HAND, id, mc.player.getYRot(), 70.0F));
+         PlayerInteractionHelper.sendSequencedPacket(id -> new ServerboundUseItemPacket(InteractionHand.MAIN_HAND, id, mc.player.getYRot(), 70.0F));
+         mc.player.connection.send(new ServerboundPlayerCommandPacket(mc.player, Action.START_FALL_FLYING));
          if (!FreeLookController.isActive()) {
             FreeLookController.syncFromPlayer();
          }

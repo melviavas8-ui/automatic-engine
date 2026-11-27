@@ -1,6 +1,8 @@
 package daamky.ua.api.module.impl.visual;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.awt.Color;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -9,15 +11,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.WorldRenderEvent;
 import daamky.ua.api.module.Module;
@@ -37,7 +37,7 @@ import daamky.ua.utils.render.pipeline.ClientPipelines;
 /** Local OGG player with timestamped lyrics floating around the player in 3D. */
 public final class MusicLyrics extends Module {
     private static final String NONE = "Не выбрано";
-    private static final Identifier GLOW_TEXTURE = Identifier.of("daamky", "textures/particles/glow.png");
+    private static final Identifier GLOW_TEXTURE = Identifier.fromNamespaceAndPath("daamky", "textures/particles/glow.png");
     private final Path musicDirectory = FabricLoader.getInstance().getGameDir().resolve("daamky").resolve("music");
 
     private final ModeSetting track = this.register(new ModeSetting("Track", "Выбери OGG-трек из папки daamky/music.", NONE, NONE));
@@ -114,7 +114,7 @@ public final class MusicLyrics extends Module {
     }
 
     @Override
-    public void onTick(MinecraftClient client) {
+    public void onTick(Minecraft client) {
         if (!this.validated) {
             this.validated = true;
             if (!this.startSelectedTrack(client)) {
@@ -134,7 +134,7 @@ public final class MusicLyrics extends Module {
         if (durationReached && this.player.isDrained()) this.setEnabled(false);
     }
 
-    private boolean startSelectedTrack(MinecraftClient client) {
+    private boolean startSelectedTrack(Minecraft client) {
         String selected = this.track.getValue();
         if (selected == null || selected.isBlank() || NONE.equals(selected)) {
             this.message("Music Lyrics: сначала выбери трек в настройках.");
@@ -187,7 +187,7 @@ public final class MusicLyrics extends Module {
             long lineDuration = Math.max(1400L, Math.min(5500L, nextStart - line.timeMillis()));
             long age = elapsed - line.timeMillis();
             if (age < lineDuration && !line.text().isBlank()) {
-                Vec3d position = this.findSpawnPosition();
+                Vec3 position = this.findSpawnPosition();
                 if (position != null) {
                     int maxAllowed = (int) Math.round(this.maxLines.getValue());
                     while (this.countTextAlive(now) >= maxAllowed) {
@@ -234,20 +234,20 @@ public final class MusicLyrics extends Module {
     }
 
     /** Places lyric text in a forward-facing arc, matching the reference KineticLyrics layout. */
-    private Vec3d findSpawnPosition() {
-        Camera camera = mc.gameRenderer.getCamera();
-        Vec3d eye = mc.player.getEyePos();
+    private Vec3 findSpawnPosition() {
+        Camera camera = mc.gameRenderer.getMainCamera();
+        Vec3 eye = mc.player.getEyePosition();
         double spread = this.arcSpread.getValue();
         double min = this.minDistance.getValue();
         double max = Math.max(min + 0.5, this.maxDistance.getValue());
-        Vec3d best = null;
+        Vec3 best = null;
         double bestSeparation = -1.0;
 
         for (int attempt = 0; attempt < 16; attempt++) {
-            double angle = Math.toRadians(camera.getYaw() + ThreadLocalRandom.current().nextDouble(-spread, spread));
+            double angle = Math.toRadians(camera.yRot() + ThreadLocalRandom.current().nextDouble(-spread, spread));
             double distance = ThreadLocalRandom.current().nextDouble(min, max);
             double yOffset = ThreadLocalRandom.current().nextDouble(-0.25, 0.55);
-            Vec3d candidate = new Vec3d(
+            Vec3 candidate = new Vec3(
                 eye.x - Math.sin(angle) * distance,
                 eye.y + yOffset,
                 eye.z + Math.cos(angle) * distance
@@ -269,11 +269,11 @@ public final class MusicLyrics extends Module {
 
     @SubscribeEvent
     private void onWorldRender(WorldRenderEvent event) {
-        if (!this.isEnabled() || this.activeParticles.isEmpty() || mc.player == null || mc.world == null || mc.gameRenderer == null) return;
+        if (!this.isEnabled() || this.activeParticles.isEmpty() || mc.player == null || mc.level == null || mc.gameRenderer == null) return;
 
-        Camera camera = mc.gameRenderer.getCamera();
-        VertexConsumerProvider.Immediate consumers = mc.getBufferBuilders().getEntityVertexConsumers();
-        MatrixStack matrices = event.getStack();
+        Camera camera = mc.gameRenderer.getMainCamera();
+        MultiBufferSource.BufferSource consumers = mc.renderBuffers().bufferSource();
+        PoseStack matrices = event.getStack();
         long now = System.currentTimeMillis();
 
         GlStateManager._enableBlend();
@@ -287,25 +287,25 @@ public final class MusicLyrics extends Module {
             String mode = this.animation.getValue();
 
             // Pass 1: soft glow sprites behind the text (flushed first so the text always lands on top).
-            RenderLayer glowLayer = ClientPipelines.BLOOM_ESP.apply(GLOW_TEXTURE);
+            RenderType glowLayer = ClientPipelines.BLOOM_ESP.apply(GLOW_TEXTURE);
             VertexConsumer glowBuffer = consumers.getBuffer(glowLayer);
             for (LyricParticle3D particle : this.activeParticles) {
-                particle.renderGlow(matrices, camera, mc.textRenderer, mode, glowBuffer, now, this.glowStyle);
+                particle.renderGlow(matrices, camera, mc.font, mode, glowBuffer, now, this.glowStyle);
             }
-            consumers.draw(glowLayer);
+            consumers.endBatch(glowLayer);
 
             // Pass 2: the crisp text itself.
             for (LyricParticle3D particle : this.activeParticles) {
-                particle.renderText(matrices, camera, mc.textRenderer, mode, consumers, now, this.glowStyle);
+                particle.renderText(matrices, camera, mc.font, mode, consumers, now, this.glowStyle);
             }
-            consumers.draw();
+            consumers.endBatch();
         } finally {
             GlStateManager._depthMask(true);
         }
     }
 
     private void message(String text) {
-        if (mc.inGameHud != null) mc.inGameHud.getChatHud().addMessage(Text.literal("§b[Daamky] §f" + text));
+        if (mc.gui != null) mc.gui.getChat().addMessage(Component.literal("§b[Daamky] §f" + text));
     }
 
     private static String stripExtension(String name) {

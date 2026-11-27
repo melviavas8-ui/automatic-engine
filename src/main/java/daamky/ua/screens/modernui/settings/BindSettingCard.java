@@ -1,12 +1,12 @@
 package daamky.ua.screens.modernui.settings;
 
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
 import daamky.ua.api.settings.bind.KeyBind;
 import daamky.ua.api.settings.impl.BindSetting;
 import daamky.ua.utils.math.MathUtils;
 import daamky.ua.utils.render.ui.Render2D;
 import daamky.ua.utils.render.ui.font.FontType;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.MouseButtonEvent;
 
 final class BindSettingCard extends SettingCardComponent<BindSetting> {
    BindSettingCard(BindSetting setting) {
@@ -24,7 +24,7 @@ final class BindSettingCard extends SettingCardComponent<BindSetting> {
    }
 
    @Override
-   void render(DrawContext graphics, SettingCardContext context, float cardX, float y, int mouseX, int mouseY) {
+   void render(GuiGraphics graphics, SettingCardContext context, float cardX, float y, int mouseX, int mouseY) {
       this.markRow(cardX, y, this.height(context));
       boolean bound = this.setting.getValue() != null && this.setting.getValue().isBound();
       String text = context.listeningBind == this.setting ? "..." : (bound ? MathUtils.shortBind(this.setting.getValue()) : "n/a");
@@ -72,7 +72,7 @@ final class BindSettingCard extends SettingCardComponent<BindSetting> {
    }
 
    @Override
-   boolean mouseClicked(Click event, boolean doubled, SettingCardContext context) {
+   boolean mouseClicked(MouseButtonEvent event, boolean doubled, SettingCardContext context) {
       if (!context.inside(event.x(), event.y(), this.state.boxX, this.state.boxY, this.state.boxWidth, this.state.boxHeight)) {
          return false;
       } else {

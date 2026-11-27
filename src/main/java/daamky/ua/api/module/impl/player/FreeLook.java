@@ -1,8 +1,5 @@
 package daamky.ua.api.module.impl.player;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.Perspective;
-import net.minecraft.util.math.MathHelper;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.CameraEvent;
 import daamky.ua.api.events.impl.MouseRotationEvent;
@@ -12,11 +9,14 @@ import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.api.module.impl.combat.aura.MathAngle;
 import daamky.ua.api.settings.bind.KeyBind;
 import daamky.ua.api.settings.impl.BindSetting;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
 
 public final class FreeLook extends Module {
    public static final BindSetting FREE_LOOK_BIND = new BindSetting("Free Look", "Free look key.", KeyBind.keyboard(342));
    private static FreeLook instance;
-   private Perspective perspective;
+   private CameraType perspective;
    private Angle angle;
 
    public FreeLook() {
@@ -27,7 +27,7 @@ public final class FreeLook extends Module {
 
    public static Angle getActiveAngle() {
       FreeLook freeLook = instance;
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (freeLook != null && freeLook.isEnabled() && freeLook.isBindDown(client)) {
          freeLook.handleFreeLookActivation(client);
          return freeLook.angle;
@@ -42,7 +42,7 @@ public final class FreeLook extends Module {
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
+   public void onTick(Minecraft client) {
       if (this.isBindDown(client)) {
          this.handleFreeLookActivation(client);
       } else if (this.perspective != null) {
@@ -52,7 +52,7 @@ public final class FreeLook extends Module {
 
    @SubscribeEvent
    private void onMouseRotation(MouseRotationEvent event) {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (!this.isBindDown(client)) {
          this.angle = null;
       } else {
@@ -61,26 +61,26 @@ public final class FreeLook extends Module {
          }
 
          this.angle.setYaw(this.angle.getYaw() + event.getCursorDeltaX() * 0.15F);
-         this.angle.setPitch(MathHelper.clamp(this.angle.getPitch() + event.getCursorDeltaY() * 0.15F, -90.0F, 90.0F));
+         this.angle.setPitch(Mth.clamp(this.angle.getPitch() + event.getCursorDeltaY() * 0.15F, -90.0F, 90.0F));
          event.setCancelled(true);
       }
    }
 
    @SubscribeEvent
    private void onCamera(CameraEvent event) {
-      if (this.isBindDown(MinecraftClient.getInstance()) && this.angle != null) {
+      if (this.isBindDown(Minecraft.getInstance()) && this.angle != null) {
          event.setAngle(this.angle);
          event.setCancelled(true);
       }
    }
 
-   private void handleFreeLookActivation(MinecraftClient client) {
+   private void handleFreeLookActivation(Minecraft client) {
       if (this.perspective == null) {
-         this.perspective = client.options.getPerspective();
+         this.perspective = client.options.getCameraType();
       }
 
-      if (client.options.getPerspective().isFirstPerson()) {
-         client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+      if (client.options.getCameraType().isFirstPerson()) {
+         client.options.setCameraType(CameraType.THIRD_PERSON_BACK);
       }
 
       if (this.angle == null) {
@@ -89,16 +89,16 @@ public final class FreeLook extends Module {
    }
 
    private void handleFreeLookDeactivation() {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (this.perspective != null && client.options != null) {
-         client.options.setPerspective(this.perspective);
+         client.options.setCameraType(this.perspective);
       }
 
       this.perspective = null;
       this.angle = null;
    }
 
-   private boolean isBindDown(MinecraftClient client) {
-      return client != null && client.currentScreen == null && client.getWindow() != null && FREE_LOOK_BIND.getValue().isDown(client.getWindow().getHandle());
+   private boolean isBindDown(Minecraft client) {
+      return client != null && client.screen == null && client.getWindow() != null && FREE_LOOK_BIND.getValue().isDown(client.getWindow().handle());
    }
 }

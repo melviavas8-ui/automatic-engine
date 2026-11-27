@@ -1,10 +1,10 @@
 package daamky.ua.api.module.impl.combat.aura.rotations;
 
 import java.security.SecureRandom;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.module.impl.combat.AuraModule;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.api.module.impl.combat.aura.impl.RotateConstructor;
@@ -22,9 +22,9 @@ public class SpookyTime2Angle extends RotateConstructor {
     }
 
     @Override
-    public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3d aimPoint, Entity entity) {
+    public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3 aimPoint, Entity entity) {
         AuraModule aura = AuraModule.getInstance();
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (aura == null || targetAngle == null || mc.player == null) {
             interpolationProgress = 1.0f;
             return currentAngle.adjustSensitivity();
@@ -34,7 +34,7 @@ public class SpookyTime2Angle extends RotateConstructor {
     }
 
     private Angle stepWithOscillation(Angle currentAngle, Angle targetAngle) {
-        float yawDelta   = MathHelper.wrapDegrees(targetAngle.getYaw() - currentAngle.getYaw());
+        float yawDelta   = Mth.wrapDegrees(targetAngle.getYaw() - currentAngle.getYaw());
         float pitchDelta = targetAngle.getPitch() - currentAngle.getPitch();
         float length     = (float) Math.hypot(Math.abs(yawDelta), Math.abs(pitchDelta));
         if (length < 1.0e-4f) length = 1.0e-4f;
@@ -55,10 +55,10 @@ public class SpookyTime2Angle extends RotateConstructor {
         float pitchStep = Math.abs(pitchDelta / length) * pitchSpeed;
 
         float newYaw = currentAngle.getYaw()
-            + MathHelper.clamp(yawDelta, -yawStep, yawStep);
+            + Mth.clamp(yawDelta, -yawStep, yawStep);
 
-        float newPitch = MathHelper.clamp(
-            currentAngle.getPitch() + MathHelper.clamp(pitchDelta, -pitchStep, pitchStep),
+        float newPitch = Mth.clamp(
+            currentAngle.getPitch() + Mth.clamp(pitchDelta, -pitchStep, pitchStep),
             -89.0f, 89.0f
         );
 
@@ -71,14 +71,14 @@ public class SpookyTime2Angle extends RotateConstructor {
     }
 
     private boolean shouldPauseTurn(Angle currentAngle, Angle targetAngle) {
-        float yawDiff   = Math.abs(MathHelper.wrapDegrees(targetAngle.getYaw() - currentAngle.getYaw()));
+        float yawDiff   = Math.abs(Mth.wrapDegrees(targetAngle.getYaw() - currentAngle.getYaw()));
         float pitchDiff = Math.abs(targetAngle.getPitch() - currentAngle.getPitch());
         if (yawDiff < 2.0f && pitchDiff < 2.0f) return true;
         return RANDOM.nextInt(8) == 0;
     }
 
     private Angle interpolateTurn(Angle currentAngle, float targetYaw, float targetPitch, float progressStep) {
-        float yawDiff   = Math.abs(MathHelper.wrapDegrees(targetYaw - endYaw));
+        float yawDiff   = Math.abs(Mth.wrapDegrees(targetYaw - endYaw));
         float pitchDiff = Math.abs(targetPitch - endPitch);
 
         if (interpolationProgress >= 1.0f || yawDiff > 6.0f || pitchDiff > 6.0f) {
@@ -89,14 +89,14 @@ public class SpookyTime2Angle extends RotateConstructor {
             interpolationProgress = 0.0f;
         }
 
-        interpolationProgress = MathHelper.clamp(interpolationProgress + progressStep, 0.0f, 1.0f);
+        interpolationProgress = Mth.clamp(interpolationProgress + progressStep, 0.0f, 1.0f);
         float eased = easeOutBack(interpolationProgress);
 
-        float yawRange   = MathHelper.wrapDegrees(endYaw - startYaw);
+        float yawRange   = Mth.wrapDegrees(endYaw - startYaw);
         float pitchRange = endPitch - startPitch;
 
         float newYaw   = startYaw   + yawRange   * eased;
-        float newPitch = MathHelper.clamp(startPitch + pitchRange * eased, -89.0f, 89.0f);
+        float newPitch = Mth.clamp(startPitch + pitchRange * eased, -89.0f, 89.0f);
         return new Angle(newYaw, newPitch);
     }
 
@@ -108,11 +108,11 @@ public class SpookyTime2Angle extends RotateConstructor {
     }
 
     private float randomLerp(float min, float max) {
-        return MathHelper.lerp(RANDOM.nextFloat(), min, max);
+        return Mth.lerp(RANDOM.nextFloat(), min, max);
     }
 
     @Override
-    public Vec3d randomValue() {
-        return Vec3d.ZERO;
+    public Vec3 randomValue() {
+        return Vec3.ZERO;
     }
 }

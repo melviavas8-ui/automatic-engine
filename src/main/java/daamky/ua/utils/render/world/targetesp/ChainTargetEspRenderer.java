@@ -1,39 +1,39 @@
 package daamky.ua.utils.render.world.targetesp;
 
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider.Immediate;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.util.math.MatrixStack.Entry;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RotationAxis;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.PoseStack.Pose;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.math.Axis;
 import daamky.ua.utils.render.color.ColorUtil;
 import daamky.ua.utils.render.pipeline.ClientPipelines;
+import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
 
 public final class ChainTargetEspRenderer {
-   private static final Identifier CHAIN_TEXTURE = Identifier.of("daamky", "textures/features/targetesp/chain.png");
+   private static final Identifier CHAIN_TEXTURE = Identifier.fromNamespaceAndPath("daamky", "textures/features/targetesp/chain.png");
 
    private ChainTargetEspRenderer() {
    }
 
-   public static void render(MatrixStack stack, Immediate provider, TargetEspRenderContext context) {
+   public static void render(PoseStack stack, BufferSource provider, TargetEspRenderContext context) {
       VertexConsumer consumer = provider.getBuffer(ClientPipelines.CHAIN_ESP.apply(CHAIN_TEXTURE));
       float sizeScale = 1.0F;
       float speedScale = 1.0F;
-      float animationTime = ((float)context.target().age + context.partialTicks()) * speedScale;
+      float animationTime = ((float)context.target().tickCount + context.partialTicks()) * speedScale;
       float impact = TargetEspMath.easeOutCubic(context.chainImpactProgress());
-      float baseRadius = context.target().getWidth() * 1.35F * sizeScale;
-      float bandHeight = Math.max(0.9F, context.target().getHeight() * 0.54F * sizeScale);
+      float baseRadius = context.target().getBbWidth() * 1.35F * sizeScale;
+      float bandHeight = Math.max(0.9F, context.target().getBbHeight() * 0.54F * sizeScale);
       float compressedRadius = baseRadius * (1.0F - impact * 0.18F);
       float primaryBandHeight = bandHeight * (1.0F - impact * 0.08F);
       float secondaryBandHeight = bandHeight * 0.8F * (1.0F - impact * 0.12F);
-      float roll = MathHelper.sin((double)(animationTime * 0.22F)) * 18.0F;
-      float pitch = MathHelper.cos((double)(animationTime * 0.18F)) * 18.0F;
+      float roll = Mth.sin((double)(animationTime * 0.22F)) * 18.0F;
+      float pitch = Mth.cos((double)(animationTime * 0.18F)) * 18.0F;
       float spin = animationTime * 5.0F;
       int startColor = ColorUtil.tintForDamage(context.primaryColor(), context.hurtProgress());
       int endColor = ColorUtil.tintForDamage(context.secondaryColor(), context.hurtProgress());
-      stack.push();
-      stack.translate(0.0F, context.target().getHeight() * 0.52F, 0.0F);
+      stack.pushPose();
+      stack.translate(0.0F, context.target().getBbHeight() * 0.52F, 0.0F);
       renderChainBand(stack, consumer, compressedRadius * 0.9F, primaryBandHeight, roll, pitch, spin, context.alpha(), startColor, endColor, 0.0F, speedScale);
       renderChainBand(
          stack,
@@ -49,11 +49,11 @@ public final class ChainTargetEspRenderer {
          0.38F,
          speedScale
       );
-      stack.pop();
+      stack.popPose();
    }
 
    private static void renderChainBand(
-      MatrixStack stack,
+      PoseStack stack,
       VertexConsumer consumer,
       float radius,
       float bandHeight,
@@ -66,10 +66,10 @@ public final class ChainTargetEspRenderer {
       float uvOffset,
       float speedScale
    ) {
-      stack.push();
-      stack.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(roll));
-      stack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(pitch));
-      Entry entry = stack.peek();
+      stack.pushPose();
+      stack.mulPose(Axis.ZP.rotationDegrees(roll));
+      stack.mulPose(Axis.XP.rotationDegrees(pitch));
+      Pose entry = stack.last();
       float bottomY = -bandHeight * 0.5F;
       float topY = bandHeight * 0.5F;
       int segments = 64;
@@ -82,26 +82,26 @@ public final class ChainTargetEspRenderer {
          float angle1 = progress1 * 360.0F + spin;
          float rad0 = angle0 * (float) (Math.PI / 180.0);
          float rad1 = angle1 * (float) (Math.PI / 180.0);
-         float x0 = MathHelper.sin((double)rad0) * radius;
-         float z0 = MathHelper.cos((double)rad0) * radius;
-         float x1 = MathHelper.sin((double)rad1) * radius;
-         float z1 = MathHelper.cos((double)rad1) * radius;
-         float wobble0 = MathHelper.sin((double)(progress0 * (float) (Math.PI * 2) + spin * 0.05F)) * 0.06F * speedScale;
-         float wobble1 = MathHelper.sin((double)(progress1 * (float) (Math.PI * 2) + spin * 0.05F)) * 0.06F * speedScale;
+         float x0 = Mth.sin((double)rad0) * radius;
+         float z0 = Mth.cos((double)rad0) * radius;
+         float x1 = Mth.sin((double)rad1) * radius;
+         float z1 = Mth.cos((double)rad1) * radius;
+         float wobble0 = Mth.sin((double)(progress0 * (float) (Math.PI * 2) + spin * 0.05F)) * 0.06F * speedScale;
+         float wobble1 = Mth.sin((double)(progress1 * (float) (Math.PI * 2) + spin * 0.05F)) * 0.06F * speedScale;
          int color0 = ColorUtil.scaleAlpha(ColorUtil.lerpColor(startColor, endColor, progress0), alpha);
          int color1 = ColorUtil.scaleAlpha(ColorUtil.lerpColor(startColor, endColor, progress1), alpha);
          float u0 = progress0 * uvRepeats + uvOffset;
          float u1 = progress1 * uvRepeats + uvOffset;
-         consumer.vertex(entry, x0, bottomY + wobble0, z0).texture(u0, 0.0F).color(color0);
-         consumer.vertex(entry, x1, bottomY + wobble1, z1).texture(u1, 0.0F).color(color1);
-         consumer.vertex(entry, x1, topY + wobble1, z1).texture(u1, 1.0F).color(color1);
-         consumer.vertex(entry, x0, topY + wobble0, z0).texture(u0, 1.0F).color(color0);
+         consumer.addVertex(entry, x0, bottomY + wobble0, z0).setUv(u0, 0.0F).setColor(color0);
+         consumer.addVertex(entry, x1, bottomY + wobble1, z1).setUv(u1, 0.0F).setColor(color1);
+         consumer.addVertex(entry, x1, topY + wobble1, z1).setUv(u1, 1.0F).setColor(color1);
+         consumer.addVertex(entry, x0, topY + wobble0, z0).setUv(u0, 1.0F).setColor(color0);
       }
 
-      stack.pop();
+      stack.popPose();
    }
 
-   public static void endBatch(Immediate provider) {
-      provider.draw(ClientPipelines.CHAIN_ESP.apply(CHAIN_TEXTURE));
+   public static void endBatch(BufferSource provider) {
+      provider.endBatch(ClientPipelines.CHAIN_ESP.apply(CHAIN_TEXTURE));
    }
 }

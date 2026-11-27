@@ -1,50 +1,50 @@
 package daamky.ua.utils.render;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.entity.PlayerEntityRenderer;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.player.PlayerSkinType;
-import net.minecraft.util.Identifier;
+import com.mojang.blaze3d.vertex.PoseStack;
 import daamky.ua.mixin.accessor.AvatarRendererAccessor;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.entity.player.AvatarRenderer;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.player.PlayerModelType;
 
 public final class PlayerHandRenderer {
    private PlayerHandRenderer() {
    }
 
-   public static void renderRightHand(MatrixStack poseStack, OrderedRenderCommandQueue submitNodeCollector, int light) {
-      renderRightHand(MinecraftClient.getInstance().player, poseStack, submitNodeCollector, light);
+   public static void renderRightHand(PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int light) {
+      renderRightHand(Minecraft.getInstance().player, poseStack, submitNodeCollector, light);
    }
 
-   public static void renderLeftHand(MatrixStack poseStack, OrderedRenderCommandQueue submitNodeCollector, int light) {
-      renderLeftHand(MinecraftClient.getInstance().player, poseStack, submitNodeCollector, light);
+   public static void renderLeftHand(PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int light) {
+      renderLeftHand(Minecraft.getInstance().player, poseStack, submitNodeCollector, light);
    }
 
-   public static void renderRightHand(AbstractClientPlayerEntity player, MatrixStack poseStack, OrderedRenderCommandQueue submitNodeCollector, int light) {
+   public static void renderRightHand(AbstractClientPlayer player, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int light) {
       renderHand(player, poseStack, submitNodeCollector, light, true);
    }
 
-   public static void renderLeftHand(AbstractClientPlayerEntity player, MatrixStack poseStack, OrderedRenderCommandQueue submitNodeCollector, int light) {
+   public static void renderLeftHand(AbstractClientPlayer player, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int light) {
       renderHand(player, poseStack, submitNodeCollector, light, false);
    }
 
    public static void renderHand(
-      AbstractClientPlayerEntity player, MatrixStack poseStack, OrderedRenderCommandQueue submitNodeCollector, int light, boolean rightHand
+      AbstractClientPlayer player, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int light, boolean rightHand
    ) {
       if (player != null && poseStack != null && submitNodeCollector != null) {
-         MinecraftClient client = MinecraftClient.getInstance();
-         PlayerEntityRenderer<AbstractClientPlayerEntity> renderer = client.getEntityRenderDispatcher().getPlayerRenderer(player);
+         Minecraft client = Minecraft.getInstance();
+         AvatarRenderer<AbstractClientPlayer> renderer = client.getEntityRenderDispatcher().getPlayerRenderer(player);
          Identifier skinTexture = player.getSkin().body().texturePath();
-         boolean slim = player.getSkin().model() == PlayerSkinType.SLIM;
+         boolean slim = player.getSkin().model() == PlayerModelType.SLIM;
          renderHand(renderer, poseStack, submitNodeCollector, light, skinTexture, slim, rightHand);
       }
    }
 
    public static void renderHand(
-      PlayerEntityRenderer<?> renderer,
-      MatrixStack poseStack,
-      OrderedRenderCommandQueue submitNodeCollector,
+      AvatarRenderer<?> renderer,
+      PoseStack poseStack,
+      SubmitNodeCollector submitNodeCollector,
       int light,
       Identifier skinTexture,
       boolean slim,

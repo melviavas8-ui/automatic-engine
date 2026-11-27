@@ -1,6 +1,10 @@
 package daamky.ua.newmenu.render;
 
+import com.mojang.blaze3d.opengl.GlDevice;
 import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.opengl.GlTexture;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
 import daamky.ua.newmenu.render.font.Fonts;
 import daamky.ua.newmenu.render.font.MsdfFont;
@@ -15,16 +19,12 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.Set;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.GlBackend;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.texture.AbstractTexture;
-import net.minecraft.client.texture.GlTexture;
-import net.minecraft.client.texture.ReloadableTexture;
-import net.minecraft.client.texture.TextureContents;
-import net.minecraft.client.util.Window;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.texture.AbstractTexture;
+import net.minecraft.client.renderer.texture.ReloadableTexture;
+import net.minecraft.client.renderer.texture.TextureContents;
+import net.minecraft.resources.Identifier;
 import org.joml.Matrix3x2fStack;
 import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL11;
@@ -50,23 +50,23 @@ public final class Render2D {
      * ========================================================================= */
 
     public static void withMainFramebuffer(Runnable action) {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         Window window = client.getWindow();
-        Framebuffer framebuffer = client.getFramebuffer();
+        RenderTarget framebuffer = client.getMainRenderTarget();
         if (framebuffer == null
-                || !(framebuffer.getColorAttachment() instanceof GlTexture colorTexture)
-                || !(RenderSystem.getDevice() instanceof GlBackend backend)) {
+                || !(framebuffer.getColorTexture() instanceof GlTexture colorTexture)
+                || !(RenderSystem.getDevice() instanceof GlDevice backend)) {
             action.run();
             return;
         }
-        int width = window.getFramebufferWidth();
-        int height = window.getFramebufferHeight();
-        int scaledWidth = window.getScaledWidth();
-        int scaledHeight = window.getScaledHeight();
+        int width = window.getWidth();
+        int height = window.getHeight();
+        int scaledWidth = window.getGuiScaledWidth();
+        int scaledHeight = window.getGuiScaledHeight();
         if (width <= 0 || height <= 0 || scaledWidth <= 0 || scaledHeight <= 0) {
             return;
         }
-        int mainFbo = colorTexture.getOrCreateFramebuffer(backend.getBufferManager(), framebuffer.getDepthAttachment());
+        int mainFbo = colorTexture.getFbo(backend.directStateAccess(), framebuffer.getDepthTexture());
 
         int previousFbo = GlStateManager.getFrameBuffer(GL30.GL_FRAMEBUFFER);
         int[] previousViewport = new int[4];
@@ -108,19 +108,19 @@ public final class Render2D {
         if (ScreenScale.isActive()) {
             return ScreenScale.getProjectionMatrix();
         }
-        Window window = MinecraftClient.getInstance().getWindow();
+        Window window = Minecraft.getInstance().getWindow();
         if (window == null) {
             return IDENTITY_MATRIX;
         }
-        float width = window.getScaledWidth();
-        float height = window.getScaledHeight();
+        float width = window.getGuiScaledWidth();
+        float height = window.getGuiScaledHeight();
         ORTHO_MATRIX.identity().setOrtho(0.0F, width, height, 0.0F, -1000.0F, 1000.0F);
         return ORTHO_MATRIX;
     }
 
-    public static Matrix4f extractModelView(DrawContext context) {
-        if (context != null && context.getMatrices() != null) {
-            Matrix3x2fStack stack = context.getMatrices();
+    public static Matrix4f extractModelView(GuiGraphics context) {
+        if (context != null && context.pose() != null) {
+            Matrix3x2fStack stack = context.pose();
             return new Matrix4f(
                     stack.m00, stack.m01, 0.0F, 0.0F,
                     stack.m10, stack.m11, 0.0F, 0.0F,
@@ -151,11 +151,11 @@ public final class Render2D {
      * Rounded Rectangle (Solid Color)
      * ========================================================================= */
 
-    public static void drawRound(DrawContext context, float x, float y, float width, float height, float radius, int color) {
+    public static void drawRound(GuiGraphics context, float x, float y, float width, float height, float radius, int color) {
         drawRound(extractModelView(context), x, y, width, height, radius, radius, radius, radius, color);
     }
 
-    public static void drawRound(DrawContext context, float x, float y, float width, float height, float radius, Color color) {
+    public static void drawRound(GuiGraphics context, float x, float y, float width, float height, float radius, Color color) {
         drawRound(context, x, y, width, height, radius, color.getRGB());
     }
 
@@ -167,7 +167,7 @@ public final class Render2D {
         drawRound(x, y, width, height, radius, color.getRGB());
     }
 
-    public static void drawRound(DrawContext context, float x, float y, float width, float height,
+    public static void drawRound(GuiGraphics context, float x, float y, float width, float height,
                                  float rTL, float rTR, float rBR, float rBL, int color) {
         drawRound(extractModelView(context), x, y, width, height, rTL, rTR, rBR, rBL, color);
     }
@@ -211,12 +211,12 @@ public final class Render2D {
      * Rounded Rectangle (Gradient)
      * ========================================================================= */
 
-    public static void drawGradientRound(DrawContext context, float x, float y, float width, float height, float radius,
+    public static void drawGradientRound(GuiGraphics context, float x, float y, float width, float height, float radius,
                                          int tl, int tr, int br, int bl) {
         drawGradientRound(extractModelView(context), x, y, width, height, radius, radius, radius, radius, tl, tr, br, bl);
     }
 
-    public static void drawGradientRound(DrawContext context, float x, float y, float width, float height, float radius,
+    public static void drawGradientRound(GuiGraphics context, float x, float y, float width, float height, float radius,
                                          Color tl, Color tr, Color br, Color bl) {
         drawGradientRound(context, x, y, width, height, radius, tl.getRGB(), tr.getRGB(), br.getRGB(), bl.getRGB());
     }
@@ -231,7 +231,7 @@ public final class Render2D {
         drawGradientRound(x, y, width, height, radius, tl.getRGB(), tr.getRGB(), br.getRGB(), bl.getRGB());
     }
 
-    public static void drawGradientRoundLR(DrawContext context, float x, float y, float width, float height, float radius,
+    public static void drawGradientRoundLR(GuiGraphics context, float x, float y, float width, float height, float radius,
                                            int leftColor, int rightColor) {
         drawGradientRound(context, x, y, width, height, radius, leftColor, rightColor, rightColor, leftColor);
     }
@@ -242,7 +242,7 @@ public final class Render2D {
                 leftColor, rightColor, rightColor, leftColor);
     }
 
-    public static void drawGradientRoundTB(DrawContext context, float x, float y, float width, float height, float radius,
+    public static void drawGradientRoundTB(GuiGraphics context, float x, float y, float width, float height, float radius,
                                            int topColor, int bottomColor) {
         drawGradientRound(context, x, y, width, height, radius, topColor, topColor, bottomColor, bottomColor);
     }
@@ -288,12 +288,12 @@ public final class Render2D {
      * Rounded Rectangle Outline / Border
      * ========================================================================= */
 
-    public static void drawRoundOutline(DrawContext context, float x, float y, float width, float height,
+    public static void drawRoundOutline(GuiGraphics context, float x, float y, float width, float height,
                                         float radius, float thickness, int outlineColor) {
         drawRoundOutline(extractModelView(context), x, y, width, height, radius, radius, radius, radius, thickness, outlineColor);
     }
 
-    public static void drawRoundOutline(DrawContext context, float x, float y, float width, float height,
+    public static void drawRoundOutline(GuiGraphics context, float x, float y, float width, float height,
                                         float radius, float thickness, Color outlineColor) {
         drawRoundOutline(context, x, y, width, height, radius, thickness, outlineColor.getRGB());
     }
@@ -339,7 +339,7 @@ public final class Render2D {
         });
     }
 
-    public static void drawGradientRoundOutline(DrawContext context, float x, float y, float width, float height,
+    public static void drawGradientRoundOutline(GuiGraphics context, float x, float y, float width, float height,
                                                 float radius, float thickness,
                                                 int tl, int tr, int br, int bl) {
         drawGradientRoundOutline(extractModelView(context), x, y, width, height,
@@ -382,12 +382,12 @@ public final class Render2D {
      * Drop Shadows & Glow
      * ========================================================================= */
 
-    public static void drawShadow(DrawContext context, float x, float y, float width, float height,
+    public static void drawShadow(GuiGraphics context, float x, float y, float width, float height,
                                   float radius, float shadowSize, int shadowColor) {
         drawShadow(extractModelView(context), x, y, width, height, radius, shadowSize, 0.0F, shadowColor);
     }
 
-    public static void drawShadow(DrawContext context, float x, float y, float width, float height,
+    public static void drawShadow(GuiGraphics context, float x, float y, float width, float height,
                                   float radius, float shadowSize, Color shadowColor) {
         drawShadow(context, x, y, width, height, radius, shadowSize, shadowColor.getRGB());
     }
@@ -402,7 +402,7 @@ public final class Render2D {
         drawShadow(x, y, width, height, radius, shadowSize, shadowColor.getRGB());
     }
 
-    public static void drawShadow(DrawContext context, float x, float y, float width, float height,
+    public static void drawShadow(GuiGraphics context, float x, float y, float width, float height,
                                   float radius, float shadowSize, float spread, int shadowColor) {
         drawShadow(extractModelView(context), x, y, width, height, radius, shadowSize, spread, shadowColor);
     }
@@ -441,7 +441,7 @@ public final class Render2D {
         });
     }
 
-    public static void drawGlow(DrawContext context, float x, float y, float width, float height,
+    public static void drawGlow(GuiGraphics context, float x, float y, float width, float height,
                                 float radius, float glowSize, int glowColor) {
         drawShadow(context, x, y, width, height, radius, glowSize, 0.0F, glowColor);
     }
@@ -456,7 +456,7 @@ public final class Render2D {
         drawShadow(x, y, width, height, radius, glowSize, glowColor.getRGB());
     }
 
-    public static void drawCircleGlow(DrawContext context, float centerX, float centerY,
+    public static void drawCircleGlow(GuiGraphics context, float centerX, float centerY,
                                       float radius, float glowSize, int glowColor) {
         float size = radius * 2.0F;
         drawShadow(context, centerX - radius, centerY - radius, size, size, radius, glowSize, 0.0F, glowColor);
@@ -477,11 +477,11 @@ public final class Render2D {
      * Circles, Rings & Radial Shapes
      * ========================================================================= */
 
-    public static void drawCircle(DrawContext context, float centerX, float centerY, float radius, int color) {
+    public static void drawCircle(GuiGraphics context, float centerX, float centerY, float radius, int color) {
         drawCircle(extractModelView(context), centerX, centerY, radius, 0.0F, color, color);
     }
 
-    public static void drawCircle(DrawContext context, float centerX, float centerY, float radius, Color color) {
+    public static void drawCircle(GuiGraphics context, float centerX, float centerY, float radius, Color color) {
         drawCircle(context, centerX, centerY, radius, color.getRGB());
     }
 
@@ -493,7 +493,7 @@ public final class Render2D {
         drawCircle(centerX, centerY, radius, color.getRGB());
     }
 
-    public static void drawCircleOutline(DrawContext context, float centerX, float centerY, float radius,
+    public static void drawCircleOutline(GuiGraphics context, float centerX, float centerY, float radius,
                                          float thickness, int color) {
         drawCircle(extractModelView(context), centerX, centerY, radius, Math.max(0.0F, radius - thickness), color, color);
     }
@@ -502,12 +502,12 @@ public final class Render2D {
         drawCircle(IDENTITY_MATRIX, centerX, centerY, radius, Math.max(0.0F, radius - thickness), color, color);
     }
 
-    public static void drawCircle(DrawContext context, float centerX, float centerY, float radius,
+    public static void drawCircle(GuiGraphics context, float centerX, float centerY, float radius,
                                   float innerRadius, int innerColor, int outerColor) {
         drawCircle(extractModelView(context), centerX, centerY, radius, innerRadius, innerColor, outerColor);
     }
 
-    public static void drawGradientCircle(DrawContext context, float centerX, float centerY, float radius,
+    public static void drawGradientCircle(GuiGraphics context, float centerX, float centerY, float radius,
                                           int innerColor, int outerColor) {
         drawCircle(extractModelView(context), centerX, centerY, radius, 0.0F, innerColor, outerColor);
     }
@@ -553,7 +553,7 @@ public final class Render2D {
      * Textured Rounded Rectangles
      * ========================================================================= */
 
-    public static void drawRoundTexture(DrawContext context, Identifier texture,
+    public static void drawRoundTexture(GuiGraphics context, Identifier texture,
                                         float x, float y, float width, float height, float radius, float alpha) {
         drawRoundTexture(extractModelView(context), texture, x, y, width, height, radius, RenderColor.rgba(1.0F, 1.0F, 1.0F, alpha));
     }
@@ -563,7 +563,7 @@ public final class Render2D {
         drawRoundTexture(IDENTITY_MATRIX, texture, x, y, width, height, radius, RenderColor.rgba(1.0F, 1.0F, 1.0F, alpha));
     }
 
-    public static void drawRoundTexture(DrawContext context, Identifier texture,
+    public static void drawRoundTexture(GuiGraphics context, Identifier texture,
                                         float x, float y, float width, float height, float radius, int tint) {
         drawRoundTexture(extractModelView(context), texture, x, y, width, height, radius, tint);
     }
@@ -571,27 +571,27 @@ public final class Render2D {
     public static int getTextureGlId(Identifier texture) {
         if (texture == null) return 0;
         try {
-            MinecraftClient client = MinecraftClient.getInstance();
+            Minecraft client = Minecraft.getInstance();
             if (client == null) return 0;
-            net.minecraft.client.texture.TextureManager tm = client.getTextureManager();
+            net.minecraft.client.renderer.texture.TextureManager tm = client.getTextureManager();
             if (tm == null) return 0;
             AbstractTexture tex = tm.getTexture(texture);
             if (tex == null) return 0;
-            if (tex.getGlTexture() == null && tex instanceof ReloadableTexture reloadable) {
+            if (tex.getTexture() == null && tex instanceof ReloadableTexture reloadable) {
                 try {
                     TextureContents contents = reloadable.loadContents(client.getResourceManager());
-                    reloadable.reload(contents);
+                    reloadable.apply(contents);
                 } catch (Throwable ignored) {}
             }
-            if (tex.getGlTexture() instanceof GlTexture glTexture) {
-                return glTexture.getGlId();
+            if (tex.getTexture() instanceof GlTexture glTexture) {
+                return glTexture.glId();
             }
         } catch (Throwable ignored) {}
         return 0;
     }
 
     /** Draws a rounded texture using a normalized source rectangle. */
-    public static void drawRoundTextureRegion(DrawContext context, Identifier texture,
+    public static void drawRoundTextureRegion(GuiGraphics context, Identifier texture,
                                               float x, float y, float width, float height, float radius,
                                               int tint, float u, float v, float regionWidth, float regionHeight) {
         if (texture == null || width <= 0.0F || height <= 0.0F) return;
@@ -606,12 +606,12 @@ public final class Render2D {
         drawRoundTexture(IDENTITY_MATRIX, texture, x, y, width, height, radius, tint);
     }
 
-    public static void drawRoundTexture(DrawContext context, int glId,
+    public static void drawRoundTexture(GuiGraphics context, int glId,
                                         float x, float y, float width, float height, float radius, int tint) {
         drawRoundTexture(extractModelView(context), glId, x, y, width, height, radius, tint, false);
     }
 
-    public static void drawRoundTexture(DrawContext context, int glId,
+    public static void drawRoundTexture(GuiGraphics context, int glId,
                                         float x, float y, float width, float height, float radius, int tint, boolean flipY) {
         drawRoundTexture(extractModelView(context), glId, x, y, width, height, radius, tint, flipY);
     }
@@ -708,7 +708,7 @@ public final class Render2D {
      * Anti-Aliased Lines
      * ========================================================================= */
 
-    public static void drawLine(DrawContext context, float x1, float y1, float x2, float y2, float thickness, int color) {
+    public static void drawLine(GuiGraphics context, float x1, float y1, float x2, float y2, float thickness, int color) {
         drawLine(extractModelView(context), x1, y1, x2, y2, thickness, color, color);
     }
 
@@ -720,7 +720,7 @@ public final class Render2D {
         drawLine(x1, y1, x2, y2, thickness, color.getRGB());
     }
 
-    public static void drawGradientLine(DrawContext context, float x1, float y1, float x2, float y2,
+    public static void drawGradientLine(GuiGraphics context, float x1, float y1, float x2, float y2,
                                         float thickness, int c1, int c2) {
         drawLine(extractModelView(context), x1, y1, x2, y2, thickness, c1, c2);
     }
@@ -754,35 +754,35 @@ public final class Render2D {
      * MSDF Font Typography
      * ========================================================================= */
 
-    public static void drawString(DrawContext context, String text, float x, float y, float size, int color) {
+    public static void drawString(GuiGraphics context, String text, float x, float y, float size, int color) {
         Fonts.REGULAR.drawString(context, text, x, y, size, color);
     }
 
-    public static void drawString(DrawContext context, MsdfFont font, String text, float x, float y, float size, int color) {
+    public static void drawString(GuiGraphics context, MsdfFont font, String text, float x, float y, float size, int color) {
         (font != null ? font : Fonts.REGULAR).drawString(context, text, x, y, size, color);
     }
 
-    public static void drawCenteredString(DrawContext context, String text, float centerX, float y, float size, int color) {
+    public static void drawCenteredString(GuiGraphics context, String text, float centerX, float y, float size, int color) {
         Fonts.REGULAR.drawCenteredString(context, text, centerX, y, size, color);
     }
 
-    public static void drawCenteredString(DrawContext context, MsdfFont font, String text, float centerX, float y, float size, int color) {
+    public static void drawCenteredString(GuiGraphics context, MsdfFont font, String text, float centerX, float y, float size, int color) {
         (font != null ? font : Fonts.REGULAR).drawCenteredString(context, text, centerX, y, size, color);
     }
 
-    public static void drawRightString(DrawContext context, String text, float rightX, float y, float size, int color) {
+    public static void drawRightString(GuiGraphics context, String text, float rightX, float y, float size, int color) {
         Fonts.REGULAR.drawRightString(context, text, rightX, y, size, color);
     }
 
-    public static void drawRightString(DrawContext context, MsdfFont font, String text, float rightX, float y, float size, int color) {
+    public static void drawRightString(GuiGraphics context, MsdfFont font, String text, float rightX, float y, float size, int color) {
         (font != null ? font : Fonts.REGULAR).drawRightString(context, text, rightX, y, size, color);
     }
 
-    public static void drawStringWithShadow(DrawContext context, String text, float x, float y, float size, int color) {
+    public static void drawStringWithShadow(GuiGraphics context, String text, float x, float y, float size, int color) {
         Fonts.REGULAR.drawStringWithShadow(context, text, x, y, size, color);
     }
 
-    public static void drawStringWithShadow(DrawContext context, MsdfFont font, String text, float x, float y, float size, int color) {
+    public static void drawStringWithShadow(GuiGraphics context, MsdfFont font, String text, float x, float y, float size, int color) {
         (font != null ? font : Fonts.REGULAR).drawStringWithShadow(context, text, x, y, size, color);
     }
 

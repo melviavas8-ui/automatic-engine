@@ -3,13 +3,13 @@ package daamky.ua.utils.modules.autobuy;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.EquippableComponent;
-import net.minecraft.component.type.LoreComponent;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.tag.ItemTags;
-import net.minecraft.text.Text;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.ItemLore;
+import net.minecraft.world.item.equipment.Equippable;
 
 public final class AuctionUtils {
    private static final Pattern PRICE_DOLLAR = Pattern.compile("\\$\\s*([\\d][\\d\\s,.]*)");
@@ -60,9 +60,9 @@ public final class AuctionUtils {
 
    public static int getPrice(ItemStack stack) {
       if (stack != null && !stack.isEmpty()) {
-         LoreComponent lore = (LoreComponent)stack.get(DataComponentTypes.LORE);
+         ItemLore lore = (ItemLore)stack.get(DataComponents.LORE);
          if (lore != null) {
-            for (Text line : lore.lines()) {
+            for (Component line : lore.lines()) {
                String s = line.getString();
                if (s != null && !s.isEmpty() && (s.contains("$") || s.contains("¤") || s.indexOf(164) >= 0)) {
                   int p = parseDigitsOnly(s);
@@ -78,7 +78,7 @@ public final class AuctionUtils {
                }
             }
 
-            for (Text linex : lore.lines()) {
+            for (Component linex : lore.lines()) {
                String s = linex.getString();
                if (s != null && !s.isEmpty()) {
                   String lower = s.toLowerCase(Locale.ROOT);
@@ -98,7 +98,7 @@ public final class AuctionUtils {
             }
          }
 
-         String name = stack.getName().getString();
+         String name = stack.getHoverName().getString();
          if (name != null && (name.contains("$") || name.contains("¤"))) {
             int px = parseDigitsOnly(name);
             return px > 0 ? px : parsePrice(extractPriceString(name));
@@ -222,38 +222,38 @@ public final class AuctionUtils {
    public static boolean isArmorItem(ItemStack stack) {
       if (stack == null || stack.isEmpty()) {
          return false;
-      } else if (stack.isOf(Items.ELYTRA)) {
+      } else if (stack.is(Items.ELYTRA)) {
          return false;
-      } else if (!stack.isIn(ItemTags.HEAD_ARMOR) && !stack.isIn(ItemTags.CHEST_ARMOR) && !stack.isIn(ItemTags.LEG_ARMOR) && !stack.isIn(ItemTags.FOOT_ARMOR)) {
-         EquippableComponent equippable = (EquippableComponent)stack.get(DataComponentTypes.EQUIPPABLE);
+      } else if (!stack.is(ItemTags.HEAD_ARMOR) && !stack.is(ItemTags.CHEST_ARMOR) && !stack.is(ItemTags.LEG_ARMOR) && !stack.is(ItemTags.FOOT_ARMOR)) {
+         Equippable equippable = (Equippable)stack.get(DataComponents.EQUIPPABLE);
          return equippable != null
             && stack.getItem() != Items.ELYTRA
             && (
-               stack.isOf(Items.NETHERITE_HELMET)
-                  || stack.isOf(Items.NETHERITE_CHESTPLATE)
-                  || stack.isOf(Items.NETHERITE_LEGGINGS)
-                  || stack.isOf(Items.NETHERITE_BOOTS)
-                  || stack.isOf(Items.DIAMOND_HELMET)
-                  || stack.isOf(Items.DIAMOND_CHESTPLATE)
-                  || stack.isOf(Items.DIAMOND_LEGGINGS)
-                  || stack.isOf(Items.DIAMOND_BOOTS)
-                  || stack.isOf(Items.IRON_HELMET)
-                  || stack.isOf(Items.IRON_CHESTPLATE)
-                  || stack.isOf(Items.IRON_LEGGINGS)
-                  || stack.isOf(Items.IRON_BOOTS)
-                  || stack.isOf(Items.GOLDEN_HELMET)
-                  || stack.isOf(Items.GOLDEN_CHESTPLATE)
-                  || stack.isOf(Items.GOLDEN_LEGGINGS)
-                  || stack.isOf(Items.GOLDEN_BOOTS)
-                  || stack.isOf(Items.CHAINMAIL_HELMET)
-                  || stack.isOf(Items.CHAINMAIL_CHESTPLATE)
-                  || stack.isOf(Items.CHAINMAIL_LEGGINGS)
-                  || stack.isOf(Items.CHAINMAIL_BOOTS)
-                  || stack.isOf(Items.LEATHER_HELMET)
-                  || stack.isOf(Items.LEATHER_CHESTPLATE)
-                  || stack.isOf(Items.LEATHER_LEGGINGS)
-                  || stack.isOf(Items.LEATHER_BOOTS)
-                  || stack.isOf(Items.TURTLE_HELMET)
+               stack.is(Items.NETHERITE_HELMET)
+                  || stack.is(Items.NETHERITE_CHESTPLATE)
+                  || stack.is(Items.NETHERITE_LEGGINGS)
+                  || stack.is(Items.NETHERITE_BOOTS)
+                  || stack.is(Items.DIAMOND_HELMET)
+                  || stack.is(Items.DIAMOND_CHESTPLATE)
+                  || stack.is(Items.DIAMOND_LEGGINGS)
+                  || stack.is(Items.DIAMOND_BOOTS)
+                  || stack.is(Items.IRON_HELMET)
+                  || stack.is(Items.IRON_CHESTPLATE)
+                  || stack.is(Items.IRON_LEGGINGS)
+                  || stack.is(Items.IRON_BOOTS)
+                  || stack.is(Items.GOLDEN_HELMET)
+                  || stack.is(Items.GOLDEN_CHESTPLATE)
+                  || stack.is(Items.GOLDEN_LEGGINGS)
+                  || stack.is(Items.GOLDEN_BOOTS)
+                  || stack.is(Items.CHAINMAIL_HELMET)
+                  || stack.is(Items.CHAINMAIL_CHESTPLATE)
+                  || stack.is(Items.CHAINMAIL_LEGGINGS)
+                  || stack.is(Items.CHAINMAIL_BOOTS)
+                  || stack.is(Items.LEATHER_HELMET)
+                  || stack.is(Items.LEATHER_CHESTPLATE)
+                  || stack.is(Items.LEATHER_LEGGINGS)
+                  || stack.is(Items.LEATHER_BOOTS)
+                  || stack.is(Items.TURTLE_HELMET)
             );
       } else {
          return true;

@@ -1,11 +1,5 @@
 package daamky.ua.api.module.impl.combat.aura;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
-import net.minecraft.network.packet.s2c.play.PlayerPositionLookS2CPacket;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.PacketEvent;
 import daamky.ua.api.events.impl.PlayerVelocityStrafeEvent;
@@ -19,6 +13,12 @@ import daamky.ua.api.module.impl.combat.aura.util.TaskPriority;
 import daamky.ua.api.module.impl.combat.aura.util.TaskProcessor;
 import daamky.ua.manager.Manager;
 import daamky.ua.utils.player.BaritoneMovementHelper;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
 
 public class AngleConnection {
    public static final AngleConnection INSTANCE = new AngleConnection();
@@ -69,11 +69,11 @@ public class AngleConnection {
    }
 
    public float getPacketPitch() {
-      return MathHelper.clamp(this.getPacketRotation().getPitch(), -90.0F, 90.0F);
+      return Mth.clamp(this.getPacketRotation().getPitch(), -90.0F, 90.0F);
    }
 
    public boolean shouldApplyPacketRotation() {
-      return BaritoneMovementHelper.isBaritoneActive(MinecraftClient.getInstance().player)
+      return BaritoneMovementHelper.isBaritoneActive(Minecraft.getInstance().player)
          ? false
          : this.currentAngle != null || this.fakeAngle != null || this.forcePacketRotationTicks > 0 && this.previousAngle != null;
    }
@@ -124,23 +124,23 @@ public class AngleConnection {
             this.previousFakeBodyYaw = targetYaw;
          } else {
             this.previousFakeBodyYaw = this.fakeBodyYaw;
-            float diff = MathHelper.wrapDegrees(targetYaw - this.fakeBodyYaw);
-            this.fakeBodyYaw = this.fakeBodyYaw + MathHelper.clamp(diff, -8.0F, 8.0F);
+            float diff = Mth.wrapDegrees(targetYaw - this.fakeBodyYaw);
+            this.fakeBodyYaw = this.fakeBodyYaw + Mth.clamp(diff, -8.0F, 8.0F);
          }
       }
    }
 
    public Angle getPreviousRotation() {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (client.player == null) {
          return this.currentAngle != null ? this.currentAngle : Angle.DEFAULT;
       } else {
-         return this.currentAngle != null && this.previousAngle != null ? this.previousAngle : new Angle(client.player.lastYaw, client.player.lastPitch);
+         return this.currentAngle != null && this.previousAngle != null ? this.previousAngle : new Angle(client.player.yRotO, client.player.xRotO);
       }
    }
 
    public Angle getMoveRotation() {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (BaritoneMovementHelper.isBaritoneActive(client.player)) {
          return MathAngle.cameraAngle();
       } else {
@@ -150,7 +150,7 @@ public class AngleConnection {
    }
 
    public boolean isMoveCorrectionActive() {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (BaritoneMovementHelper.isBaritoneActive(client.player)) {
          return false;
       } else {
@@ -190,7 +190,7 @@ public class AngleConnection {
    }
 
    public void rotateTo(AngleConstructor plan, TaskPriority taskPriority, Module provider) {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (!BaritoneMovementHelper.isBaritoneActive(client.player)) {
          this.returning = false;
          this.useItemReturnPending = false;
@@ -199,12 +199,12 @@ public class AngleConnection {
       }
    }
 
-   public void update(MinecraftClient client) {
+   public void update(Minecraft client) {
       this.tick(client);
    }
 
-   public void tick(MinecraftClient client) {
-      if (client == null || client.player == null || client.world == null) {
+   public void tick(Minecraft client) {
+      if (client == null || client.player == null || client.level == null) {
          this.reset();
       } else if (BaritoneMovementHelper.isBaritoneActive(client.player)) {
          if (this.hasAnyRotationState()) {
@@ -237,10 +237,10 @@ public class AngleConnection {
       }
    }
 
-   private void advanceRotation(MinecraftClient client) {
+   private void advanceRotation(Minecraft client) {
       AngleConstructor activePlan = this.getCurrentRotationPlan();
       if (activePlan != null) {
-         Angle clientAngle = new Angle(client.player.getYaw(), client.player.getPitch());
+         Angle clientAngle = new Angle(client.player.getYRot(), client.player.getXRot());
          if (this.returning && this.currentAngle != null && computeRotationDifference(this.currentAngle, clientAngle) < 1.0) {
             this.restoreVanillaLook();
          } else {
@@ -248,8 +248,8 @@ public class AngleConnection {
                double differenceFromCurrentToPlayer = computeRotationDifference(this.serverAngle, clientAngle);
                if (activePlan.getTicksUntilReset() <= this.rotationPlanTaskProcessor.tickCounter() && differenceFromCurrentToPlayer < 1.0) {
                   if (activePlan.isChangeLook()) {
-                     client.player.setYaw(this.getRotation().getYaw());
-                     client.player.setPitch(this.getRotation().getPitch());
+                     client.player.setYRot(this.getRotation().getYaw());
+                     client.player.setXRot(this.getRotation().getPitch());
                   }
 
                   this.setRotation(null);
@@ -271,12 +271,12 @@ public class AngleConnection {
       }
    }
 
-   public void applyPlayerRotation(MinecraftClient client) {
+   public void applyPlayerRotation(Minecraft client) {
       if (client != null && client.player != null && this.currentAngle != null) {
-         client.player.setYaw(this.currentAngle.getYaw());
-         client.player.setPitch(this.currentAngle.getPitch());
-         client.player.setHeadYaw(this.currentAngle.getYaw());
-         client.player.setBodyYaw(this.currentAngle.getYaw());
+         client.player.setYRot(this.currentAngle.getYaw());
+         client.player.setXRot(this.currentAngle.getPitch());
+         client.player.setYHeadRot(this.currentAngle.getYaw());
+         client.player.setYBodyRot(this.currentAngle.getYaw());
       }
    }
 
@@ -311,7 +311,7 @@ public class AngleConnection {
    }
 
    public boolean shouldDelayUseAction() {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (client.player == null) {
          return false;
       } else {
@@ -343,7 +343,7 @@ public class AngleConnection {
    }
 
    public void syncAfterFirstPersonRestore() {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (client.player == null) {
          this.reset();
       } else {
@@ -361,15 +361,15 @@ public class AngleConnection {
       }
    }
 
-   public void onMovePacket(PlayerMoveC2SPacket packet) {
-      if (packet != null && packet.changesLook()) {
-         this.serverAngle = new Angle(packet.getYaw(1.0F), packet.getPitch(1.0F));
+   public void onMovePacket(ServerboundMovePlayerPacket packet) {
+      if (packet != null && packet.hasRotation()) {
+         this.serverAngle = new Angle(packet.getYRot(1.0F), packet.getXRot(1.0F));
       }
    }
 
-   public void onPlayerPosition(PlayerPositionLookS2CPacket packet) {
+   public void onPlayerPosition(ClientboundPlayerPositionPacket packet) {
       if (packet != null) {
-         this.serverAngle = new Angle(packet.change().yaw(), packet.change().pitch());
+         this.serverAngle = new Angle(packet.change().yRot(), packet.change().xRot());
       }
    }
 
@@ -378,21 +378,21 @@ public class AngleConnection {
    }
 
    public static float computeAngleDifference(float a, float b) {
-      return MathHelper.wrapDegrees(a - b);
+      return Mth.wrapDegrees(a - b);
    }
 
-   private Vec3d fixVelocity(Vec3d currentVelocity, Vec3d movementInput, float speed) {
+   private Vec3 fixVelocity(Vec3 currentVelocity, Vec3 movementInput, float speed) {
       if (this.currentAngle == null) {
          return currentVelocity;
       } else {
-         double length = movementInput.lengthSquared();
+         double length = movementInput.lengthSqr();
          if (length < 1.0E-7) {
-            return Vec3d.ZERO;
+            return Vec3.ZERO;
          } else {
-            Vec3d scaled = (length > 1.0 ? movementInput.normalize() : movementInput).multiply((double)speed);
-            float sin = MathHelper.sin((double)(this.currentAngle.getYaw() * (float) (Math.PI / 180.0)));
-            float cos = MathHelper.cos((double)(this.currentAngle.getYaw() * (float) (Math.PI / 180.0)));
-            return new Vec3d(scaled.x * (double)cos - scaled.z * (double)sin, scaled.y, scaled.z * (double)cos + scaled.x * (double)sin);
+            Vec3 scaled = (length > 1.0 ? movementInput.normalize() : movementInput).scale((double)speed);
+            float sin = Mth.sin((double)(this.currentAngle.getYaw() * (float) (Math.PI / 180.0)));
+            float cos = Mth.cos((double)(this.currentAngle.getYaw() * (float) (Math.PI / 180.0)));
+            return new Vec3(scaled.x * (double)cos - scaled.z * (double)sin, scaled.y, scaled.z * (double)cos + scaled.x * (double)sin);
          }
       }
    }
@@ -413,12 +413,12 @@ public class AngleConnection {
       } else {
          float yaw = angle.getYaw();
          if (reference != null) {
-            yaw = reference.getYaw() + MathHelper.wrapDegrees(yaw - reference.getYaw());
+            yaw = reference.getYaw() + Mth.wrapDegrees(yaw - reference.getYaw());
          } else {
-            yaw = MathHelper.wrapDegrees(yaw);
+            yaw = Mth.wrapDegrees(yaw);
          }
 
-         return new Angle(yaw, MathHelper.clamp(angle.getPitch(), -90.0F, 90.0F));
+         return new Angle(yaw, Mth.clamp(angle.getPitch(), -90.0F, 90.0F));
       }
    }
 
@@ -475,17 +475,17 @@ public class AngleConnection {
    }
 
    private void syncVanillaHeadAndBody() {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (client.player != null) {
-         float yaw = client.player.getYaw();
-         client.player.setHeadYaw(yaw);
-         client.player.setBodyYaw(yaw);
+         float yaw = client.player.getYRot();
+         client.player.setYHeadRot(yaw);
+         client.player.setYBodyRot(yaw);
       }
    }
 
    @SubscribeEvent
    private void onPlayerVelocityStrafe(PlayerVelocityStrafeEvent event) {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (!BaritoneMovementHelper.isBaritoneActive(client.player)) {
          if (this.isMoveCorrectionActive()) {
             event.setVelocity(this.fixVelocity(event.getVelocity(), event.getMovementInput(), event.getSpeed()));
@@ -502,11 +502,11 @@ public class AngleConnection {
    private void onPacket(PacketEvent event) {
       if (!event.isCancelled()) {
          if (event.isSend()) {
-            if (event.getPacket() instanceof PlayerMoveC2SPacket movePacket) {
+            if (event.getPacket() instanceof ServerboundMovePlayerPacket movePacket) {
                this.onMovePacket(movePacket);
             }
          } else {
-            if (event.getPacket() instanceof PlayerPositionLookS2CPacket positionPacket) {
+            if (event.getPacket() instanceof ClientboundPlayerPositionPacket positionPacket) {
                this.onPlayerPosition(positionPacket);
             }
          }

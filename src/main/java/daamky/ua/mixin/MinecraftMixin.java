@@ -1,31 +1,31 @@
 package daamky.ua.mixin;
 
-import net.minecraft.client.MinecraftClient;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import daamky.ua.utils.window.WindowStyle;
+import net.minecraft.client.Minecraft;
 
-@Mixin({MinecraftClient.class})
+@Mixin({Minecraft.class})
 public abstract class MinecraftMixin {
    public MinecraftMixin() {
    }
 
    @Inject(
-      method = {"onResolutionChanged"},
+      method = {"resizeDisplay"},
       at = {@At("TAIL")}
    )
    private void applyDarkMode(CallbackInfo ci) {
       applyWindowTitle();
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (client != null && client.getWindow() != null) {
-         WindowStyle.setDarkMode(client.getWindow().getHandle(), true);
+         WindowStyle.setDarkMode(client.getWindow().handle(), true);
       }
    }
 
    @Inject(
-      method = {"updateWindowTitle"},
+      method = {"updateTitle"},
       at = {@At("TAIL")}
    )
    private void applyCustomTitle(CallbackInfo ci) {
@@ -33,9 +33,9 @@ public abstract class MinecraftMixin {
    }
 
    private static void applyWindowTitle() {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (client != null && client.getWindow() != null) {
-         String user = client.getSession() == null ? "User" : client.getSession().getUsername();
+         String user = client.getUser() == null ? "User" : client.getUser().getName();
          if (user == null || user.isBlank()) {
             user = "User";
          }

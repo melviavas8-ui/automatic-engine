@@ -1,12 +1,12 @@
 package daamky.ua.mixin.accessor;
 
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil.Key;
+import com.mojang.blaze3d.platform.InputConstants.Key;
+import net.minecraft.client.KeyMapping;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-@Mixin({KeyBinding.class})
+@Mixin({KeyMapping.class})
 public interface KeyMappingAccessor {
-   @Accessor("boundKey")
+   @Accessor("key")
    Key daamky$getKey();
 }

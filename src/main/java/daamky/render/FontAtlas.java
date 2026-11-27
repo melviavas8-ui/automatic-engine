@@ -2,24 +2,23 @@ package daamky.render;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import net.minecraft.client.MinecraftClient;
+import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.util.Identifier;
-
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.Map;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.resources.Identifier;
 
 public final class FontAtlas {
     public final int cell, pad, base, cols, w, h;
     public final float scale, range, ascent, lineHeight;
     public final Map<Integer, float[]> glyphs = new HashMap<>();
     public GpuTextureView msdfView;
-    public NativeImageBackedTexture msdfTexObj, segTexObj;
+    public DynamicTexture msdfTexObj, segTexObj;
 
     public GpuTexture sdfTex;
     public GpuTextureView sdfView;
@@ -50,16 +49,16 @@ public final class FontAtlas {
     }
 
     private void tex(String file) throws Exception {
-        var mc = MinecraftClient.getInstance();
-        try (InputStream in = mc.getResourceManager().open(Identifier.of("daamky", "fonts/" + file + ".png"))) {
-            msdfTexObj = new NativeImageBackedTexture(() -> "daamky " + file, NativeImage.read(in));
-            msdfView = msdfTexObj.getGlTextureView();
+        var mc = Minecraft.getInstance();
+        try (InputStream in = mc.getResourceManager().open(Identifier.fromNamespaceAndPath("daamky", "fonts/" + file + ".png"))) {
+            msdfTexObj = new DynamicTexture(() -> "daamky " + file, NativeImage.read(in));
+            msdfView = msdfTexObj.getTextureView();
         }
     }
 
     static FontAtlas load(String name) {
-        try (var in = MinecraftClient.getInstance().getResourceManager()
-                .open(Identifier.of("daamky", "fonts/" + name + ".json"))) {
+        try (var in = Minecraft.getInstance().getResourceManager()
+                .open(Identifier.fromNamespaceAndPath("daamky", "fonts/" + name + ".json"))) {
             JsonObject o = JsonParser.parseReader(new InputStreamReader(in)).getAsJsonObject();
             return new FontAtlas(name, o);
         } catch (Exception e) {

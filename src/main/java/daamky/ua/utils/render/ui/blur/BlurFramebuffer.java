@@ -4,33 +4,33 @@ import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.platform.Window;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.systems.RenderSystem.ShapeIndexBuffer;
+import com.mojang.blaze3d.systems.RenderSystem.AutoStorageIndexBuffer;
 import com.mojang.blaze3d.textures.FilterMode;
+import com.mojang.blaze3d.textures.GpuSampler;
 import com.mojang.blaze3d.textures.GpuTextureView;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.ByteBufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.MeshData;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.GpuSampler;
-import net.minecraft.client.gl.SimpleFramebuffer;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.ScreenRect;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BuiltBuffer;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.texture.TextureSetup;
-import net.minecraft.client.util.BufferAllocator;
-import net.minecraft.client.util.Window;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.gui.render.TextureSetup;
+import net.minecraft.resources.Identifier;
 import org.joml.Matrix3x2f;
 import org.lwjgl.system.MemoryStack;
 import daamky.ua.mixin.accessor.GuiGraphicsExtractorAccessor;
@@ -58,7 +58,7 @@ public final class BlurFramebuffer implements AutoCloseable {
       .withLocation(id("pipeline/batched_blur"))
       .withVertexShader(id("ui/batched_blur/batched_blur"))
       .withFragmentShader(id("ui/batched_blur/batched_blur"))
-      .withVertexFormat(VertexFormats.POSITION_COLOR_LINE_WIDTH, DrawMode.QUADS)
+      .withVertexFormat(DefaultVertexFormat.POSITION_COLOR_LINE_WIDTH, Mode.QUADS)
       .withBlend(BlendFunction.TRANSLUCENT)
       .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
       .withCull(false)
@@ -72,7 +72,7 @@ public final class BlurFramebuffer implements AutoCloseable {
       .withLocation(id("pipeline/kawase_down"))
       .withVertexShader(id("ui/kawase/down"))
       .withFragmentShader(id("ui/kawase/down"))
-      .withVertexFormat(VertexFormats.POSITION, DrawMode.QUADS)
+      .withVertexFormat(DefaultVertexFormat.POSITION, Mode.QUADS)
       .withBlend(BlendFunction.TRANSLUCENT)
       .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
       .withCull(false)
@@ -83,7 +83,7 @@ public final class BlurFramebuffer implements AutoCloseable {
       .withLocation(id("pipeline/kawase_up"))
       .withVertexShader(id("ui/kawase/down"))
       .withFragmentShader(id("ui/kawase/up"))
-      .withVertexFormat(VertexFormats.POSITION, DrawMode.QUADS)
+      .withVertexFormat(DefaultVertexFormat.POSITION, Mode.QUADS)
       .withBlend(BlendFunction.TRANSLUCENT)
       .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
       .withCull(false)
@@ -92,15 +92,15 @@ public final class BlurFramebuffer implements AutoCloseable {
       .build();
    private final List<BlurFramebuffer.PendingBlur> pendingBlurs = new ArrayList<>(32);
    private final List<BuiltBlur> preparedBlurs = new ArrayList<>(32);
-   private DrawContext activeGraphics;
-   private SimpleFramebuffer blurTarget;
-   private final SimpleFramebuffer[] downTargets = new SimpleFramebuffer[4];
-   private final SimpleFramebuffer[] upTargets = new SimpleFramebuffer[4];
+   private GuiGraphics activeGraphics;
+   private TextureTarget blurTarget;
+   private final TextureTarget[] downTargets = new TextureTarget[4];
+   private final TextureTarget[] upTargets = new TextureTarget[4];
    private GpuBuffer fullscreenQuadBuffer;
    private GpuBuffer paramsBuffer;
    private GpuBuffer regionBuffer;
    private GpuBuffer kawaseParamsBuffer;
-   private TextureSetup blurTextureSetup = TextureSetup.empty();
+   private TextureSetup blurTextureSetup = TextureSetup.noTexture();
    private boolean captureRequested;
    private boolean paramsDirty = true;
    private boolean regionDirty = true;
@@ -145,11 +145,11 @@ public final class BlurFramebuffer implements AutoCloseable {
       }
    }
 
-   public void beginFrame(DrawContext graphics) {
+   public void beginFrame(GuiGraphics graphics) {
       this.activeGraphics = graphics;
    }
 
-   public void draw(DrawContext graphics, BuiltBlur blur) {
+   public void draw(GuiGraphics graphics, BuiltBlur blur) {
       this.beginFrame(graphics);
       this.enqueue(blur);
       this.flush();
@@ -172,17 +172,17 @@ public final class BlurFramebuffer implements AutoCloseable {
       this.regionHeight = 0;
       this.preparedIterations = 0;
       this.maxBlurRadius = 0.0F;
-      this.blurTextureSetup = TextureSetup.empty();
+      this.blurTextureSetup = TextureSetup.noTexture();
    }
 
    public void preparePending() {
       if (!this.pendingBlurs.isEmpty()) {
-         MinecraftClient minecraft = MinecraftClient.getInstance();
+         Minecraft minecraft = Minecraft.getInstance();
          if (minecraft == null) {
             this.pendingBlurs.clear();
          } else {
-            Framebuffer mainTarget = minecraft.getFramebuffer();
-            if (mainTarget != null && mainTarget.getColorAttachment() != null && this.computeBlurRegion(minecraft, mainTarget)) {
+            RenderTarget mainTarget = minecraft.getMainRenderTarget();
+            if (mainTarget != null && mainTarget.getColorTexture() != null && this.computeBlurRegion(minecraft, mainTarget)) {
                this.preparedIterations = this.computeIterations(this.maxBlurRadius);
                this.ensureBlurTargets(
                   this.regionWidth,
@@ -190,8 +190,8 @@ public final class BlurFramebuffer implements AutoCloseable {
                   this.computeRenderScale(this.maxBlurRadius, this.regionWidth, this.regionHeight),
                   this.preparedIterations
                );
-               if (this.blurTarget != null && this.blurTarget.getColorAttachmentView() != null) {
-                  TextureSetup textureSetup = TextureSetup.of(this.blurTarget.getColorAttachmentView(), RenderSystem.getSamplerCache().get(FilterMode.LINEAR));
+               if (this.blurTarget != null && this.blurTarget.getColorTextureView() != null) {
+                  TextureSetup textureSetup = TextureSetup.singleTexture(this.blurTarget.getColorTextureView(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
                   this.blurTextureSetup = textureSetup;
                   this.captureRequested = true;
                   this.regionDirty = true;
@@ -211,7 +211,7 @@ public final class BlurFramebuffer implements AutoCloseable {
       return this.blurTextureSetup;
    }
 
-   public void requestCapture(DrawContext graphics, BuiltBlur blur) {
+   public void requestCapture(GuiGraphics graphics, BuiltBlur blur) {
       if (graphics != null && blur != null && blur.visible()) {
          try {
             BuiltBlur normalized = this.normalize(blur);
@@ -224,11 +224,11 @@ public final class BlurFramebuffer implements AutoCloseable {
 
    public void prepareGuiDraw() {
       if (this.captureRequested && this.regionWidth > 0 && this.regionHeight > 0) {
-         MinecraftClient minecraft = MinecraftClient.getInstance();
+         Minecraft minecraft = Minecraft.getInstance();
          if (minecraft != null) {
-            Framebuffer mainTarget = minecraft.getFramebuffer();
-            if (mainTarget != null && mainTarget.getColorAttachmentView() != null) {
-               GpuTextureView guiSource = FogBlurRenderer.getGuiSourceTextureView(mainTarget.textureWidth, mainTarget.textureHeight);
+            RenderTarget mainTarget = minecraft.getMainRenderTarget();
+            if (mainTarget != null && mainTarget.getColorTextureView() != null) {
+               GpuTextureView guiSource = FogBlurRenderer.getGuiSourceTextureView(mainTarget.width, mainTarget.height);
                this.renderBlurChain(mainTarget, guiSource);
             }
          }
@@ -274,15 +274,15 @@ public final class BlurFramebuffer implements AutoCloseable {
       }
    }
 
-   private void submit(DrawContext graphics, BuiltBlur blur) {
+   private void submit(GuiGraphics graphics, BuiltBlur blur) {
       if (blur != null && blur.visible()) {
          if (graphics != null) {
             try {
                BuiltBlur normalized = this.normalize(blur);
                Matrix3x2f pose = Render2DCoordinateSpace.pose(graphics);
-               ScreenRect scissorArea = ScissorUtil.current();
+               ScreenRectangle scissorArea = ScissorUtil.current();
                this.pendingBlurs.add(new BlurFramebuffer.PendingBlur(normalized, pose, scissorArea));
-               ((GuiGraphicsExtractorAccessor)graphics).daamky$getGuiRenderState().addSimpleElement(new BlurRenderState(pose, normalized, scissorArea));
+               ((GuiGraphicsExtractorAccessor)graphics).daamky$getGuiRenderState().submitGuiElement(new BlurRenderState(pose, normalized, scissorArea));
             } catch (RuntimeException var6) {
             }
          }
@@ -405,8 +405,8 @@ public final class BlurFramebuffer implements AutoCloseable {
          int resultWidth = Math.max(Math.round((float)width * renderScale), 1);
          int resultHeight = Math.max(Math.round((float)height * renderScale), 1);
          if (this.blurTarget == null) {
-            this.blurTarget = new SimpleFramebuffer("daamky_blur_result", resultWidth, resultHeight, false);
-         } else if (this.blurTarget.textureWidth != resultWidth || this.blurTarget.textureHeight != resultHeight) {
+            this.blurTarget = new TextureTarget("daamky_blur_result", resultWidth, resultHeight, false);
+         } else if (this.blurTarget.width != resultWidth || this.blurTarget.height != resultHeight) {
             this.blurTarget.resize(resultWidth, resultHeight);
          }
 
@@ -425,11 +425,11 @@ public final class BlurFramebuffer implements AutoCloseable {
       }
    }
 
-   private SimpleFramebuffer ensureTarget(SimpleFramebuffer target, String name, int width, int height) {
+   private TextureTarget ensureTarget(TextureTarget target, String name, int width, int height) {
       if (target == null) {
-         return new SimpleFramebuffer(name, width, height, false);
+         return new TextureTarget(name, width, height, false);
       } else {
-         if (target.textureWidth != width || target.textureHeight != height) {
+         if (target.width != width || target.height != height) {
             target.resize(width, height);
          }
 
@@ -437,12 +437,12 @@ public final class BlurFramebuffer implements AutoCloseable {
       }
    }
 
-   private boolean computeBlurRegion(MinecraftClient minecraft, Framebuffer mainTarget) {
+   private boolean computeBlurRegion(Minecraft minecraft, RenderTarget mainTarget) {
       Window window = minecraft.getWindow();
-      int guiWidth = Math.max(window.getScaledWidth(), 1);
-      int guiHeight = Math.max(window.getScaledHeight(), 1);
-      float scaleX = (float)mainTarget.textureWidth / (float)guiWidth;
-      float scaleY = (float)mainTarget.textureHeight / (float)guiHeight;
+      int guiWidth = Math.max(window.getGuiScaledWidth(), 1);
+      int guiHeight = Math.max(window.getGuiScaledHeight(), 1);
+      float scaleX = (float)mainTarget.width / (float)guiWidth;
+      float scaleY = (float)mainTarget.height / (float)guiHeight;
       float minX = (float)guiWidth;
       float minY = (float)guiHeight;
       float maxX = 0.0F;
@@ -453,8 +453,8 @@ public final class BlurFramebuffer implements AutoCloseable {
       for (BlurFramebuffer.PendingBlur pendingBlur : this.pendingBlurs) {
          BuiltBlur blur = pendingBlur.blur();
          float padding = Render2DCoordinateSpace.toGui(Math.max(16.0F, blur.blurRadius() * 2.0F));
-         ScreenRect bounds = new ScreenRect(Math.round(blur.x()), Math.round(blur.y()), Math.round(blur.width()), Math.round(blur.height()))
-            .transformEachVertex(pendingBlur.pose());
+         ScreenRectangle bounds = new ScreenRectangle(Math.round(blur.x()), Math.round(blur.y()), Math.round(blur.width()), Math.round(blur.height()))
+            .transformMaxBounds(pendingBlur.pose());
          if (pendingBlur.scissorArea() != null) {
             bounds = pendingBlur.scissorArea().intersection(bounds);
             if (bounds == null) {
@@ -462,10 +462,10 @@ public final class BlurFramebuffer implements AutoCloseable {
             }
          }
 
-         minX = Math.min(minX, (float)bounds.getLeft() - padding);
-         minY = Math.min(minY, (float)bounds.getTop() - padding);
-         maxX = Math.max(maxX, (float)bounds.getRight() + padding);
-         maxY = Math.max(maxY, (float)bounds.getBottom() + padding);
+         minX = Math.min(minX, (float)bounds.left() - padding);
+         minY = Math.min(minY, (float)bounds.top() - padding);
+         maxX = Math.max(maxX, (float)bounds.right() + padding);
+         maxY = Math.max(maxY, (float)bounds.bottom() + padding);
          this.maxBlurRadius = Math.max(this.maxBlurRadius, blur.blurRadius());
          hasBounds = true;
       }
@@ -477,10 +477,10 @@ public final class BlurFramebuffer implements AutoCloseable {
          minY = clamp(minY, 0.0F, (float)guiHeight);
          maxX = clamp(maxX, minX + 1.0F, (float)guiWidth);
          maxY = clamp(maxY, minY + 1.0F, (float)guiHeight);
-         int x0 = clampInt((int)Math.floor((double)(minX * scaleX)), 0, mainTarget.textureWidth - 1);
-         int x1 = clampInt((int)Math.ceil((double)(maxX * scaleX)), x0 + 1, mainTarget.textureWidth);
-         int y0 = clampInt((int)Math.floor((double)(((float)guiHeight - maxY) * scaleY)), 0, mainTarget.textureHeight - 1);
-         int y1 = clampInt((int)Math.ceil((double)(((float)guiHeight - minY) * scaleY)), y0 + 1, mainTarget.textureHeight);
+         int x0 = clampInt((int)Math.floor((double)(minX * scaleX)), 0, mainTarget.width - 1);
+         int x1 = clampInt((int)Math.ceil((double)(maxX * scaleX)), x0 + 1, mainTarget.width);
+         int y0 = clampInt((int)Math.floor((double)(((float)guiHeight - maxY) * scaleY)), 0, mainTarget.height - 1);
+         int y1 = clampInt((int)Math.ceil((double)(((float)guiHeight - minY) * scaleY)), y0 + 1, mainTarget.height);
          this.regionX = x0;
          this.regionY = y0;
          this.regionWidth = Math.max(x1 - x0, 1);
@@ -489,25 +489,25 @@ public final class BlurFramebuffer implements AutoCloseable {
       }
    }
 
-   private void renderBlurChain(Framebuffer mainTarget, GpuTextureView sourceOverride) {
+   private void renderBlurChain(RenderTarget mainTarget, GpuTextureView sourceOverride) {
       if (this.blurTarget != null) {
          int iterations = this.preparedIterations > 0 ? this.preparedIterations : this.computeIterations(this.maxBlurRadius);
          float offsetScale = clamp(this.maxBlurRadius / 18.0F, 0.85F, 2.0F);
-         GpuSampler sampler = RenderSystem.getSamplerCache().get(FilterMode.LINEAR);
-         GpuTextureView source = sourceOverride != null ? sourceOverride : mainTarget.getColorAttachmentView();
-         int sourceWidth = mainTarget.textureWidth;
-         int sourceHeight = mainTarget.textureHeight;
-         float sourceX = (float)this.regionX / (float)Math.max(mainTarget.textureWidth, 1);
-         float sourceY = (float)this.regionY / (float)Math.max(mainTarget.textureHeight, 1);
-         float sourceW = (float)this.regionWidth / (float)Math.max(mainTarget.textureWidth, 1);
-         float sourceH = (float)this.regionHeight / (float)Math.max(mainTarget.textureHeight, 1);
+         GpuSampler sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
+         GpuTextureView source = sourceOverride != null ? sourceOverride : mainTarget.getColorTextureView();
+         int sourceWidth = mainTarget.width;
+         int sourceHeight = mainTarget.height;
+         float sourceX = (float)this.regionX / (float)Math.max(mainTarget.width, 1);
+         float sourceY = (float)this.regionY / (float)Math.max(mainTarget.height, 1);
+         float sourceW = (float)this.regionWidth / (float)Math.max(mainTarget.width, 1);
+         float sourceH = (float)this.regionHeight / (float)Math.max(mainTarget.height, 1);
 
          for (int i = 0; i < iterations; i++) {
-            SimpleFramebuffer target = this.downTargets[i];
+            TextureTarget target = this.downTargets[i];
             this.renderKawasePass(KAWASE_DOWN_PIPELINE, source, sourceWidth, sourceHeight, target, offsetScale, sourceX, sourceY, sourceW, sourceH, sampler);
-            source = target.getColorAttachmentView();
-            sourceWidth = target.textureWidth;
-            sourceHeight = target.textureHeight;
+            source = target.getColorTextureView();
+            sourceWidth = target.width;
+            sourceHeight = target.height;
             sourceX = 0.0F;
             sourceY = 0.0F;
             sourceW = 1.0F;
@@ -515,11 +515,11 @@ public final class BlurFramebuffer implements AutoCloseable {
          }
 
          for (int i = iterations - 2; i >= 0; i--) {
-            SimpleFramebuffer target = this.upTargets[i];
+            TextureTarget target = this.upTargets[i];
             this.renderKawasePass(KAWASE_UP_PIPELINE, source, sourceWidth, sourceHeight, target, offsetScale, 0.0F, 0.0F, 1.0F, 1.0F, sampler);
-            source = target.getColorAttachmentView();
-            sourceWidth = target.textureWidth;
-            sourceHeight = target.textureHeight;
+            source = target.getColorTextureView();
+            sourceWidth = target.width;
+            sourceHeight = target.height;
          }
 
          this.renderKawasePass(KAWASE_UP_PIPELINE, source, sourceWidth, sourceHeight, this.blurTarget, offsetScale, 0.0F, 0.0F, 1.0F, 1.0F, sampler);
@@ -548,7 +548,7 @@ public final class BlurFramebuffer implements AutoCloseable {
       GpuTextureView source,
       int sourceWidth,
       int sourceHeight,
-      SimpleFramebuffer target,
+      TextureTarget target,
       float offsetScale,
       float sourceX,
       float sourceY,
@@ -560,8 +560,8 @@ public final class BlurFramebuffer implements AutoCloseable {
          GpuBuffer fullscreenQuad = this.ensureFullscreenQuadBuffer();
          if (fullscreenQuad != null) {
             CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
-            ShapeIndexBuffer indexBuffer = RenderSystem.getSequentialBuffer(DrawMode.QUADS);
-            GpuBuffer indices = indexBuffer.getIndexBuffer(6);
+            AutoStorageIndexBuffer indexBuffer = RenderSystem.getSequentialBuffer(Mode.QUADS);
+            GpuBuffer indices = indexBuffer.getBuffer(6);
             MemoryStack stack = MemoryStack.stackPush();
 
             label71: {
@@ -585,7 +585,7 @@ public final class BlurFramebuffer implements AutoCloseable {
 
                   encoder.writeToBuffer(uniformBuffer.slice(0L, 48L), uniformData);
                   RenderPass renderPass = encoder.createRenderPass(
-                     () -> "daamky_kawase_blur", target.getColorAttachmentView(), OptionalInt.of(ColorUtil.TRANSPARENT), null, OptionalDouble.empty()
+                     () -> "daamky_kawase_blur", target.getColorTextureView(), OptionalInt.of(ColorUtil.TRANSPARENT), null, OptionalDouble.empty()
                   );
 
                   try {
@@ -593,7 +593,7 @@ public final class BlurFramebuffer implements AutoCloseable {
                      renderPass.bindTexture("Sampler0", source, sampler);
                      renderPass.setUniform("KawaseParams", uniformBuffer);
                      renderPass.setVertexBuffer(0, fullscreenQuad);
-                     renderPass.setIndexBuffer(indices, indexBuffer.getIndexType());
+                     renderPass.setIndexBuffer(indices, indexBuffer.type());
                      renderPass.drawIndexed(0, 0, 6, 1);
                   } catch (Throwable var24) {
                      if (renderPass != null) {
@@ -740,14 +740,14 @@ public final class BlurFramebuffer implements AutoCloseable {
       if (this.fullscreenQuadBuffer != null) {
          return this.fullscreenQuadBuffer;
       } else {
-         BufferAllocator allocator = new BufferAllocator(4 * VertexFormats.POSITION.getVertexSize());
+         ByteBufferBuilder allocator = new ByteBufferBuilder(4 * DefaultVertexFormat.POSITION.getVertexSize());
 
          GpuBuffer var3;
          try {
-            BuiltBuffer meshData = this.buildFullscreenQuad(allocator);
+            MeshData meshData = this.buildFullscreenQuad(allocator);
 
             try {
-               this.fullscreenQuadBuffer = RenderSystem.getDevice().createBuffer(() -> "daamky_blur_fullscreen_quad", 32, meshData.getBuffer());
+               this.fullscreenQuadBuffer = RenderSystem.getDevice().createBuffer(() -> "daamky_blur_fullscreen_quad", 32, meshData.vertexBuffer());
                var3 = this.fullscreenQuadBuffer;
             } catch (Throwable var7) {
                if (meshData != null) {
@@ -779,13 +779,13 @@ public final class BlurFramebuffer implements AutoCloseable {
       }
    }
 
-   private BuiltBuffer buildFullscreenQuad(BufferAllocator allocator) {
-      BufferBuilder builder = new BufferBuilder(allocator, DrawMode.QUADS, VertexFormats.POSITION);
-      builder.vertex(-1.0F, -1.0F, 0.0F);
-      builder.vertex(-1.0F, 1.0F, 0.0F);
-      builder.vertex(1.0F, 1.0F, 0.0F);
-      builder.vertex(1.0F, -1.0F, 0.0F);
-      return builder.end();
+   private MeshData buildFullscreenQuad(ByteBufferBuilder allocator) {
+      BufferBuilder builder = new BufferBuilder(allocator, Mode.QUADS, DefaultVertexFormat.POSITION);
+      builder.addVertex(-1.0F, -1.0F, 0.0F);
+      builder.addVertex(-1.0F, 1.0F, 0.0F);
+      builder.addVertex(1.0F, 1.0F, 0.0F);
+      builder.addVertex(1.0F, -1.0F, 0.0F);
+      return builder.buildOrThrow();
    }
 
    private BuiltBlur normalize(BuiltBlur blur) {
@@ -848,7 +848,7 @@ public final class BlurFramebuffer implements AutoCloseable {
    }
 
    private static Identifier id(String path) {
-      return Identifier.of("daamky", path);
+      return Identifier.fromNamespaceAndPath("daamky", path);
    }
 
    @Override
@@ -857,23 +857,23 @@ public final class BlurFramebuffer implements AutoCloseable {
       this.preparedBlurs.clear();
       this.activeGraphics = null;
       this.captureRequested = false;
-      this.blurTextureSetup = TextureSetup.empty();
+      this.blurTextureSetup = TextureSetup.noTexture();
       this.closeParamsBuffer();
       this.closeRegionBuffer();
       this.closeKawaseParamsBuffer();
       if (this.blurTarget != null) {
-         this.blurTarget.delete();
+         this.blurTarget.destroyBuffers();
          this.blurTarget = null;
       }
 
       for (int i = 0; i < 4; i++) {
          if (this.downTargets[i] != null) {
-            this.downTargets[i].delete();
+            this.downTargets[i].destroyBuffers();
             this.downTargets[i] = null;
          }
 
          if (this.upTargets[i] != null) {
-            this.upTargets[i].delete();
+            this.upTargets[i].destroyBuffers();
             this.upTargets[i] = null;
          }
       }
@@ -884,6 +884,6 @@ public final class BlurFramebuffer implements AutoCloseable {
       }
    }
 
-   private static record PendingBlur(BuiltBlur blur, Matrix3x2f pose, ScreenRect scissorArea) {
+   private static record PendingBlur(BuiltBlur blur, Matrix3x2f pose, ScreenRectangle scissorArea) {
    }
 }

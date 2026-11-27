@@ -1,7 +1,7 @@
 package daamky.ua.utils.render.ui.outline.outline360;
 
 import java.util.List;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
 import daamky.ua.utils.render.color.ColorUtil;
 
 public record BuiltOutline360(
@@ -134,7 +134,7 @@ public record BuiltOutline360(
       );
    }
 
-   public void render(DrawContext graphics) {
+   public void render(GuiGraphics graphics) {
       Outline360Renderer.getInstance().draw(graphics, this);
    }
 

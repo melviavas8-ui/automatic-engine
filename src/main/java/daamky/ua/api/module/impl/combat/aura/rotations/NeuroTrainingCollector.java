@@ -4,10 +4,10 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.LivingEntity;
 import java.util.Map.Entry;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.math.MathHelper;
 import daamky.ua.api.module.impl.combat.AuraModule;
 
 public final class NeuroTrainingCollector {
@@ -26,7 +26,7 @@ public final class NeuroTrainingCollector {
       return INSTANCE;
    }
 
-   public synchronized void tick(MinecraftClient client) {
+   public synchronized void tick(Minecraft client) {
       this.currentTick++;
       Iterator<Entry<Long, NeuroTrainingCollector.PendingAttack>> iterator = this.pendingAttacks.entrySet().iterator();
 
@@ -105,7 +105,7 @@ public final class NeuroTrainingCollector {
                   this.currentTick,
                   timestampMs,
                   target.getId(),
-                  target.getUuid(),
+                  target.getUUID(),
                   target.getType().toString(),
                   formatName,
                   pattern,
@@ -177,7 +177,7 @@ public final class NeuroTrainingCollector {
       double jerkScore = this.computeJerkScore(decision);
       double signFlipScore = this.computeSignFlipScore(decision);
       double clampGapScore = this.computeClampGapScore(decision);
-      double suspicionScore = MathHelper.clamp(jerkScore * 0.55 + signFlipScore * 0.25 + clampGapScore * 0.2, 0.0, 1.0);
+      double suspicionScore = Mth.clamp(jerkScore * 0.55 + signFlipScore * 0.25 + clampGapScore * 0.2, 0.0, 1.0);
       int decisionToAttackTicks = Math.max(0, pending.attackTick - decision.tickIndex);
       double reward = this.computeReward(hitSuccess, pending.raytraceSuccess, timeToHitTicks, decisionToAttackTicks, suspicionScore);
       NeuroDatasetLogger.Sample sample = new NeuroDatasetLogger.Sample(
@@ -243,7 +243,7 @@ public final class NeuroTrainingCollector {
    private double computeJerkScore(NeuroTrainingCollector.DecisionRecord decision) {
       double jerk = Math.abs(decision.appliedYawStep - decision.previousYawStep) + Math.abs(decision.appliedPitchStep - decision.previousPitchStep);
       double normalizer = Math.max(1.0, Math.abs(decision.yawDelta) + Math.abs(decision.pitchDelta));
-      return MathHelper.clamp(jerk / normalizer, 0.0, 1.0);
+      return Mth.clamp(jerk / normalizer, 0.0, 1.0);
    }
 
    private double computeSignFlipScore(NeuroTrainingCollector.DecisionRecord decision) {
@@ -266,7 +266,7 @@ public final class NeuroTrainingCollector {
    private double computeClampGapScore(NeuroTrainingCollector.DecisionRecord decision) {
       double clampGap = Math.abs(decision.rawYawStep - decision.appliedYawStep) + Math.abs(decision.rawPitchStep - decision.appliedPitchStep);
       double normalizer = Math.max(0.25, Math.abs(decision.rawYawStep) + Math.abs(decision.rawPitchStep));
-      return MathHelper.clamp(clampGap / normalizer, 0.0, 1.0);
+      return Mth.clamp(clampGap / normalizer, 0.0, 1.0);
    }
 
    private static final class DecisionRecord {

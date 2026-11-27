@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.opengl.GlTexture;
 import daamky.ua.newmenu.render.Render2D;
 import daamky.ua.newmenu.render.mesh.Render2DMesh;
 import daamky.ua.newmenu.render.shader.Render2DShader;
@@ -14,13 +15,12 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.texture.AbstractTexture;
-import net.minecraft.client.texture.GlTexture;
-import net.minecraft.client.texture.ReloadableTexture;
-import net.minecraft.client.texture.TextureContents;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.texture.AbstractTexture;
+import net.minecraft.client.renderer.texture.ReloadableTexture;
+import net.minecraft.client.renderer.texture.TextureContents;
+import net.minecraft.resources.Identifier;
 import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
@@ -59,7 +59,7 @@ public final class MsdfFont {
 
     public MsdfFont(String name) {
         this.name = name;
-        this.textureId = Identifier.of("daamkymenu", "fonts/msdf/" + name + ".png");
+        this.textureId = Identifier.fromNamespaceAndPath("daamkymenu", "fonts/msdf/" + name + ".png");
     }
 
     public void init() {
@@ -228,7 +228,7 @@ public final class MsdfFont {
      * Rendering Methods
      * ========================================================================= */
 
-    public void drawString(DrawContext context, String text, float x, float y, float size, int color) {
+    public void drawString(GuiGraphics context, String text, float x, float y, float size, int color) {
         drawString(Render2D.extractModelView(context), text, x, y, size, color, false, 0.0F, 0);
     }
 
@@ -236,7 +236,7 @@ public final class MsdfFont {
         drawString(modelView, text, x, y, size, color, false, 0.0F, 0);
     }
 
-    public void drawStringWithShadow(DrawContext context, String text, float x, float y, float size, int color) {
+    public void drawStringWithShadow(GuiGraphics context, String text, float x, float y, float size, int color) {
         drawStringWithShadow(Render2D.extractModelView(context), text, x, y, size, color);
     }
 
@@ -246,17 +246,17 @@ public final class MsdfFont {
         drawString(modelView, text, x, y, size, color, false, 0.0F, 0);
     }
 
-    public void drawCenteredString(DrawContext context, String text, float centerX, float y, float size, int color) {
+    public void drawCenteredString(GuiGraphics context, String text, float centerX, float y, float size, int color) {
         float width = getWidth(text, size);
         drawString(Render2D.extractModelView(context), text, centerX - width * 0.5F, y, size, color, false, 0.0F, 0);
     }
 
-    public void drawRightString(DrawContext context, String text, float rightX, float y, float size, int color) {
+    public void drawRightString(GuiGraphics context, String text, float rightX, float y, float size, int color) {
         float width = getWidth(text, size);
         drawString(Render2D.extractModelView(context), text, rightX - width, y, size, color, false, 0.0F, 0);
     }
 
-    public void drawOutlineString(DrawContext context, String text, float x, float y, float size,
+    public void drawOutlineString(GuiGraphics context, String text, float x, float y, float size,
                                   float outlineThickness, int color, int outlineColor) {
         drawString(Render2D.extractModelView(context), text, x, y, size, color, true, outlineThickness, outlineColor);
     }
@@ -443,29 +443,29 @@ public final class MsdfFont {
     }
 
     private int getTextureGlId() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return 0;
         AbstractTexture tex = client.getTextureManager().getTexture(textureId);
         if (tex != null) {
-            if (tex.getGlTexture() == null && tex instanceof ReloadableTexture reloadable) {
+            if (tex.getTexture() == null && tex instanceof ReloadableTexture reloadable) {
                 try {
                     TextureContents contents = reloadable.loadContents(client.getResourceManager());
-                    reloadable.reload(contents);
+                    reloadable.apply(contents);
                 } catch (Throwable ignored) {}
             }
-            if (tex.getGlTexture() instanceof GlTexture glTex) {
+            if (tex.getTexture() instanceof GlTexture glTex) {
                 // MSDF stores distance data across RGB channels. Linear sampling
                 // is required to reconstruct a clean edge between texels; nearest
                 // sampling produces jagged, colour-fringed icon contours.
                 if (!atlasFilteringConfigured) {
                     int prevTex = org.lwjgl.opengl.GL11.glGetInteger(org.lwjgl.opengl.GL11.GL_TEXTURE_BINDING_2D);
-                    org.lwjgl.opengl.GL11.glBindTexture(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, glTex.getGlId());
+                    org.lwjgl.opengl.GL11.glBindTexture(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, glTex.glId());
                     org.lwjgl.opengl.GL11.glTexParameteri(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, org.lwjgl.opengl.GL11.GL_TEXTURE_MIN_FILTER, org.lwjgl.opengl.GL11.GL_LINEAR);
                     org.lwjgl.opengl.GL11.glTexParameteri(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, org.lwjgl.opengl.GL11.GL_TEXTURE_MAG_FILTER, org.lwjgl.opengl.GL11.GL_LINEAR);
                     org.lwjgl.opengl.GL11.glBindTexture(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, prevTex);
                     atlasFilteringConfigured = true;
                 }
-                return glTex.getGlId();
+                return glTex.glId();
             }
         }
         return 0;

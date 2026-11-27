@@ -1,10 +1,5 @@
 package daamky.ua.api.module.impl.combat;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.Pair;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.InputEvent;
 import daamky.ua.api.events.impl.PacketEvent;
@@ -27,6 +22,11 @@ import daamky.ua.api.settings.impl.ModeSetting;
 import daamky.ua.api.settings.impl.MultiModeSetting;
 import daamky.ua.api.settings.impl.NumberSetting;
 import daamky.ua.utils.player.BaritoneMovementHelper;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Tuple;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 public class TriggerBot extends Module {
    private static TriggerBot instance;
@@ -84,8 +84,8 @@ public class TriggerBot extends Module {
 
    @SubscribeEvent
    private void onPreTick(TickEvent.Pre event) {
-      MinecraftClient client = event.getClient();
-      if (client != null && client.player != null && client.world != null) {
+      Minecraft client = event.getClient();
+      if (client != null && client.player != null && client.level != null) {
          this.attackPerpetrator.tick();
       } else {
          this.targetSelector.releaseTarget();
@@ -100,8 +100,8 @@ public class TriggerBot extends Module {
 
    @SubscribeEvent
    private void onInput(InputEvent event) {
-      MinecraftClient client = MinecraftClient.getInstance();
-      if (this.isEnabled() && client.player != null && client.world != null && this.target != null) {
+      Minecraft client = Minecraft.getInstance();
+      if (this.isEnabled() && client.player != null && client.level != null && this.target != null) {
          if (!BaritoneMovementHelper.isBaritoneActive(client.player)) {
             StrikeManager attackHandler = this.attackPerpetrator.getAttackHandler();
             StrikerConstructor.AttackPerpetratorConfigurable config = this.getConfig(client);
@@ -118,8 +118,8 @@ public class TriggerBot extends Module {
 
    @SubscribeEvent
    private void onRotationUpdate(RotationUpdateEvent event) {
-      MinecraftClient client = MinecraftClient.getInstance();
-      if (client.player == null || client.world == null) {
+      Minecraft client = Minecraft.getInstance();
+      if (client.player == null || client.level == null) {
          this.targetSelector.releaseTarget();
          this.target = null;
       } else if (BaritoneMovementHelper.isBaritoneActive(client.player)) {
@@ -134,23 +134,23 @@ public class TriggerBot extends Module {
       }
    }
 
-   private LivingEntity updateTarget(MinecraftClient client) {
+   private LivingEntity updateTarget(Minecraft client) {
       TargetFinder.EntityFilter filter = new TargetFinder.EntityFilter(this.targetType.getValue());
       float range = this.attackRange.getFloat();
-      this.targetSelector.searchTargets(client.world.getEntities(), range, 360.0F, this.isAttackSettingSelected("Ignore Walls"), filter::isValid);
+      this.targetSelector.searchTargets(client.level.entitiesForRendering(), range, 360.0F, this.isAttackSettingSelected("Ignore Walls"), filter::isValid);
       this.targetSelector.validateTarget(filter::isValid);
       return this.targetSelector.getCurrentTarget();
    }
 
-   public StrikerConstructor.AttackPerpetratorConfigurable getConfig(MinecraftClient client) {
+   public StrikerConstructor.AttackPerpetratorConfigurable getConfig(Minecraft client) {
       float range = this.attackRange.getFloat();
-      Pair<Vec3d, Box> point = this.pointFinder
+      Tuple<Vec3, AABB> point = this.pointFinder
          .computeVector(
             this.target, range, AngleConnection.INSTANCE.getRotation(), this.getSmoothMode().randomValue(), this.isAttackSettingSelected("Ignore Walls")
          );
-      Vec3d computedPoint = (Vec3d)point.getLeft();
-      Box hitbox = (Box)point.getRight();
-      Angle angle = MathAngle.fromVec3d(computedPoint.subtract(client.player.getEyePos()));
+      Vec3 computedPoint = (Vec3)point.getA();
+      AABB hitbox = (AABB)point.getB();
+      Angle angle = MathAngle.fromVec3d(computedPoint.subtract(client.player.getEyePosition()));
       return new StrikerConstructor.AttackPerpetratorConfigurable(
          this.target,
          angle,
@@ -180,17 +180,17 @@ public class TriggerBot extends Module {
    }
 
    public boolean shouldPreventSprinting() {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (!this.isEnabled() || this.target == null || client.player == null || !this.isOnlyCrits()) {
          return false;
-      } else if (client.player.age <= this.sprintSuppressUntilTick) {
+      } else if (client.player.tickCount <= this.sprintSuppressUntilTick) {
          return true;
       } else {
          StrikerConstructor.AttackPerpetratorConfigurable config = this.getConfig(client);
          StrikeManager attackHandler = this.attackPerpetrator.getAttackHandler();
          boolean shouldPrevent = attackHandler.canAttack(config, 4) && !attackHandler.canCrit(config, 4);
          if (shouldPrevent) {
-            this.sprintSuppressUntilTick = client.player.age + 1;
+            this.sprintSuppressUntilTick = client.player.tickCount + 1;
          }
 
          return shouldPrevent;

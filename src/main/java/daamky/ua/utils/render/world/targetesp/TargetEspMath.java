@@ -1,6 +1,6 @@
 package daamky.ua.utils.render.world.targetesp;
 
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.Mth;
 
 public final class TargetEspMath {
    private TargetEspMath() {
@@ -11,7 +11,7 @@ public final class TargetEspMath {
    }
 
    public static float easeOutCubic(float value) {
-      float clamped = MathHelper.clamp(value, 0.0F, 1.0F);
+      float clamped = Mth.clamp(value, 0.0F, 1.0F);
       float inv = 1.0F - clamped;
       return 1.0F - inv * inv * inv;
    }

@@ -1,9 +1,9 @@
 package daamky.ua.utils.render.ui;
 
+import com.mojang.blaze3d.platform.NativeImage;
 import java.io.InputStream;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.resources.Identifier;
 
 public final class GuiResourceLoader {
    private GuiResourceLoader() {
@@ -26,19 +26,19 @@ public final class GuiResourceLoader {
       }
    }
 
-   public static NativeImageBackedTexture loadTexture(Identifier id, String debugPrefix) {
+   public static DynamicTexture loadTexture(Identifier id, String debugPrefix) {
       try {
-         NativeImageBackedTexture exception;
+         DynamicTexture exception;
          try (InputStream input = open(id)) {
             if (input == null) {
                return null;
             }
 
             NativeImage image = NativeImage.read(input);
-            NativeImageBackedTexture texture = null;
+            DynamicTexture texture = null;
 
             try {
-               texture = new NativeImageBackedTexture(() -> debugPrefix + id, image);
+               texture = new DynamicTexture(() -> debugPrefix + id, image);
                texture.upload();
                exception = texture;
             } catch (RuntimeException var8) {

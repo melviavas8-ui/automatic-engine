@@ -3,7 +3,7 @@ package daamky.ua.api.module.impl.visual.frageffect;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import net.minecraft.sound.SoundEvent;
+import net.minecraft.sounds.SoundEvent;
 import daamky.ua.utils.sounds.SoundManager;
 
 public final class FragEffectSoundQueue {

@@ -1,13 +1,12 @@
 package daamky.ua.utils.inventory.item;
 
 import java.util.Objects;
-import net.minecraft.network.packet.c2s.play.ClientStatusC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.network.packet.c2s.play.ClientStatusC2SPacket.Mode;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket.Action;
-import net.minecraft.network.packet.s2c.play.GameJoinS2CPacket;
-import net.minecraft.network.packet.s2c.play.PlayerRespawnS2CPacket;
-import net.minecraft.util.Hand;
+import net.minecraft.network.protocol.game.ClientboundLoginPacket;
+import net.minecraft.network.protocol.game.ClientboundRespawnPacket;
+import net.minecraft.network.protocol.game.ServerboundClientCommandPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket.Action;
+import net.minecraft.world.InteractionHand;
 import daamky.ua.IMinecraft;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.PacketEvent;
@@ -42,16 +41,16 @@ public class ItemToolkit implements IMinecraft {
       Object packet = event.getPacket();
       Objects.requireNonNull(packet);
       switch (packet) {
-         case PlayerActionC2SPacket actionPacket when actionPacket.getAction() == Action.RELEASE_USE_ITEM:
+         case ServerboundPlayerActionPacket actionPacket when actionPacket.getAction() == Action.RELEASE_USE_ITEM:
             this.releaseItem = true;
             break;
-         case ClientStatusC2SPacket statusPacket when statusPacket.getMode() == Mode.PERFORM_RESPAWN:
+         case ServerboundClientCommandPacket statusPacket when statusPacket.getAction() == net.minecraft.network.protocol.game.ServerboundClientCommandPacket.Action.PERFORM_RESPAWN:
             this.releaseItem = true;
             break;
-         case PlayerRespawnS2CPacket ignored:
+         case ClientboundRespawnPacket ignored:
             this.releaseItem = true;
             break;
-         case GameJoinS2CPacket ignoredx:
+         case ClientboundLoginPacket ignoredx:
             this.releaseItem = true;
             break;
          default:
@@ -59,8 +58,8 @@ public class ItemToolkit implements IMinecraft {
       }
    }
 
-   public void useHand(Hand hand) {
-      if (mc.player != null && mc.interactionManager != null && hand != null) {
+   public void useHand(InteractionHand hand) {
+      if (mc.player != null && mc.gameMode != null && hand != null) {
          if (this.releaseItem) {
             PlayerInteractionHelper.interactItem(hand);
             this.releaseItem = false;

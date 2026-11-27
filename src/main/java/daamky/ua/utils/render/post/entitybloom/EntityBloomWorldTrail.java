@@ -10,22 +10,22 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.entity.EntityRenderManager;
-import net.minecraft.client.render.entity.EntityRenderer;
-import net.minecraft.client.render.entity.state.EntityRenderState;
-import net.minecraft.client.render.entity.state.LivingEntityRenderState;
-import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
-import net.minecraft.client.render.entity.state.EntityRenderState.LeashData;
-import net.minecraft.client.render.entity.state.EntityRenderState.ShadowPiece;
-import net.minecraft.client.render.state.CameraRenderState;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
+import net.minecraft.client.renderer.entity.EntityRenderer;
+import net.minecraft.client.renderer.entity.state.AvatarRenderState;
+import net.minecraft.client.renderer.entity.state.EntityRenderState;
+import net.minecraft.client.renderer.entity.state.EntityRenderState.LeashState;
+import net.minecraft.client.renderer.entity.state.EntityRenderState.ShadowPiece;
+import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
+import net.minecraft.client.renderer.state.CameraRenderState;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
+import com.mojang.blaze3d.vertex.PoseStack;
 import daamky.ua.api.module.impl.visual.EntityBloom;
 
 public final class EntityBloomWorldTrail {
@@ -36,7 +36,7 @@ public final class EntityBloomWorldTrail {
    private static final double MAX_TRAIL_DISTANCE_SQUARED = 2.4025000000000003;
    private static final Map<EntityRenderState, Integer> stateEntityIds = Collections.synchronizedMap(new WeakHashMap<>());
    private static final Map<Integer, EntityBloomWorldTrail.TrailHistory> histories = new HashMap<>();
-   private static ClientWorld trackedLevel;
+   private static ClientLevel trackedLevel;
    private static boolean renderingGhost;
    private static long lastPruneNanos;
 
@@ -44,12 +44,12 @@ public final class EntityBloomWorldTrail {
    }
 
    public static void capture(LivingEntity entity, LivingEntityRenderState state) {
-      MinecraftClient minecraft = MinecraftClient.getInstance();
+      Minecraft minecraft = Minecraft.getInstance();
       EntityBloom bloom = EntityBloom.getInstance();
-      if (minecraft.world != null && bloom != null && bloom.shouldRenderTrail(entity)) {
-         if (trackedLevel != minecraft.world) {
+      if (minecraft.level != null && bloom != null && bloom.shouldRenderTrail(entity)) {
+         if (trackedLevel != minecraft.level) {
             clear();
-            trackedLevel = minecraft.world;
+            trackedLevel = minecraft.level;
          }
 
          long now = System.nanoTime();
@@ -57,7 +57,7 @@ public final class EntityBloomWorldTrail {
          EntityBloomWorldTrail.TrailHistory history = histories.computeIfAbsent(entity.getId(), ignored -> new EntityBloomWorldTrail.TrailHistory());
          history.lastSeenNanos = now;
          if (history.lastCaptureNanos == 0L || now - history.lastCaptureNanos >= 38000000L) {
-            history.snapshots.addLast(new EntityBloomWorldTrail.Snapshot(state.x, state.y, state.z, state.bodyYaw, state.relativeHeadYaw, state.pitch, now));
+            history.snapshots.addLast(new EntityBloomWorldTrail.Snapshot(state.x, state.y, state.z, state.bodyRot, state.yRot, state.xRot, now));
             history.lastCaptureNanos = now;
          }
 
@@ -76,14 +76,14 @@ public final class EntityBloomWorldTrail {
    }
 
    public static void submitGhosts(
-      EntityRenderManager dispatcher,
+      EntityRenderDispatcher dispatcher,
       EntityRenderState state,
       CameraRenderState cameraState,
       double currentRelativeX,
       double currentRelativeY,
       double currentRelativeZ,
-      MatrixStack poseStack,
-      OrderedRenderCommandQueue collector
+      PoseStack poseStack,
+      SubmitNodeCollector collector
    ) {
       if (!renderingGhost && state instanceof LivingEntityRenderState livingState) {
          EntityBloom bloom = EntityBloom.getInstance();
@@ -96,68 +96,68 @@ public final class EntityBloomWorldTrail {
             List<EntityBloomWorldTrail.GhostFrame> frames = selectFrames(history, livingState, now, duration, minimumAgeGap);
             if (!frames.isEmpty()) {
                EntityRenderer renderer = dispatcher.getRenderer(state);
-               Vec3d renderOffset = renderer.getPositionOffset(state);
-               boolean oldInvisible = state.invisible;
-               boolean oldInvisibleToPlayer = livingState.invisibleToPlayer;
-               boolean oldFire = state.onFire;
+               Vec3 renderOffset = renderer.getRenderOffset(state);
+               boolean oldInvisible = state.isInvisible;
+               boolean oldInvisibleToPlayer = livingState.isInvisibleToPlayer;
+               boolean oldFire = state.displayFireAnimation;
                int oldOutlineColor = state.outlineColor;
-               Text oldNameTag = state.displayName;
-               List<LeashData> oldLeashes = state.leashDatas;
+               Component oldNameTag = state.nameTag;
+               List<LeashState> oldLeashes = state.leashStates;
                float oldShadowRadius = state.shadowRadius;
-               float oldBodyRot = livingState.bodyYaw;
-               float oldYRot = livingState.relativeHeadYaw;
-               float oldXRot = livingState.pitch;
-               Text oldScoreText = state instanceof PlayerEntityRenderState avatar ? avatar.playerName : null;
+               float oldBodyRot = livingState.bodyRot;
+               float oldYRot = livingState.yRot;
+               float oldXRot = livingState.xRot;
+               Component oldScoreText = state instanceof AvatarRenderState avatar ? avatar.scoreText : null;
                List<ShadowPiece> oldShadowPieces = new ArrayList<>(state.shadowPieces);
 
                try {
-                  state.invisible = true;
-                  livingState.invisibleToPlayer = true;
-                  state.onFire = false;
-                  state.displayName = null;
-                  state.leashDatas = List.of();
+                  state.isInvisible = true;
+                  livingState.isInvisibleToPlayer = true;
+                  state.displayFireAnimation = false;
+                  state.nameTag = null;
+                  state.leashStates = List.of();
                   state.shadowRadius = 0.0F;
                   state.shadowPieces.clear();
-                  if (state instanceof PlayerEntityRenderState avatarx) {
-                     avatarx.playerName = null;
+                  if (state instanceof AvatarRenderState avatarx) {
+                     avatarx.scoreText = null;
                   }
 
                   for (EntityBloomWorldTrail.GhostFrame frame : frames) {
                      EntityBloomWorldTrail.Snapshot snapshot = frame.snapshot;
                      state.outlineColor = bloom.getWorldTrailOutlineColor(frame.opacity);
-                     livingState.bodyYaw = snapshot.bodyRot;
-                     livingState.relativeHeadYaw = snapshot.yRot;
-                     livingState.pitch = snapshot.xRot;
-                     poseStack.push();
+                     livingState.bodyRot = snapshot.bodyRot;
+                     livingState.yRot = snapshot.yRot;
+                     livingState.xRot = snapshot.xRot;
+                     poseStack.pushPose();
 
                      try {
                         poseStack.translate(
-                           currentRelativeX + snapshot.x - state.x + renderOffset.getX(),
-                           currentRelativeY + snapshot.y - state.y + renderOffset.getY(),
-                           currentRelativeZ + snapshot.z - state.z + renderOffset.getZ()
+                           currentRelativeX + snapshot.x - state.x + renderOffset.x(),
+                           currentRelativeY + snapshot.y - state.y + renderOffset.y(),
+                           currentRelativeZ + snapshot.z - state.z + renderOffset.z()
                         );
                         renderingGhost = true;
-                        renderer.render(state, poseStack, collector, cameraState);
+                        renderer.submit(state, poseStack, collector, cameraState);
                      } finally {
                         renderingGhost = false;
-                        poseStack.pop();
+                        poseStack.popPose();
                      }
                   }
                } finally {
-                  state.invisible = oldInvisible;
-                  livingState.invisibleToPlayer = oldInvisibleToPlayer;
-                  state.onFire = oldFire;
+                  state.isInvisible = oldInvisible;
+                  livingState.isInvisibleToPlayer = oldInvisibleToPlayer;
+                  state.displayFireAnimation = oldFire;
                   state.outlineColor = oldOutlineColor;
-                  state.displayName = oldNameTag;
-                  state.leashDatas = oldLeashes;
+                  state.nameTag = oldNameTag;
+                  state.leashStates = oldLeashes;
                   state.shadowRadius = oldShadowRadius;
-                  livingState.bodyYaw = oldBodyRot;
-                  livingState.relativeHeadYaw = oldYRot;
-                  livingState.pitch = oldXRot;
+                  livingState.bodyRot = oldBodyRot;
+                  livingState.yRot = oldYRot;
+                  livingState.xRot = oldXRot;
                   state.shadowPieces.clear();
                   state.shadowPieces.addAll(oldShadowPieces);
-                  if (state instanceof PlayerEntityRenderState avatarx) {
-                     avatarx.playerName = oldScoreText;
+                  if (state instanceof AvatarRenderState avatarx) {
+                     avatarx.scoreText = oldScoreText;
                   }
 
                   renderingGhost = false;
@@ -196,8 +196,8 @@ public final class EntityBloomWorldTrail {
             double movementSq = dx * dx + dy * dy + dz * dz;
             if (!(movementSq > 2.4025000000000003)) {
                float rotationDelta = Math.max(
-                  Math.abs(MathHelper.wrapDegrees(snapshot.bodyRot - current.bodyYaw)),
-                  Math.abs(MathHelper.wrapDegrees(snapshot.yRot - current.relativeHeadYaw))
+                  Math.abs(Mth.wrapDegrees(snapshot.bodyRot - current.bodyRot)),
+                  Math.abs(Mth.wrapDegrees(snapshot.yRot - current.yRot))
                );
                if (!(movementSq < 9.0E-4) || !(rotationDelta < 2.5F)) {
                   float life = 1.0F - age / duration;

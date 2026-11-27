@@ -11,8 +11,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
 import daamky.ua.api.module.impl.combat.AuraModule;
 
 final class NeuroHumanRuntimeModel {
@@ -84,8 +84,8 @@ final class NeuroHumanRuntimeModel {
       if (path.isAbsolute()) {
          return path;
       } else {
-         MinecraftClient client = MinecraftClient.getInstance();
-         return client != null && client.runDirectory != null ? client.runDirectory.toPath().resolve(path).normalize() : path.toAbsolutePath().normalize();
+         Minecraft client = Minecraft.getInstance();
+         return client != null && client.gameDirectory != null ? client.gameDirectory.toPath().resolve(path).normalize() : path.toAbsolutePath().normalize();
       }
    }
 
@@ -184,7 +184,7 @@ final class NeuroHumanRuntimeModel {
    }
 
    private double lerp(double from, double to, double alpha) {
-      double clamped = MathHelper.clamp(alpha, 0.0, 1.0);
+      double clamped = Mth.clamp(alpha, 0.0, 1.0);
       return from + (to - from) * clamped;
    }
 
@@ -199,7 +199,7 @@ final class NeuroHumanRuntimeModel {
    }
 
    private double preserveTurnResponse(double predictedStep, double rawStep, double remaining, double deltaLength) {
-      double turnUrgency = MathHelper.clamp((deltaLength - 28.0) / 52.0, 0.0, 1.0);
+      double turnUrgency = Mth.clamp((deltaLength - 28.0) / 52.0, 0.0, 1.0);
       if (turnUrgency <= 0.0) {
          return predictedStep;
       } else if (Math.abs(rawStep) < 1.0E-5) {

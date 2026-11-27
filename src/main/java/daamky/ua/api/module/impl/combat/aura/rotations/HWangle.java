@@ -1,10 +1,5 @@
 package daamky.ua.api.module.impl.combat.aura.rotations;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.WorldRenderEvent;
 import daamky.ua.api.module.impl.combat.AuraModule;
@@ -12,6 +7,11 @@ import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.api.module.impl.combat.aura.impl.RotateConstructor;
 import daamky.ua.utils.modules.warden.rotation.Rotation;
 import daamky.ua.utils.modules.warden.rotation.RotationController;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
 
 public final class HWangle extends RotateConstructor {
    public static final HWangle INSTANCE = new HWangle();
@@ -53,22 +53,22 @@ public final class HWangle extends RotateConstructor {
    }
 
    @Override
-   public Angle limitAngleChange(Angle currentRot, Angle targetRot, Vec3d aimPoint, Entity entity) {
+   public Angle limitAngleChange(Angle currentRot, Angle targetRot, Vec3 aimPoint, Entity entity) {
       this.aura = AuraModule.getInstance();
       this.target = entity instanceof LivingEntity livingEntity ? livingEntity : null;
       return currentRot;
    }
 
    @Override
-   public Vec3d randomValue() {
-      return Vec3d.ZERO;
+   public Vec3 randomValue() {
+      return Vec3.ZERO;
    }
 
    @SubscribeEvent
    public void on3D(WorldRenderEvent e) {
       if (this.isActive()) {
-         MinecraftClient mc = MinecraftClient.getInstance();
-         if (mc.player != null && mc.world != null && !mc.player.isDead()) {
+         Minecraft mc = Minecraft.getInstance();
+         if (mc.player != null && mc.level != null && !mc.player.isDeadOrDying()) {
             long now = System.nanoTime();
             float dt = this.lastFrameNanos == 0L ? 0.016666668F : Math.min((float)(now - this.lastFrameNanos) / 1.0E9F, 1.0F);
             this.lastFrameNanos = now;
@@ -79,7 +79,7 @@ public final class HWangle extends RotateConstructor {
             if (this.target == null) {
                this.state.decayMotion(dt);
             } else {
-               Vec3d eyes = mc.player.getEyePos();
+               Vec3 eyes = mc.player.getEyePosition();
                float[] delta = this.computeTargetDelta(this.target, e.getTickDelta(), dt, eyes);
                float yawErr = delta[0];
                float pitchErr = delta[1] + -1.75F;
@@ -87,10 +87,10 @@ public final class HWangle extends RotateConstructor {
                   float dist = (float)Math.sqrt((double)(yawErr * yawErr + pitchErr * pitchErr));
                   float stiffness = this.computeStiffness(dist);
                   float damping = 3.0F * (float)Math.sqrt((double)stiffness);
-                  float yawAccel = MathHelper.clamp(
+                  float yawAccel = Mth.clamp(
                      stiffness * yawErr - damping * this.state.yawVel, -HWangle.Util.random(16000.0F, 22500.0F), HWangle.Util.random(16000.0F, 22500.0F)
                   );
-                  float pitchAccel = MathHelper.clamp(
+                  float pitchAccel = Mth.clamp(
                      (stiffness * pitchErr - damping * this.state.pitchVel) * 0.8F,
                      -HWangle.Util.random(16000.0F, 22500.0F),
                      HWangle.Util.random(16000.0F, 22500.0F)
@@ -104,8 +104,8 @@ public final class HWangle extends RotateConstructor {
                   }
 
                   float maxVel = HWangle.Util.random(4800.0F, 6200.0F) + dist * HWangle.Util.random(115.0F, 135.0F);
-                  this.state.yawVel = MathHelper.clamp(this.state.yawVel, -maxVel, maxVel);
-                  this.state.pitchVel = MathHelper.clamp(this.state.pitchVel, -maxVel, maxVel);
+                  this.state.yawVel = Mth.clamp(this.state.yawVel, -maxVel, maxVel);
+                  this.state.pitchVel = Mth.clamp(this.state.pitchVel, -maxVel, maxVel);
                   this.applyDrift(dt, dist);
                   this.applyJitter(dt, dist);
                   this.applyFrame(dt);
@@ -121,18 +121,18 @@ public final class HWangle extends RotateConstructor {
       }
    }
 
-   private float[] computeTargetDelta(LivingEntity target, float tickDelta, float dt, Vec3d eyes) {
-      MinecraftClient mc = MinecraftClient.getInstance();
-      double tx = MathHelper.lerp((double)tickDelta, target.lastRenderX, target.getX());
-      double ty = MathHelper.lerp((double)tickDelta, target.lastRenderY, target.getY()) + (double)(target.getHeight() * 0.5F);
-      double tz = MathHelper.lerp((double)tickDelta, target.lastRenderZ, target.getZ());
+   private float[] computeTargetDelta(LivingEntity target, float tickDelta, float dt, Vec3 eyes) {
+      Minecraft mc = Minecraft.getInstance();
+      double tx = Mth.lerp((double)tickDelta, target.xOld, target.getX());
+      double ty = Mth.lerp((double)tickDelta, target.yOld, target.getY()) + (double)(target.getBbHeight() * 0.5F);
+      double tz = Mth.lerp((double)tickDelta, target.zOld, target.getZ());
       if (!this.state.hasSmoothed) {
          this.state.smoothedX = tx;
          this.state.smoothedY = ty;
          this.state.smoothedZ = tz;
          this.state.hasSmoothed = true;
       } else {
-         double blend = MathHelper.clamp(1.0 - Math.exp((double)(-HWangle.Util.random(38.0F, 48.0F) * dt)), 0.05, 0.95);
+         double blend = Mth.clamp(1.0 - Math.exp((double)(-HWangle.Util.random(38.0F, 48.0F) * dt)), 0.05, 0.95);
          this.state.smoothedX = this.state.smoothedX + (tx - this.state.smoothedX) * blend;
          this.state.smoothedY = this.state.smoothedY + (ty - this.state.smoothedY) * blend;
          this.state.smoothedZ = this.state.smoothedZ + (tz - this.state.smoothedZ) * blend;
@@ -146,8 +146,8 @@ public final class HWangle extends RotateConstructor {
          return new float[]{0.0F, 0.0F};
       } else {
          float yaw = (float)Math.toDegrees(Math.atan2(dz, dx)) - 90.0F;
-         float pitch = MathHelper.clamp((float)(-Math.toDegrees(Math.atan2(dy, horiz))), -90.0F, 90.0F);
-         return new float[]{MathHelper.wrapDegrees(yaw - mc.player.getYaw()), pitch - mc.player.getPitch()};
+         float pitch = Mth.clamp((float)(-Math.toDegrees(Math.atan2(dy, horiz))), -90.0F, 90.0F);
+         return new float[]{Mth.wrapDegrees(yaw - mc.player.getYRot()), pitch - mc.player.getXRot()};
       }
    }
 
@@ -168,7 +168,7 @@ public final class HWangle extends RotateConstructor {
    private void applyDrift(float dt, float dist) {
       this.state.driftPhaseYaw += dt * 0.7F;
       this.state.driftPhasePitch += dt * 0.9F;
-      float scale = MathHelper.clamp(dist / 8.0F, 0.2F, 1.0F);
+      float scale = Mth.clamp(dist / 8.0F, 0.2F, 1.0F);
       this.state.yawVel = this.state.yawVel
          + (float)Math.sin((double)this.state.driftPhaseYaw * 2.0 * Math.PI + (double)this.state.driftSeedYaw) * 0.45F * scale * 10.0F * dt;
       this.state.pitchVel = this.state.pitchVel
@@ -180,7 +180,7 @@ public final class HWangle extends RotateConstructor {
       if (this.state.jitterTimer >= this.state.jitterInterval) {
          this.state.jitterTimer = 0.0F;
          this.state.jitterInterval = HWangle.Util.random(0.18F, 0.55F);
-         float scale = MathHelper.clamp(dist / 10.0F, 0.3F, 1.0F);
+         float scale = Mth.clamp(dist / 10.0F, 0.3F, 1.0F);
          this.state.yawJitterVel = this.state.yawJitterVel + HWangle.Util.gaussian() * 0.9F * scale * 25.0F;
          this.state.pitchJitterVel = this.state.pitchJitterVel + HWangle.Util.gaussian() * 0.9F * scale * 15.0F;
       }
@@ -193,12 +193,12 @@ public final class HWangle extends RotateConstructor {
    }
 
    private void applyFrame(float dt) {
-      MinecraftClient mc = MinecraftClient.getInstance();
+      Minecraft mc = Minecraft.getInstance();
       if (mc.player != null) {
          float yawDelta = Float.isFinite(this.state.yawVel * dt) ? this.state.yawVel * dt : 0.0F;
          float pitchDelta = Float.isFinite(this.state.pitchVel * dt) ? this.state.pitchVel * dt : 0.0F;
-         float yaw = mc.player.getYaw() + yawDelta;
-         float pitch = MathHelper.clamp(mc.player.getPitch() + pitchDelta, -90.0F, 90.0F);
+         float yaw = mc.player.getYRot() + yawDelta;
+         float pitch = Mth.clamp(mc.player.getXRot() + pitchDelta, -90.0F, 90.0F);
          RotationController.update(
             new Rotation(yaw, pitch), 9999.0F, 9999.0F, HWangle.Util.random(20.0F, 40.0F), HWangle.Util.random(15.0F, 40.0F), 2, 100, false
          );

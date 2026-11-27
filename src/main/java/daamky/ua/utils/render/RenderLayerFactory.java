@@ -1,27 +1,27 @@
 package daamky.ua.utils.render;
 
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderSetup;
-import net.minecraft.client.render.RenderSetup.Builder;
-import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.Nullable;
 import daamky.ua.mixin.accessor.MixinRenderType;
+import net.minecraft.client.renderer.rendertype.RenderSetup;
+import net.minecraft.client.renderer.rendertype.RenderSetup.RenderSetupBuilder;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.resources.Identifier;
 
 public final class RenderLayerFactory {
    private RenderLayerFactory() {
    }
 
-   public static RenderLayer create(String name, int expectedBufferSize, RenderPipeline pipeline) {
+   public static RenderType create(String name, int expectedBufferSize, RenderPipeline pipeline) {
       return create(name, expectedBufferSize, pipeline, null);
    }
 
-   public static RenderLayer create(String name, int expectedBufferSize, RenderPipeline pipeline, @Nullable Identifier texture) {
-      Builder builder = RenderSetup.builder(pipeline).expectedBufferSize(expectedBufferSize);
+   public static RenderType create(String name, int expectedBufferSize, RenderPipeline pipeline, @Nullable Identifier texture) {
+      RenderSetupBuilder builder = RenderSetup.builder(pipeline).bufferSize(expectedBufferSize);
       if (texture != null) {
-         builder.texture("Sampler0", texture);
+         builder.withTexture("Sampler0", texture);
       }
 
-      return MixinRenderType.daamky$create(name, builder.build());
+      return MixinRenderType.daamky$create(name, builder.createRenderSetup());
    }
 }

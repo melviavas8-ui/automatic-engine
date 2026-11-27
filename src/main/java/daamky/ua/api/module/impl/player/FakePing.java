@@ -2,9 +2,9 @@ package daamky.ua.api.module.impl.player;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.c2s.common.CommonPongC2SPacket;
-import net.minecraft.network.packet.c2s.common.KeepAliveC2SPacket;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.common.ServerboundKeepAlivePacket;
+import net.minecraft.network.protocol.common.ServerboundPongPacket;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.PacketEvent;
 import daamky.ua.api.events.impl.TickEvent;
@@ -39,7 +39,7 @@ public final class FakePing extends Module {
    @SubscribeEvent
    private void onPacket(PacketEvent event) {
       if (event.isSend() && !this.releasing && mc.player != null) {
-         if (event.getPacket() instanceof KeepAliveC2SPacket || event.getPacket() instanceof CommonPongC2SPacket) {
+         if (event.getPacket() instanceof ServerboundKeepAlivePacket || event.getPacket() instanceof ServerboundPongPacket) {
             this.queuePacket(event.getPacket());
             event.cancel();
          }
@@ -48,7 +48,7 @@ public final class FakePing extends Module {
 
    @SubscribeEvent
    private void onTick(TickEvent.Pre event) {
-      if (mc.player != null && mc.getNetworkHandler() != null) {
+      if (mc.player != null && mc.getConnection() != null) {
          long now = System.currentTimeMillis();
 
          while (!this.pendingKeepAlives.isEmpty() && this.pendingKeepAlives.peekFirst().sendAtMs() <= now) {
@@ -65,7 +65,7 @@ public final class FakePing extends Module {
    }
 
    private void flushPendingKeepAlives() {
-      if (mc.getNetworkHandler() != null) {
+      if (mc.getConnection() != null) {
          while (!this.pendingKeepAlives.isEmpty()) {
             this.sendQueuedPacket(this.pendingKeepAlives.removeFirst().packet());
          }
@@ -76,7 +76,7 @@ public final class FakePing extends Module {
       this.releasing = true;
 
       try {
-         mc.getNetworkHandler().sendPacket(packet);
+         mc.getConnection().send(packet);
       } finally {
          this.releasing = false;
       }

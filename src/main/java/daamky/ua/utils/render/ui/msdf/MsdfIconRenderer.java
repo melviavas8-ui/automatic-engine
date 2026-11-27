@@ -7,11 +7,12 @@ import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import com.mojang.blaze3d.vertex.VertexFormatElement;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -21,16 +22,15 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Map.Entry;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.ScreenRect;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.gui.render.TextureSetup;
 import net.minecraft.client.gui.render.state.GuiRenderState;
-import net.minecraft.client.texture.AbstractTexture;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.client.texture.TextureSetup;
-import net.minecraft.resource.Resource;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.renderer.texture.AbstractTexture;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.resources.Resource;
 import org.joml.Matrix3x2f;
 import daamky.ua.access.GuiRenderStateLayerAccessor;
 import daamky.ua.mixin.accessor.GuiGraphicsExtractorAccessor;
@@ -52,7 +52,7 @@ public final class MsdfIconRenderer implements AutoCloseable {
       .withLocation(id("pipeline/msdf_icon"))
       .withVertexShader(id("ui/msdf_icon/msdf_icon"))
       .withFragmentShader(id("ui/msdf_icon/msdf_icon"))
-      .withVertexFormat(MSDF_ICON_VERTEX_FORMAT, DrawMode.QUADS)
+      .withVertexFormat(MSDF_ICON_VERTEX_FORMAT, Mode.QUADS)
       .withBlend(BlendFunction.TRANSLUCENT)
       .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
       .withCull(false)
@@ -68,7 +68,7 @@ public final class MsdfIconRenderer implements AutoCloseable {
          return this.size() > 512;
       }
    };
-   private DrawContext activeGraphics;
+   private GuiGraphics activeGraphics;
 
    private MsdfIconRenderer() {
    }
@@ -96,7 +96,7 @@ public final class MsdfIconRenderer implements AutoCloseable {
       }
    }
 
-   public void beginFrame(DrawContext graphics) {
+   public void beginFrame(GuiGraphics graphics) {
       if (this.activeGraphics != graphics) {
          this.frameBatches.clear();
       }
@@ -142,7 +142,7 @@ public final class MsdfIconRenderer implements AutoCloseable {
                GuiRenderState guiState = ((GuiGraphicsExtractorAccessor)this.activeGraphics).daamky$getGuiRenderState();
                int layerSerial = ((GuiRenderStateLayerAccessor)guiState).daamky$getLayerSerial();
                Matrix3x2f pose = Render2DCoordinateSpace.pose(this.activeGraphics);
-               ScreenRect scissorArea = ScissorUtil.current();
+               ScreenRectangle scissorArea = ScissorUtil.current();
                MsdfIconRenderer.FrameBatchKey key = new MsdfIconRenderer.FrameBatchKey(
                   guiState, layerSerial, MsdfIconRenderer.PoseKey.of(pose), scissorArea, setup
                );
@@ -150,7 +150,7 @@ public final class MsdfIconRenderer implements AutoCloseable {
                if (state == null) {
                   state = new MsdfIconRenderState(pose, setup, scissorArea, atlas.distanceRange());
                   this.frameBatches.put(key, state);
-                  guiState.addPreparedTextElement(state);
+                  guiState.submitGlyphToCurrentLayer(state);
                }
 
                float cursorX = x;
@@ -274,10 +274,10 @@ public final class MsdfIconRenderer implements AutoCloseable {
    private MsdfIconRenderer.Atlas load(FontType font) {
       Map<Integer, MsdfGlyph> glyphs = new HashMap<>();
       MsdfGlyph[] asciiGlyphs = new MsdfGlyph[128];
-      Identifier jsonId = Identifier.of("daamky", "ui/msdf/" + font.path() + ".json");
+      Identifier jsonId = Identifier.fromNamespaceAndPath("daamky", "ui/msdf/" + font.path() + ".json");
       InputStream source = GuiResourceLoader.open(jsonId);
       if (source == null) {
-         MinecraftClient minecraft = MinecraftClient.getInstance();
+         Minecraft minecraft = Minecraft.getInstance();
          if (minecraft == null || minecraft.getResourceManager() == null) {
             return new MsdfIconRenderer.Atlas(font.path(), glyphs, asciiGlyphs, null, null, 96.0F, 8.0F);
          }
@@ -288,7 +288,7 @@ public final class MsdfIconRenderer implements AutoCloseable {
          }
 
          try {
-            source = resource.get().getInputStream();
+            source = resource.get().open();
          } catch (Exception var34) {
             return new MsdfIconRenderer.Atlas(font.path(), glyphs, asciiGlyphs, null, null, 96.0F, 8.0F);
          }
@@ -375,18 +375,18 @@ public final class MsdfIconRenderer implements AutoCloseable {
       if (atlas.textureSetup() != null) {
          return atlas.textureSetup();
       } else {
-         MinecraftClient minecraft = MinecraftClient.getInstance();
+         Minecraft minecraft = Minecraft.getInstance();
          if (minecraft != null && minecraft.getTextureManager() != null) {
-            Identifier textureId = Identifier.of("daamky", "ui/msdf/" + font.path() + ".png");
-            NativeImageBackedTexture classpathTexture = GuiResourceLoader.loadTexture(textureId, "daamky_msdf_");
-            if (classpathTexture != null && classpathTexture.getGlTextureView() != null) {
-               TextureSetup setup = TextureSetup.of(classpathTexture.getGlTextureView(), RenderSystem.getSamplerCache().get(FilterMode.LINEAR));
+            Identifier textureId = Identifier.fromNamespaceAndPath("daamky", "ui/msdf/" + font.path() + ".png");
+            DynamicTexture classpathTexture = GuiResourceLoader.loadTexture(textureId, "daamky_msdf_");
+            if (classpathTexture != null && classpathTexture.getTextureView() != null) {
+               TextureSetup setup = TextureSetup.singleTexture(classpathTexture.getTextureView(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
                this.atlases.put(font.fontName(), atlas.withTextureSetup(setup, classpathTexture));
                return setup;
             } else {
                AbstractTexture texture = minecraft.getTextureManager().getTexture(textureId);
-               if (texture != null && texture.getGlTextureView() != null) {
-                  TextureSetup setup = TextureSetup.of(texture.getGlTextureView(), RenderSystem.getSamplerCache().get(FilterMode.LINEAR));
+               if (texture != null && texture.getTextureView() != null) {
+                  TextureSetup setup = TextureSetup.singleTexture(texture.getTextureView(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
                   this.atlases.put(font.fontName(), atlas.withTextureSetup(setup, null));
                   return setup;
                } else {
@@ -430,7 +430,7 @@ public final class MsdfIconRenderer implements AutoCloseable {
    }
 
    private static Identifier id(String path) {
-      return Identifier.of("daamky", path);
+      return Identifier.fromNamespaceAndPath("daamky", path);
    }
 
    @Override
@@ -452,7 +452,7 @@ public final class MsdfIconRenderer implements AutoCloseable {
       Map<Integer, MsdfGlyph> glyphs,
       MsdfGlyph[] asciiGlyphs,
       TextureSetup textureSetup,
-      NativeImageBackedTexture texture,
+      DynamicTexture texture,
       float fontSize,
       float distanceRange
    ) {
@@ -460,12 +460,12 @@ public final class MsdfIconRenderer implements AutoCloseable {
          return !this.glyphs.isEmpty();
       }
 
-      private MsdfIconRenderer.Atlas withTextureSetup(TextureSetup setup, NativeImageBackedTexture texture) {
+      private MsdfIconRenderer.Atlas withTextureSetup(TextureSetup setup, DynamicTexture texture) {
          return new MsdfIconRenderer.Atlas(this.path, this.glyphs, this.asciiGlyphs, setup, texture, this.fontSize, this.distanceRange);
       }
    }
 
-   private static record FrameBatchKey(GuiRenderState state, int layerSerial, MsdfIconRenderer.PoseKey pose, ScreenRect scissorArea, TextureSetup textureSetup) {
+   private static record FrameBatchKey(GuiRenderState state, int layerSerial, MsdfIconRenderer.PoseKey pose, ScreenRectangle scissorArea, TextureSetup textureSetup) {
    }
 
    private static record PoseKey(float m00, float m01, float m10, float m11, float m20, float m21) {

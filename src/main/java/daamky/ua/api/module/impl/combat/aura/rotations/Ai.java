@@ -2,10 +2,10 @@ package daamky.ua.api.module.impl.combat.aura.rotations;
 
 import java.security.SecureRandom;
 import java.util.concurrent.atomic.AtomicLong;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.module.impl.combat.AuraModule;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.api.module.impl.combat.aura.MathAngle;
@@ -20,7 +20,7 @@ public class Ai extends RotateConstructor {
    }
 
    @Override
-   public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3d vec3d, Entity entity) {
+   public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3 vec3d, Entity entity) {
       Angle angleDelta = MathAngle.calculateDelta(currentAngle, targetAngle);
       float yawDelta = angleDelta.getYaw();
       float pitchDelta = angleDelta.getPitch();
@@ -37,7 +37,7 @@ public class Ai extends RotateConstructor {
          float yaw = (float)(55.0 * Math.sin((double)((float)System.currentTimeMillis() / 35.0F)));
          Angle moveAngle = new Angle(currentAngle.getYaw(), currentAngle.getPitch());
          moveAngle.setYaw(currentAngle.getYaw() + yaw);
-         moveAngle.setPitch(MathHelper.clamp(currentAngle.getPitch() + pitch, -90.0F, 90.0F));
+         moveAngle.setPitch(Mth.clamp(currentAngle.getPitch() + pitch, -90.0F, 90.0F));
          return moveAngle;
       } else {
          this.время.set(0L);
@@ -58,16 +58,16 @@ public class Ai extends RotateConstructor {
 
          float lineYaw = Math.abs(yawDelta / rotationDifference) * 180.0F;
          float linePitch = Math.abs(pitchDelta) * 180.0F;
-         float moveYaw = MathHelper.clamp(yawDelta, -lineYaw, lineYaw);
-         float movePitch = MathHelper.clamp(pitchDelta, -linePitch, linePitch);
+         float moveYaw = Mth.clamp(yawDelta, -lineYaw, lineYaw);
+         float movePitch = Mth.clamp(pitchDelta, -linePitch, linePitch);
          float targetYaw = currentAngle.getYaw() + moveYaw;
          Angle moveAngle = new Angle(currentAngle.getYaw(), currentAngle.getPitch());
-         moveAngle.setYaw(MathHelper.lerp(Math.clamp(this.randomLerp(скорост, скорост + 0.2F), 0.0F, 1.0F), currentAngle.getYaw(), targetYaw) + yaw);
-         float calculatedPitch = MathHelper.lerp(
+         moveAngle.setYaw(Mth.lerp(Math.clamp(this.randomLerp(скорост, скорост + 0.2F), 0.0F, 1.0F), currentAngle.getYaw(), targetYaw) + yaw);
+         float calculatedPitch = Mth.lerp(
                Math.clamp(this.randomLerp(скорост, скорост + 0.2F), 0.0F, 1.0F), currentAngle.getPitch(), currentAngle.getPitch() + movePitch
             )
             + pitch;
-         float clampedPitch = MathHelper.clamp(calculatedPitch, -90.0F, 90.0F);
+         float clampedPitch = Mth.clamp(calculatedPitch, -90.0F, 90.0F);
          if (aura.isEnabled() && AuraModule.target != null) {
             this.smoothbackShakeStartMs = -1L;
          } else {
@@ -87,7 +87,7 @@ public class Ai extends RotateConstructor {
 
    private boolean lolikbypass(int ticks) {
       AuraModule aura = AuraModule.getInstance();
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (aura != null && AuraModule.target != null && client.player != null) {
          return client.player.distanceTo(AuraModule.target) > aura.attackDistance() ? false : aura.canAttack(ticks);
       } else {
@@ -96,11 +96,11 @@ public class Ai extends RotateConstructor {
    }
 
    private float randomLerp(float min, float max) {
-      return MathHelper.lerp(new SecureRandom().nextFloat(), min, max);
+      return Mth.lerp(new SecureRandom().nextFloat(), min, max);
    }
 
    @Override
-   public Vec3d randomValue() {
-      return new Vec3d(0.0, 0.0, 0.0);
+   public Vec3 randomValue() {
+      return new Vec3(0.0, 0.0, 0.0);
    }
 }

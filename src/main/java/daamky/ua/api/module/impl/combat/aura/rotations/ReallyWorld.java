@@ -1,17 +1,17 @@
 package daamky.ua.api.module.impl.combat.aura.rotations;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.module.impl.combat.AuraModule;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.api.module.impl.combat.aura.MathAngle;
 import daamky.ua.api.module.impl.combat.aura.impl.RotateConstructor;
 import daamky.ua.api.module.impl.combat.aura.util.MathUtils;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 public final class ReallyWorld extends RotateConstructor {
-   private static final MinecraftClient mc = MinecraftClient.getInstance();
+   private static final Minecraft mc = Minecraft.getInstance();
    private float animatedYawStep;
    private float animatedPitchStep;
    private float animProgress = 1.0F;
@@ -25,7 +25,7 @@ public final class ReallyWorld extends RotateConstructor {
    }
 
    @Override
-   public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3d vec3d, Entity entity) {
+   public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3 vec3d, Entity entity) {
       AuraModule aura = AuraModule.getInstance();
       Angle angleDelta = MathAngle.calculateDelta(currentAngle, targetAngle);
       float yawDelta = angleDelta.getYaw();
@@ -37,7 +37,7 @@ public final class ReallyWorld extends RotateConstructor {
          float straightLineYaw = Math.abs(yawDelta / rotationDifference) * 360.0F;
          float straightLinePitch = Math.abs(pitchDelta / rotationDifference) * 360.0F;
          float fyaw = currentAngle.getYaw() + Math.clamp(yawDelta, -straightLineYaw, straightLineYaw);
-         float fpitch = MathHelper.clamp(currentAngle.getPitch() + Math.clamp(pitchDelta, -straightLinePitch, straightLinePitch), -89.0F, 89.0F);
+         float fpitch = Mth.clamp(currentAngle.getPitch() + Math.clamp(pitchDelta, -straightLinePitch, straightLinePitch), -89.0F, 89.0F);
          return this.animate(currentAngle, fyaw + yawJit, fpitch + pitchJit, MathUtils.getRandom(15.0F, 16.0F));
       } else {
          return this.limitPlain(currentAngle, yawDelta, pitchDelta, rotationDifference);
@@ -48,7 +48,7 @@ public final class ReallyWorld extends RotateConstructor {
       float straightLineYaw = Math.abs(yawDelta / rotationDifference) * 360.0F;
       float straightLinePitch = Math.abs(pitchDelta / rotationDifference) * 360.0F;
       float yaw = currentAngle.getYaw() + Math.clamp(yawDelta, -straightLineYaw, straightLineYaw);
-      float pitch = MathHelper.clamp(currentAngle.getPitch() + Math.clamp(pitchDelta, -straightLinePitch, straightLinePitch), -89.0F, 89.0F);
+      float pitch = Mth.clamp(currentAngle.getPitch() + Math.clamp(pitchDelta, -straightLinePitch, straightLinePitch), -89.0F, 89.0F);
       this.animProgress = 1.0F;
       this.lastTargetYaw = yaw;
       this.lastTargetPitch = pitch;
@@ -56,7 +56,7 @@ public final class ReallyWorld extends RotateConstructor {
    }
 
    private Angle animate(Angle from, float targetYaw, float targetPitch, float speed) {
-      float targetChangedYaw = Math.abs(MathHelper.wrapDegrees(targetYaw - this.lastTargetYaw));
+      float targetChangedYaw = Math.abs(Mth.wrapDegrees(targetYaw - this.lastTargetYaw));
       float targetChangedPitch = Math.abs(targetPitch - this.lastTargetPitch);
       if (this.animProgress >= 1.0F || targetChangedYaw > 6.0F || targetChangedPitch > 6.0F) {
          this.startYaw = from.getYaw();
@@ -66,12 +66,12 @@ public final class ReallyWorld extends RotateConstructor {
          this.animProgress = 0.0F;
       }
 
-      this.animProgress = MathHelper.clamp(this.animProgress + speed, 0.0F, 1.0F);
+      this.animProgress = Mth.clamp(this.animProgress + speed, 0.0F, 1.0F);
       float eased = this.easeOutBack(this.animProgress);
-      float yawDelta = MathHelper.wrapDegrees(this.lastTargetYaw - this.startYaw);
+      float yawDelta = Mth.wrapDegrees(this.lastTargetYaw - this.startYaw);
       float pitchDelta = this.lastTargetPitch - this.startPitch;
       float yaw = this.startYaw + yawDelta * eased;
-      float pitch = MathHelper.clamp(this.startPitch + pitchDelta * eased, -89.0F, 89.0F);
+      float pitch = Mth.clamp(this.startPitch + pitchDelta * eased, -89.0F, 89.0F);
       return new Angle(yaw, pitch);
    }
 
@@ -82,7 +82,7 @@ public final class ReallyWorld extends RotateConstructor {
    }
 
    @Override
-   public Vec3d randomValue() {
-      return new Vec3d(0.2F, 0.0, 5.0);
+   public Vec3 randomValue() {
+      return new Vec3(0.2F, 0.0, 5.0);
    }
 }

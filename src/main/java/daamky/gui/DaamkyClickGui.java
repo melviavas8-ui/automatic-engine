@@ -17,18 +17,17 @@ import daamky.render.Icons;
 import daamky.render.MsdfText;
 import daamky.render.SdfRect;
 import daamky.render.Txt;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
 import org.joml.Matrix3x2f;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.input.CharInput;
-import net.minecraft.client.input.KeyInput;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.Component;
 
 
 
@@ -102,7 +101,7 @@ public class DaamkyClickGui extends Screen {
 
     private float curOx, curOy, curS = 1f;
     private Matrix3x2f m = new Matrix3x2f();
-    private DrawContext ctx;
+    private GuiGraphics ctx;
 
 
     private long lastNs;
@@ -111,9 +110,9 @@ public class DaamkyClickGui extends Screen {
     private static final int CAT_CONFIGS = 5;
     private boolean cfgFocus, dblClick;
 
-    public DaamkyClickGui() { super(Text.literal("Daamky")); }
+    public DaamkyClickGui() { super(Component.literal("Daamky")); }
 
-    @Override public boolean shouldPause() { return false; }
+    @Override public boolean isPauseScreen() { return false; }
 
 
     static float clamp01(float v) { return v < 0 ? 0 : Math.min(v, 1); }
@@ -215,7 +214,7 @@ public class DaamkyClickGui extends Screen {
     private void scissor(float x1, float y1, float x2, float y2) {
         int l = (int) Math.floor(curOx + x1 * curS), tp = (int) Math.floor(curOy + y1 * curS);
         int r = (int) Math.ceil(curOx + x2 * curS), bt = (int) Math.ceil(curOy + y2 * curS);
-        daamky.render.Gfx.scissor = new net.minecraft.client.gui.ScreenRect(l, tp, Math.max(0, r - l), Math.max(0, bt - tp));
+        daamky.render.Gfx.scissor = new net.minecraft.client.gui.navigation.ScreenRectangle(l, tp, Math.max(0, r - l), Math.max(0, bt - tp));
     }
 
     private void endScissor() { daamky.render.Gfx.scissor = null; }
@@ -270,21 +269,21 @@ public class DaamkyClickGui extends Screen {
 
 
     @Override
-    public void close() { closing = true; drag = null; dragSlider = null; }
+    public void onClose() { closing = true; drag = null; dragSlider = null; }
 
     @Override
     public void tick() {
         super.tick();
-        if (closing && openT <= 0f) super.close();
+        if (closing && openT <= 0f) super.onClose();
         else if (!closing && !GuiStyle.WINDOW.equals(GuiStyle.current())) {
             // The Type setting was switched to another style.
-            if (client != null) client.setScreen(GuiStyle.create());
+            if (minecraft != null) minecraft.setScreen(GuiStyle.create());
         }
     }
 
 
     @Override
-    public void render(DrawContext c, int mx, int my, float delta) {
+    public void render(GuiGraphics c, int mx, int my, float delta) {
         ctx = c;
         Modules.refreshFromTarget();
         daamky.render.Gfx.ctx = c;
@@ -308,7 +307,7 @@ public class DaamkyClickGui extends Screen {
 
         // Compensate for Minecraft GUI Scale so the menu has the same physical size for everyone.
         // REF_GUI_SCALE=2 → at GUI Scale 2 the design size is 1:1; at Scale 1 it enlarges in scaled units, etc.
-        float guiScale = (float) client.getWindow().getScaleFactor();
+        float guiScale = (float) minecraft.getWindow().getGuiScale();
         float fit = Math.min((height - 10f) / H, (width - 10f) / W);
         float base = Math.min(REF_GUI_SCALE / guiScale, fit);
         // Open animation; clamp final S so bounce overshoot never exceeds available space
@@ -320,7 +319,7 @@ public class DaamkyClickGui extends Screen {
         mly = (my - oy) / S;
         alpha = ga;
 
-        var ms = c.getMatrices();
+        var ms = c.pose();
         ms.pushMatrix();
         ms.translate(ox, oy);
         ms.scale(S, S);
@@ -392,7 +391,7 @@ public class DaamkyClickGui extends Screen {
         fill(8, cy - 9.5f, 19, 19, 9.5f, 0xFFDCDCDC);
         ico(Icons.POWER, 11.25f, cy - 6.25f, 12.5f, 0xFF15151A);
         tb("Выйти", 31, ty(cy, 10), 10, 0xFFE9E9E9);
-        hit(8, cy - 13, 118, 26, this::close, null);
+        hit(8, cy - 13, 118, 26, this::onClose, null);
     }
 
     private void drawTop() {
@@ -911,7 +910,7 @@ public class DaamkyClickGui extends Screen {
     private float cx, cy;
 
     @Override
-    public boolean mouseClicked(Click click, boolean dbl) {
+    public boolean mouseClicked(MouseButtonEvent click, boolean dbl) {
         double mx = click.x(), my = click.y(); int button = click.button();
         if (closing) return true;
         if (bindingSetting != null) {
@@ -943,7 +942,7 @@ public class DaamkyClickGui extends Screen {
     }
 
     @Override
-    public boolean mouseDragged(Click click, double dx, double dy) {
+    public boolean mouseDragged(MouseButtonEvent click, double dx, double dy) {
         double mx = click.x(), my = click.y();
         if (dragSlider != null) {
             float lx = (float) ((mx - ox) / S);
@@ -959,7 +958,7 @@ public class DaamkyClickGui extends Screen {
     }
 
     @Override
-    public boolean mouseReleased(Click click) {
+    public boolean mouseReleased(MouseButtonEvent click) {
         drag = null;
         dragSlider = null;
         return super.mouseReleased(click);
@@ -980,8 +979,8 @@ public class DaamkyClickGui extends Screen {
     }
 
     @Override
-    public boolean charTyped(CharInput input) {
-        String chr = input.asString();
+    public boolean charTyped(CharacterEvent input) {
+        String chr = input.codepointAsString();
         if ((editingText != null || editingColor != null) && !chr.isEmpty() && chr.codePointAt(0) >= 32) {
             if (editBuffer.length() < 160) editBuffer += chr;
             applyEditBuffer();
@@ -1022,12 +1021,12 @@ public class DaamkyClickGui extends Screen {
     }
 
     private static String keyLabel(int key) {
-        try { return net.minecraft.client.util.InputUtil.Type.KEYSYM.createFromCode(key).getLocalizedText().getString(); }
+        try { return com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM.getOrCreate(key).getDisplayName().getString(); }
         catch (Exception e) { return "?"; }
     }
 
     @Override
-    public boolean keyPressed(KeyInput input) {
+    public boolean keyPressed(KeyEvent input) {
         int keyCode = input.key();
         if (bindingSetting != null) {
             bindingSetting.set((keyCode == 256 || keyCode == 259 || keyCode == 261)

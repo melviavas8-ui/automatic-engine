@@ -1,22 +1,22 @@
 package daamky.ua.newmenu.mainmenu;
 
+import com.mojang.blaze3d.opengl.GlTexture;
+import com.mojang.blaze3d.platform.NativeImage;
 import daamky.ua.newmenu.render.Render2D;
 import daamky.ua.newmenu.render.util.RenderColor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.resources.Identifier;
 import java.io.InputStream;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.texture.GlTexture;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.util.Identifier;
 
 public final class MenuBackgroundRenderer {
-    private static final Identifier BACKGROUND = Identifier.of("daamkymenu", "mainmenu/night_village.png");
-    private static final Identifier BACKGROUND_BLUR = Identifier.of("daamkymenu", "mainmenu/night_village_blur.png");
+    private static final Identifier BACKGROUND = Identifier.fromNamespaceAndPath("daamkymenu", "mainmenu/night_village.png");
+    private static final Identifier BACKGROUND_BLUR = Identifier.fromNamespaceAndPath("daamkymenu", "mainmenu/night_village_blur.png");
     private static final int PARTICLE_COUNT = 36;
     private static final MenuBackgroundRenderer INSTANCE = new MenuBackgroundRenderer();
     private final List<Particle> particles = new ArrayList<>();
@@ -24,8 +24,8 @@ public final class MenuBackgroundRenderer {
     private long lastTime = System.currentTimeMillis();
     private float globalTime = 0.0F;
 
-    private NativeImageBackedTexture bgTexture = null;
-    private NativeImageBackedTexture blurredBgTexture = null;
+    private DynamicTexture bgTexture = null;
+    private DynamicTexture blurredBgTexture = null;
     private int bgGlId = 0;
     private int blurredBgGlId = 0;
     private boolean loadAttempted = false;
@@ -42,7 +42,7 @@ public final class MenuBackgroundRenderer {
         try {
             InputStream stream = MenuBackgroundRenderer.class.getResourceAsStream(classpath);
             if (stream == null) {
-                MinecraftClient mc = MinecraftClient.getInstance();
+                Minecraft mc = Minecraft.getInstance();
                 if (mc != null && mc.getResourceManager() != null) {
                     try {
                         stream = mc.getResourceManager().open(id);
@@ -52,17 +52,17 @@ public final class MenuBackgroundRenderer {
             if (stream != null) {
                 try (InputStream in = stream) {
                     NativeImage img = NativeImage.read(in);
-                    NativeImageBackedTexture texture = new NativeImageBackedTexture(
+                    DynamicTexture texture = new DynamicTexture(
                             () -> blurred ? "daamky_menu_bg_blurred" : "daamky_menu_bg", img);
                     texture.upload();
-                    MinecraftClient mc = MinecraftClient.getInstance();
+                    Minecraft mc = Minecraft.getInstance();
                     if (mc != null && mc.getTextureManager() != null) {
-                        mc.getTextureManager().registerTexture(id, texture);
+                        mc.getTextureManager().register(id, texture);
                     }
-                    if (texture.getGlTexture() instanceof GlTexture glTexture) {
+                    if (texture.getTexture() instanceof GlTexture glTexture) {
                         if (blurred) blurredBgTexture = texture;
                         else bgTexture = texture;
-                        return glTexture.getGlId();
+                        return glTexture.glId();
                     }
                 }
             }
@@ -119,7 +119,7 @@ public final class MenuBackgroundRenderer {
         return INSTANCE;
     }
 
-    public void render(DrawContext context, int screenWidth, int screenHeight, float alpha) {
+    public void render(GuiGraphics context, int screenWidth, int screenHeight, float alpha) {
         if (alpha <= 0.001F) return;
 
         long now = System.currentTimeMillis();
@@ -163,7 +163,7 @@ public final class MenuBackgroundRenderer {
             Render2D.drawRoundTexture(context, bgGlId, drawX, drawY, drawW, drawH, 0.0F, baseTint);
         } else {
             try {
-                context.drawTexture(RenderPipelines.GUI_TEXTURED, BACKGROUND, Math.round(drawX), Math.round(drawY), 0.0F, 0.0F, Math.round(drawW), Math.round(drawH), Math.round(drawW), Math.round(drawH));
+                context.blit(RenderPipelines.GUI_TEXTURED, BACKGROUND, Math.round(drawX), Math.round(drawY), 0.0F, 0.0F, Math.round(drawW), Math.round(drawH), Math.round(drawW), Math.round(drawH));
             } catch (Throwable ignored) {}
         }
 
@@ -199,12 +199,12 @@ public final class MenuBackgroundRenderer {
 
         // Temporary note: only appears when the video does not start, so the reason is visible on screen
         if (video.needsAttention()) {
-            MinecraftClient mc = MinecraftClient.getInstance();
-            if (mc != null && mc.textRenderer != null) {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc != null && mc.font != null) {
                 String text = "Daamky видео: " + video.status();
                 int maxChars = Math.max(20, screenWidth / 6);
                 if (text.length() > maxChars) text = text.substring(0, maxChars);
-                context.drawTextWithShadow(mc.textRenderer, text, 6, screenHeight - 12, 0xFFFF8A8A);
+                context.drawString(mc.font, text, 6, screenHeight - 12, 0xFFFF8A8A);
             }
         }
 

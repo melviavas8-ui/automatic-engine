@@ -5,22 +5,22 @@ import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderSetup;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.render.model.BakedQuad;
-import net.minecraft.client.texture.SpriteAtlasTexture;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.renderer.rendertype.RenderSetup;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.resources.Identifier;
 import org.lwjgl.system.MemoryUtil;
 import daamky.ua.mixin.accessor.MixinRenderType;
 
@@ -32,8 +32,8 @@ public final class ShaderHandMaterialRenderer {
    private static final Identifier ARM_VERTEX_SHADER = id("effects/shader_hand/material_arm");
    private static final Identifier ARM_FRAGMENT_SHADER = id("effects/shader_hand/material_arm");
    private static final int UNIFORM_BYTES = 16;
-   private static final Map<Identifier, RenderLayer> ITEM_LAYERS = new HashMap<>();
-   private static final Map<Identifier, RenderLayer> ARM_LAYERS = new HashMap<>();
+   private static final Map<Identifier, RenderType> ITEM_LAYERS = new HashMap<>();
+   private static final Map<Identifier, RenderType> ARM_LAYERS = new HashMap<>();
    private static boolean enabled;
    private static boolean disabledAfterError;
    private static int mode;
@@ -78,7 +78,7 @@ public final class ShaderHandMaterialRenderer {
       }
    }
 
-   public static void beginSubmission(AbstractClientPlayerEntity player) {
+   public static void beginSubmission(AbstractClientPlayer player) {
       if (enabled && !disabledAfterError && player != null) {
          if (itemPipeline == null || armPipeline == null || uniformBuffer == null) {
             beginFrame();
@@ -105,13 +105,13 @@ public final class ShaderHandMaterialRenderer {
       return enabled && !disabledAfterError && submissionDepth > 0;
    }
 
-   public static RenderLayer itemLayer(RenderLayer original, List<BakedQuad> quads) {
+   public static RenderType itemLayer(RenderType original, List<BakedQuad> quads) {
       if (isSubmittingMaterial() && itemPipeline != null) {
-         Identifier atlas = SpriteAtlasTexture.ITEMS_ATLAS_TEXTURE;
+         Identifier atlas = TextureAtlas.LOCATION_ITEMS;
          if (quads != null) {
             for (BakedQuad quad : quads) {
-               if (quad != null && quad.sprite() != null && quad.sprite().getAtlasId() != null) {
-                  atlas = quad.sprite().getAtlasId();
+               if (quad != null && quad.sprite() != null && quad.sprite().atlasLocation() != null) {
+                  atlas = quad.sprite().atlasLocation();
                   break;
                }
             }
@@ -123,7 +123,7 @@ public final class ShaderHandMaterialRenderer {
       }
    }
 
-   public static RenderLayer armLayer(RenderLayer original) {
+   public static RenderType armLayer(RenderType original) {
       return isSubmittingMaterial() && armPipeline != null && activeSkin != null
          ? ARM_LAYERS.computeIfAbsent(activeSkin, ShaderHandMaterialRenderer::createArmLayer)
          : original;
@@ -145,7 +145,7 @@ public final class ShaderHandMaterialRenderer {
             .withLocation(ITEM_PIPELINE_ID)
             .withVertexShader(ITEM_VERTEX_SHADER)
             .withFragmentShader(ITEM_FRAGMENT_SHADER)
-            .withVertexFormat(VertexFormats.POSITION_COLOR_TEXTURE_LIGHT_NORMAL, DrawMode.QUADS)
+            .withVertexFormat(DefaultVertexFormat.BLOCK, Mode.QUADS)
             .withUniform("ShaderHandData", UniformType.UNIFORM_BUFFER)
             .withBlend(BlendFunction.TRANSLUCENT)
             .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
@@ -156,7 +156,7 @@ public final class ShaderHandMaterialRenderer {
             .withLocation(ARM_PIPELINE_ID)
             .withVertexShader(ARM_VERTEX_SHADER)
             .withFragmentShader(ARM_FRAGMENT_SHADER)
-            .withVertexFormat(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, DrawMode.QUADS)
+            .withVertexFormat(DefaultVertexFormat.NEW_ENTITY, Mode.QUADS)
             .withUniform("ShaderHandData", UniformType.UNIFORM_BUFFER)
             .withBlend(BlendFunction.TRANSLUCENT)
             .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
@@ -168,13 +168,13 @@ public final class ShaderHandMaterialRenderer {
       }
    }
 
-   private static RenderLayer createItemLayer(Identifier atlas) {
-      RenderSetup setup = RenderSetup.builder(itemPipeline).expectedBufferSize(1536).texture("Sampler0", atlas).useLightmap().build();
+   private static RenderType createItemLayer(Identifier atlas) {
+      RenderSetup setup = RenderSetup.builder(itemPipeline).bufferSize(1536).withTexture("Sampler0", atlas).useLightmap().createRenderSetup();
       return MixinRenderType.daamky$create("daamky_shader_hand_item", setup);
    }
 
-   private static RenderLayer createArmLayer(Identifier skin) {
-      RenderSetup setup = RenderSetup.builder(armPipeline).expectedBufferSize(1536).texture("Sampler0", skin).useLightmap().useOverlay().build();
+   private static RenderType createArmLayer(Identifier skin) {
+      RenderSetup setup = RenderSetup.builder(armPipeline).bufferSize(1536).withTexture("Sampler0", skin).useLightmap().useOverlay().createRenderSetup();
       return MixinRenderType.daamky$create("daamky_shader_hand_arm", setup);
    }
 
@@ -188,7 +188,7 @@ public final class ShaderHandMaterialRenderer {
    }
 
    private static Identifier id(String path) {
-      return Identifier.of("daamky", path);
+      return Identifier.fromNamespaceAndPath("daamky", path);
    }
 
    private static float clamp(float value, float min, float max) {

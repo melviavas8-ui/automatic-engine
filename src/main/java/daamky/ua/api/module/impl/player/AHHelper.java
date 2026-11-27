@@ -6,21 +6,21 @@ import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ingame.GenericContainerScreen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.util.InputUtil.Type;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Item.TooltipContext;
-import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.network.packet.s2c.play.ScreenHandlerSlotUpdateS2CPacket;
-import net.minecraft.screen.GenericContainerScreenHandler;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.ContainerScreen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
+import net.minecraft.util.Mth;
+import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item.TooltipContext;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import com.mojang.blaze3d.platform.InputConstants.Type;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.HandledScreenEvent;
 import daamky.ua.api.events.impl.KeyEvent;
@@ -70,17 +70,17 @@ public final class AHHelper extends Module {
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
+   public void onTick(Minecraft client) {
       if (client.player != null
-         && client.interactionManager != null
-         && client.currentScreen instanceof GenericContainerScreen screen
+         && client.gameMode != null
+         && client.screen instanceof ContainerScreen screen
          && this.isAuctionScreen(screen)) {
          if (this.itemReListingSetting.getValue()) {
             this.handleStorageRelisting(screen);
          }
 
          long now = System.currentTimeMillis();
-         int syncId = ((GenericContainerScreenHandler)screen.getScreenHandler()).syncId;
+         int syncId = ((ChestMenu)screen.getMenu()).containerId;
          if (syncId != this.screenSyncId) {
             this.screenSyncId = syncId;
             this.dirty = true;
@@ -99,8 +99,8 @@ public final class AHHelper extends Module {
    @SubscribeEvent
    private void onPacket(PacketEvent event) {
       if (event.isReceive()
-         && event.getPacket() instanceof ScreenHandlerSlotUpdateS2CPacket
-         && mc.currentScreen instanceof GenericContainerScreen screen
+         && event.getPacket() instanceof ClientboundContainerSetSlotPacket
+         && mc.screen instanceof ContainerScreen screen
          && this.isAuctionScreen(screen)) {
          this.dirty = true;
       }
@@ -115,15 +115,15 @@ public final class AHHelper extends Module {
 
    @SubscribeEvent
    private void onHandledScreen(HandledScreenEvent event) {
-      if (mc.currentScreen instanceof GenericContainerScreen screen && this.isAuctionScreen(screen) && event.getGraphics() != null) {
+      if (mc.screen instanceof ContainerScreen screen && this.isAuctionScreen(screen) && event.getGraphics() != null) {
          int[] origin = this.resolveScreenOrigin(screen, event);
          int cheapest = this.pulsingColor(this.cheapestColor.getValue());
          int economic = this.pulsingColor(this.economicColor.getValue());
-         if (this.cheapestSlot != null && this.cheapestSlot.hasStack()) {
+         if (this.cheapestSlot != null && this.cheapestSlot.hasItem()) {
             this.drawSlotHighlight(event.getGraphics(), origin[0], origin[1], this.cheapestSlot, cheapest);
          }
 
-         if (this.bestPerItemSlot != null && this.bestPerItemSlot.hasStack()) {
+         if (this.bestPerItemSlot != null && this.bestPerItemSlot.hasItem()) {
             this.drawSlotHighlight(event.getGraphics(), origin[0], origin[1], this.bestPerItemSlot, economic);
          }
 
@@ -131,18 +131,18 @@ public final class AHHelper extends Module {
       }
    }
 
-   private void handleStorageRelisting(GenericContainerScreen screen) {
-      if (mc.interactionManager != null && mc.player != null) {
+   private void handleStorageRelisting(ContainerScreen screen) {
+      if (mc.gameMode != null && mc.player != null) {
          String title = screen.getTitle() == null ? "" : this.stripFormatting(screen.getTitle().getString()).toLowerCase(Locale.ROOT);
          if (title.contains("хранилище") || title.contains("storage")) {
             long now = System.currentTimeMillis();
             if (now - this.lastStorageClick >= 60100L) {
-               List<Slot> slots = ((GenericContainerScreenHandler)screen.getScreenHandler()).slots;
+               List<Slot> slots = ((ChestMenu)screen.getMenu()).slots;
                if (slots.size() > 52) {
                   Slot storageSlot = slots.get(52);
-                  if (storageSlot != null && storageSlot.hasStack()) {
-                     mc.interactionManager
-                        .clickSlot(((GenericContainerScreenHandler)screen.getScreenHandler()).syncId, 52, 0, SlotActionType.QUICK_MOVE, mc.player);
+                  if (storageSlot != null && storageSlot.hasItem()) {
+                     mc.gameMode
+                        .handleInventoryMouseClick(((ChestMenu)screen.getMenu()).containerId, 52, 0, ClickType.QUICK_MOVE, mc.player);
                      this.lastStorageClick = now;
                   }
                }
@@ -151,11 +151,11 @@ public final class AHHelper extends Module {
       }
    }
 
-   private void scanAuctionSlots(GenericContainerScreen screen) {
+   private void scanAuctionSlots(ContainerScreen screen) {
       if (mc.player == null) {
          this.resetState();
       } else {
-         List<Slot> slots = ((GenericContainerScreenHandler)screen.getScreenHandler()).slots;
+         List<Slot> slots = ((ChestMenu)screen.getMenu()).slots;
          int[] totalPrice = new int[slots.size()];
          int[] stackCount = new int[slots.size()];
          Slot minTotalSlot = null;
@@ -163,8 +163,8 @@ public final class AHHelper extends Module {
 
          for (int i = 0; i < slots.size(); i++) {
             Slot slot = slots.get(i);
-            ItemStack stack = slot.getStack();
-            if (!stack.isEmpty() && slot.inventory != mc.player.getInventory() && slot.y < 168) {
+            ItemStack stack = slot.getItem();
+            if (!stack.isEmpty() && slot.container != mc.player.getInventory() && slot.y < 168) {
                int price = this.extractPrice(stack);
                int count = Math.max(1, stack.getCount());
                totalPrice[i] = price;
@@ -209,17 +209,17 @@ public final class AHHelper extends Module {
    private int extractPrice(ItemStack stack) {
       try {
          int count = Math.max(1, stack.getCount());
-         TooltipContext context = mc.world == null ? TooltipContext.DEFAULT : TooltipContext.create(mc.world);
-         List<Text> tooltip = stack.getTooltip(context, mc.player, TooltipType.BASIC);
+         TooltipContext context = mc.level == null ? TooltipContext.EMPTY : TooltipContext.of(mc.level);
+         List<Component> tooltip = stack.getTooltipLines(context, mc.player, TooltipFlag.NORMAL);
          StringBuilder combined = new StringBuilder();
          if (tooltip != null && !tooltip.isEmpty()) {
-            for (Text line : tooltip) {
+            for (Component line : tooltip) {
                if (line != null) {
                   combined.append(this.stripFormatting(line.getString())).append(' ');
                }
             }
          } else {
-            combined.append(this.stripFormatting(stack.getName().getString()));
+            combined.append(this.stripFormatting(stack.getHoverName().getString()));
          }
 
          return this.parsePriceFromText(combined.toString(), count);
@@ -379,13 +379,13 @@ public final class AHHelper extends Module {
    private int pulsingColor(Color base) {
       long now = System.currentTimeMillis();
       float phase = (float)(now % 900L) / 900.0F;
-      float wave = 0.5F - 0.5F * MathHelper.cos((double)(phase * (float) (Math.PI * 2)));
-      float alphaMul = MathHelper.clamp(0.35F + 0.65F * wave, 0.0F, 1.0F);
-      int alpha = MathHelper.clamp((int)((float)Math.max(120, base.getAlpha()) * alphaMul), 40, 220);
+      float wave = 0.5F - 0.5F * Mth.cos((double)(phase * (float) (Math.PI * 2)));
+      float alphaMul = Mth.clamp(0.35F + 0.65F * wave, 0.0F, 1.0F);
+      int alpha = Mth.clamp((int)((float)Math.max(120, base.getAlpha()) * alphaMul), 40, 220);
       return alpha << 24 | base.getRed() << 16 | base.getGreen() << 8 | base.getBlue();
    }
 
-   private void drawSlotHighlight(DrawContext graphics, int originX, int originY, Slot slot, int color) {
+   private void drawSlotHighlight(GuiGraphics graphics, int originX, int originY, Slot slot, int color) {
       int x = originX + slot.x;
       int y = originY + slot.y;
       graphics.fill(x, y, x + 16, y + 16, color);
@@ -399,25 +399,25 @@ public final class AHHelper extends Module {
       graphics.fill(x + 15, y, x + 16, y + 16, borderColor);
    }
 
-   private boolean isAuctionScreen(GenericContainerScreen screen) {
+   private boolean isAuctionScreen(ContainerScreen screen) {
       if (mc.player != null && screen != null) {
          String title = this.stripFormatting(screen.getTitle().getString()).toLowerCase(Locale.ROOT);
          if (!title.contains("auction") && !title.contains("аукц") && !title.contains("ah")) {
             int checked = 0;
 
-            for (Slot slot : ((GenericContainerScreenHandler)screen.getScreenHandler()).slots) {
-               if (slot.inventory != mc.player.getInventory() && slot.hasStack()) {
+            for (Slot slot : ((ChestMenu)screen.getMenu()).slots) {
+               if (slot.container != mc.player.getInventory() && slot.hasItem()) {
                   if (checked++ >= 8) {
                      break;
                   }
 
                   try {
-                     TooltipContext context = mc.world == null ? TooltipContext.DEFAULT : TooltipContext.create(mc.world);
-                     List<Text> tooltip = slot.getStack().getTooltip(context, mc.player, TooltipType.BASIC);
+                     TooltipContext context = mc.level == null ? TooltipContext.EMPTY : TooltipContext.of(mc.level);
+                     List<Component> tooltip = slot.getItem().getTooltipLines(context, mc.player, TooltipFlag.NORMAL);
                      boolean hasPrice = false;
                      boolean hasSeller = false;
 
-                     for (Text line : tooltip) {
+                     for (Component line : tooltip) {
                         String text = this.stripFormatting(line.getString()).toLowerCase(Locale.ROOT);
                         if (this.looksLikePriceContext(text)) {
                            hasPrice = true;
@@ -445,14 +445,14 @@ public final class AHHelper extends Module {
       }
    }
 
-   private int[] resolveScreenOrigin(HandledScreen<?> screen, HandledScreenEvent event) {
+   private int[] resolveScreenOrigin(AbstractContainerScreen<?> screen, HandledScreenEvent event) {
       int fallbackX = (screen.width - event.getImageWidth()) / 2;
       int fallbackY = (screen.height - event.getImageHeight()) / 2;
 
       try {
          if (this.cachedLeftField == null || this.cachedTopField == null) {
-            this.cachedLeftField = HandledScreen.class.getDeclaredField("leftPos");
-            this.cachedTopField = HandledScreen.class.getDeclaredField("topPos");
+            this.cachedLeftField = AbstractContainerScreen.class.getDeclaredField("leftPos");
+            this.cachedTopField = AbstractContainerScreen.class.getDeclaredField("topPos");
             this.cachedLeftField.setAccessible(true);
             this.cachedTopField.setAccessible(true);
          }
@@ -465,7 +465,7 @@ public final class AHHelper extends Module {
 
    private String stripFormatting(String text) {
       if (text != null && !text.isEmpty()) {
-         String stripped = Formatting.strip(text);
+         String stripped = ChatFormatting.stripFormatting(text);
          return stripped == null ? text : stripped;
       } else {
          return "";
@@ -473,22 +473,22 @@ public final class AHHelper extends Module {
    }
 
    private void triggerSearchCommandFromHand() {
-      if (mc.player != null && mc.player.networkHandler != null) {
-         ItemStack hand = mc.player.getMainHandStack();
+      if (mc.player != null && mc.player.connection != null) {
+         ItemStack hand = mc.player.getMainHandItem();
          if (hand.isEmpty()) {
-            mc.player.sendMessage(Text.literal("AH Helper: no item in hand"), true);
+            mc.player.displayClientMessage(Component.literal("AH Helper: no item in hand"), true);
          } else {
-            String query = this.sanitizeAuctionQuery(hand.getName().getString());
+            String query = this.sanitizeAuctionQuery(hand.getHoverName().getString());
             if (query.isBlank()) {
-               query = this.stripFormatting(hand.getName().getString());
+               query = this.stripFormatting(hand.getHoverName().getString());
             }
 
             if (query != null && !query.isBlank()) {
-               mc.player.networkHandler.sendChatCommand("ah search " + query);
-               mc.player.sendMessage(Text.literal("AH Helper: /ah search " + query), true);
+               mc.player.connection.sendCommand("ah search " + query);
+               mc.player.displayClientMessage(Component.literal("AH Helper: /ah search " + query), true);
                this.dirty = true;
             } else {
-               mc.player.sendMessage(Text.literal("AH Helper: empty item name"), true);
+               mc.player.displayClientMessage(Component.literal("AH Helper: empty item name"), true);
             }
          }
       }

@@ -1,16 +1,16 @@
 package daamky.ua.api.drag.impl;
 
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
 import daamky.ua.utils.render.color.ColorUtil;
 import daamky.ua.utils.render.item.RenderItem;
 import daamky.ua.utils.render.item.RenderItemOptions;
 import daamky.ua.utils.render.ui.Render2D;
 import daamky.ua.utils.render.ui.font.FontType;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 public final class Inventory extends HudPanel {
    private static final ItemStack[] PREVIEW = new ItemStack[]{
-      Items.ENDER_PEARL.getDefaultStack(), Items.GOLDEN_APPLE.getDefaultStack(), Items.TOTEM_OF_UNDYING.getDefaultStack(), Items.SUGAR.getDefaultStack()
+      Items.ENDER_PEARL.getDefaultInstance(), Items.GOLDEN_APPLE.getDefaultInstance(), Items.TOTEM_OF_UNDYING.getDefaultInstance(), Items.SUGAR.getDefaultInstance()
    };
    private final ItemStack[] inventoryStacks = new ItemStack[27];
 
@@ -84,7 +84,7 @@ public final class Inventory extends HudPanel {
          boolean hasItems = false;
 
          for (int slot = 9; slot < 36; slot++) {
-            ItemStack stack = this.mc.player.getInventory().getStack(slot);
+            ItemStack stack = this.mc.player.getInventory().getItem(slot);
             ItemStack safeStack = stack == null ? ItemStack.EMPTY : stack;
             this.inventoryStacks[slot - 9] = safeStack;
             if (!safeStack.isEmpty()) {

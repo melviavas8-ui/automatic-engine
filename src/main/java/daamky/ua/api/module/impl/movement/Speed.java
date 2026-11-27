@@ -3,14 +3,14 @@ package daamky.ua.api.module.impl.movement;
 import java.util.Locale;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.decoration.ArmorStandEntity;
-import net.minecraft.network.packet.c2s.common.CommonPongC2SPacket;
-import net.minecraft.network.packet.s2c.play.PlayerPositionLookS2CPacket;
-import net.minecraft.util.PlayerInput;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.common.ServerboundPongPacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.player.Input;
 import daamky.ua.IMinecraft;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.InputEvent;
@@ -80,25 +80,25 @@ public final class Speed extends Module {
 
    @SubscribeEvent
    private void onMotion(PlayerTravelEvent event) {
-      MinecraftClient client = MinecraftClient.getInstance();
-      if (event.isPre() && client.player != null && client.world != null && MoveUtil.hasPlayerMovement()) {
+      Minecraft client = Minecraft.getInstance();
+      if (event.isPre() && client.player != null && client.level != null && MoveUtil.hasPlayerMovement()) {
          if (this.mode.is("Grim")) {
             this.handleGrimMode(client);
          }
       }
    }
 
-   private void handleGrimMode(MinecraftClient client) {
+   private void handleGrimMode(Minecraft client) {
       int collisions = 0;
 
-      for (Entity entity : client.world.getEntities()) {
-         if (this.isValidCollisionBoostEntity(client, entity) && client.player.getBoundingBox().expand(0.5).intersects(entity.getBoundingBox())) {
+      for (Entity entity : client.level.entitiesForRendering()) {
+         if (this.isValidCollisionBoostEntity(client, entity) && client.player.getBoundingBox().inflate(0.5).intersects(entity.getBoundingBox())) {
             collisions++;
          }
       }
 
       double[] motion = MoveUtil.forward(0.07 * (double)collisions);
-      client.player.addVelocity(motion[0], 0.0, motion[1]);
+      client.player.push(motion[0], 0.0, motion[1]);
    }
 
    @SubscribeEvent
@@ -106,8 +106,8 @@ public final class Speed extends Module {
       Speed.BoostCycle activeCycle = this.activeBoostCycle();
       this.stopInactiveBoostCycles(activeCycle);
       if (activeCycle != null) {
-         ClientPlayerEntity player = mc.player;
-         if (player != null && this.isMoving(player.input.playerInput)) {
+         LocalPlayer player = mc.player;
+         if (player != null && this.isMoving(player.input.keyPresses)) {
             activeCycle.update(System.nanoTime());
          } else {
             activeCycle.stop();
@@ -196,7 +196,7 @@ public final class Speed extends Module {
       this.spookyTimeCycle.stop();
    }
 
-   private boolean isMoving(PlayerInput input) {
+   private boolean isMoving(Input input) {
       return input.forward() || input.backward() || input.left() || input.right();
    }
 
@@ -245,15 +245,15 @@ public final class Speed extends Module {
       };
    }
 
-   private boolean isValidCollisionBoostEntity(MinecraftClient client, Entity entity) {
-      return entity != null && entity != client.player && !(entity instanceof ArmorStandEntity)
+   private boolean isValidCollisionBoostEntity(Minecraft client, Entity entity) {
+      return entity != null && entity != client.player && !(entity instanceof ArmorStand)
          ? entity instanceof LivingEntity || entity.getType().toString().toLowerCase(Locale.ROOT).contains("boat")
          : false;
    }
 
    private final class BoostCycle {
       private final Speed.BoostMode boostMode;
-      private final Queue<CommonPongC2SPacket> delayedTransactions = new ConcurrentLinkedQueue<>();
+      private final Queue<ServerboundPongPacket> delayedTransactions = new ConcurrentLinkedQueue<>();
       private Speed.BoostPhase phase = Speed.BoostPhase.CHARGING;
       private boolean active;
       private boolean airborne;
@@ -277,7 +277,7 @@ public final class Speed extends Module {
          }
       }
 
-      private void tick(ClientPlayerEntity player) {
+      private void tick(LocalPlayer player) {
          if (player != null && this.active && this.phase == Speed.BoostPhase.BOOSTING) {
             if (player.verticalCollision) {
                if (this.airborne) {
@@ -286,15 +286,15 @@ public final class Speed extends Module {
                }
             } else {
                this.airborne = true;
-               if (this.completedJumps >= Speed.this.fullBoostJumps(this.boostMode) && player.getVelocity().y <= 0.0) {
+               if (this.completedJumps >= Speed.this.fullBoostJumps(this.boostMode) && player.getDeltaMovement().y <= 0.0) {
                   this.beginCharging();
                }
             }
          }
       }
 
-      private void applyInput(ClientPlayerEntity player, InputEvent event) {
-         PlayerInput input = event.getInput();
+      private void applyInput(LocalPlayer player, InputEvent event) {
+         Input input = event.getInput();
          if (player != null && this.active && this.phase == Speed.BoostPhase.BOOSTING && Speed.this.isMoving(input)) {
             this.groundTicks = player.verticalCollision ? this.groundTicks + 1 : 0;
             event.setSprinting(true);
@@ -308,10 +308,10 @@ public final class Speed extends Module {
 
       private void handlePacket(PacketEvent event) {
          if (!this.releasingTransactions) {
-            if (event.isSend() && this.active && event.getPacket() instanceof CommonPongC2SPacket packet) {
+            if (event.isSend() && this.active && event.getPacket() instanceof ServerboundPongPacket packet) {
                this.delayedTransactions.add(packet);
                event.cancel();
-            } else if (event.isReceive() && this.active && event.getPacket() instanceof PlayerPositionLookS2CPacket) {
+            } else if (event.isReceive() && this.active && event.getPacket() instanceof ClientboundPlayerPositionPacket) {
                this.beginCharging();
             }
          }
@@ -353,13 +353,13 @@ public final class Speed extends Module {
       }
 
       private void flushTransactions() {
-         CommonPongC2SPacket packet;
+         ServerboundPongPacket packet;
          while ((packet = this.delayedTransactions.poll()) != null) {
-            if (IMinecraft.mc.getNetworkHandler() != null) {
+            if (IMinecraft.mc.getConnection() != null) {
                this.releasingTransactions = true;
 
                try {
-                  IMinecraft.mc.getNetworkHandler().sendPacket(packet);
+                  IMinecraft.mc.getConnection().send(packet);
                } finally {
                   this.releasingTransactions = false;
                }

@@ -1,45 +1,45 @@
 package daamky.ua.api.events.impl;
 
-import net.minecraft.util.PlayerInput;
 import daamky.ua.api.events.CancellableEvent;
+import net.minecraft.world.entity.player.Input;
 
 public class InputEvent extends CancellableEvent {
-   private PlayerInput input;
+   private Input input;
 
-   public InputEvent(PlayerInput input) {
+   public InputEvent(Input input) {
       this.input = input;
    }
 
-   public PlayerInput getInput() {
+   public Input getInput() {
       return this.input;
    }
 
-   public void setInput(PlayerInput input) {
+   public void setInput(Input input) {
       this.input = input;
    }
 
    public void setJumping(boolean jump) {
-      this.input = new PlayerInput(
-         this.input.forward(), this.input.backward(), this.input.left(), this.input.right(), jump, this.input.sneak(), this.input.sprint()
+      this.input = new Input(
+         this.input.forward(), this.input.backward(), this.input.left(), this.input.right(), jump, this.input.shift(), this.input.sprint()
       );
    }
 
    public void setSprinting(boolean sprint) {
-      this.input = new PlayerInput(
-         this.input.forward(), this.input.backward(), this.input.left(), this.input.right(), this.input.jump(), this.input.sneak(), sprint
+      this.input = new Input(
+         this.input.forward(), this.input.backward(), this.input.left(), this.input.right(), this.input.jump(), this.input.shift(), sprint
       );
    }
 
    public void setDirectional(boolean forward, boolean backward, boolean left, boolean right, boolean sneak, boolean sprint, boolean jump) {
-      this.input = new PlayerInput(forward, backward, left, right, jump, sneak, sprint);
+      this.input = new Input(forward, backward, left, right, jump, sneak, sprint);
    }
 
    public void setDirectionalLow(boolean forward, boolean backward, boolean left, boolean right) {
-      this.input = new PlayerInput(forward, backward, left, right, this.input.jump(), this.input.sneak(), this.input.sprint());
+      this.input = new Input(forward, backward, left, right, this.input.jump(), this.input.shift(), this.input.sprint());
    }
 
    public void inputNone() {
-      this.input = new PlayerInput(false, false, false, false, false, false, false);
+      this.input = new Input(false, false, false, false, false, false, false);
    }
 
    public int forward() {

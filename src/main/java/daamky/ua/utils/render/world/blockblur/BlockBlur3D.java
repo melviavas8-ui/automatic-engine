@@ -4,30 +4,30 @@ import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.GpuDevice;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.GpuSampler;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.textures.TextureFormat;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import com.mojang.blaze3d.vertex.VertexFormatElement;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
 import java.nio.ByteBuffer;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.GpuSampler;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gl.SimpleFramebuffer;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
@@ -35,7 +35,7 @@ import daamky.ua.utils.render.RenderSampler;
 import daamky.ua.utils.render.color.ColorUtil;
 
 public final class BlockBlur3D {
-   private static final MinecraftClient MC = MinecraftClient.getInstance();
+   private static final Minecraft MC = Minecraft.getInstance();
    private static final int MAX_VERTICES = 16384;
    private static final int VERTEX_STRIDE = 5;
    private static final int VERTEX_SIZE = 20;
@@ -48,8 +48,8 @@ public final class BlockBlur3D {
    private static final Matrix4f viewMatrix = new Matrix4f();
    private static final Matrix4f combinedMatrix = new Matrix4f();
    private static final Matrix4f identityMatrix = new Matrix4f();
-   private static final SimpleFramebuffer[] downTargets = new SimpleFramebuffer[5];
-   private static final SimpleFramebuffer[] upTargets = new SimpleFramebuffer[5];
+   private static final TextureTarget[] downTargets = new TextureTarget[5];
+   private static final TextureTarget[] upTargets = new TextureTarget[5];
    private static int vertexCount;
    private static RenderPipeline kawasePipeline;
    private static RenderPipeline compositePipeline;
@@ -79,7 +79,7 @@ public final class BlockBlur3D {
       }
    }
 
-   public static void box(Box box) {
+   public static void box(AABB box) {
       if (box != null) {
          float x1 = (float)box.minX;
          float y1 = (float)box.minY;
@@ -87,7 +87,7 @@ public final class BlockBlur3D {
          float x2 = (float)box.maxX;
          float y2 = (float)box.maxY;
          float z2 = (float)box.maxZ;
-         Vec3d cam = MC.gameRenderer.getCamera().getCameraPos();
+         Vec3 cam = MC.gameRenderer.getMainCamera().position();
          float rx1 = (float)((double)x1 - cam.x);
          float ry1 = (float)((double)y1 - cam.y);
          float rz1 = (float)((double)z1 - cam.z);
@@ -105,20 +105,20 @@ public final class BlockBlur3D {
 
    public static void end(float opacity, float blurRadius, int blurPasses) {
       if (!disabledAfterError && vertexCount != 0 && compositePipeline != null && kawasePipeline != null) {
-         Framebuffer framebuffer = MC.getFramebuffer();
+         RenderTarget framebuffer = MC.getMainRenderTarget();
          if (!isUsable(framebuffer)) {
             vertexCount = 0;
          } else {
             int passes = Math.clamp((long)blurPasses, 1, 5);
-            if (!ensureTargets(framebuffer.textureWidth, framebuffer.textureHeight, passes)) {
+            if (!ensureTargets(framebuffer.width, framebuffer.height, passes)) {
                vertexCount = 0;
             } else {
                try {
                   CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
                   encoder.copyTextureToTexture(
-                     framebuffer.getColorAttachment(), sceneTexture, 0, 0, 0, 0, 0, framebuffer.textureWidth, framebuffer.textureHeight
+                     framebuffer.getColorTexture(), sceneTexture, 0, 0, 0, 0, 0, framebuffer.width, framebuffer.height
                   );
-                  GpuTextureView blurred = renderBlurChain(sceneTextureView, framebuffer.textureWidth, framebuffer.textureHeight, passes, blurRadius);
+                  GpuTextureView blurred = renderBlurChain(sceneTextureView, framebuffer.width, framebuffer.height, passes, blurRadius);
                   renderComposite(framebuffer, blurred, Math.clamp(opacity, 0.0F, 1.0F));
                } catch (Throwable var10) {
                   disabledAfterError = true;
@@ -140,10 +140,10 @@ public final class BlockBlur3D {
             VertexFormat format = VertexFormat.builder().add("inPosition", VertexFormatElement.POSITION).add("inUV", VertexFormatElement.UV).build();
             kawasePipeline = RenderPipelines.register(
                RenderPipeline.builder(new Snippet[0])
-                  .withLocation(Identifier.of("daamky", "pipeline/world/block_blur/kawase"))
-                  .withVertexShader(Identifier.of("daamky", "effects/glass_hands/kawase"))
-                  .withFragmentShader(Identifier.of("daamky", "effects/glass_hands/kawase"))
-                  .withVertexFormat(VertexFormats.EMPTY, DrawMode.TRIANGLES)
+                  .withLocation(Identifier.fromNamespaceAndPath("daamky", "pipeline/world/block_blur/kawase"))
+                  .withVertexShader(Identifier.fromNamespaceAndPath("daamky", "effects/glass_hands/kawase"))
+                  .withFragmentShader(Identifier.fromNamespaceAndPath("daamky", "effects/glass_hands/kawase"))
+                  .withVertexFormat(DefaultVertexFormat.EMPTY, Mode.TRIANGLES)
                   .withUniform("KawaseData", UniformType.UNIFORM_BUFFER)
                   .withSampler("Sampler0")
                   .withBlend(BlendFunction.TRANSLUCENT)
@@ -154,10 +154,10 @@ public final class BlockBlur3D {
             );
             compositePipeline = RenderPipelines.register(
                RenderPipeline.builder(new Snippet[0])
-                  .withLocation(Identifier.of("daamky", "pipeline/world/block_blur/composite"))
-                  .withVertexShader(Identifier.of("daamky", "world/block_blur/block_blur"))
-                  .withFragmentShader(Identifier.of("daamky", "world/block_blur/block_blur"))
-                  .withVertexFormat(format, DrawMode.TRIANGLES)
+                  .withLocation(Identifier.fromNamespaceAndPath("daamky", "pipeline/world/block_blur/composite"))
+                  .withVertexShader(Identifier.fromNamespaceAndPath("daamky", "world/block_blur/block_blur"))
+                  .withFragmentShader(Identifier.fromNamespaceAndPath("daamky", "world/block_blur/block_blur"))
+                  .withVertexFormat(format, Mode.TRIANGLES)
                   .withUniform("Uniforms", UniformType.UNIFORM_BUFFER)
                   .withUniform("BlockBlurData", UniformType.UNIFORM_BUFFER)
                   .withSampler("BlurSampler")
@@ -206,11 +206,11 @@ public final class BlockBlur3D {
       }
    }
 
-   private static SimpleFramebuffer ensureTarget(SimpleFramebuffer target, String name, int width, int height) {
+   private static TextureTarget ensureTarget(TextureTarget target, String name, int width, int height) {
       if (target == null) {
-         return new SimpleFramebuffer(name, width, height, false);
+         return new TextureTarget(name, width, height, false);
       } else {
-         if (target.textureWidth != width || target.textureHeight != height) {
+         if (target.width != width || target.height != height) {
             target.resize(width, height);
          }
 
@@ -225,26 +225,26 @@ public final class BlockBlur3D {
       GpuSampler sampler = RenderSampler.linear();
 
       for (int i = 0; i < passes; i++) {
-         SimpleFramebuffer target = downTargets[i];
+         TextureTarget target = downTargets[i];
          renderKawasePass(currentSource, currentWidth, currentHeight, target, offset, sampler);
-         currentSource = target.getColorAttachmentView();
-         currentWidth = target.textureWidth;
-         currentHeight = target.textureHeight;
+         currentSource = target.getColorTextureView();
+         currentWidth = target.width;
+         currentHeight = target.height;
       }
 
       for (int i = passes - 2; i >= 0; i--) {
-         SimpleFramebuffer target = upTargets[i];
+         TextureTarget target = upTargets[i];
          renderKawasePass(currentSource, currentWidth, currentHeight, target, offset, sampler);
-         currentSource = target.getColorAttachmentView();
-         currentWidth = target.textureWidth;
-         currentHeight = target.textureHeight;
+         currentSource = target.getColorTextureView();
+         currentWidth = target.width;
+         currentHeight = target.height;
       }
 
       return currentSource;
    }
 
-   private static void renderKawasePass(GpuTextureView source, int sourceWidth, int sourceHeight, SimpleFramebuffer target, float offset, GpuSampler sampler) {
-      if (source != null && target != null && target.getColorAttachmentView() != null) {
+   private static void renderKawasePass(GpuTextureView source, int sourceWidth, int sourceHeight, TextureTarget target, float offset, GpuSampler sampler) {
+      if (source != null && target != null && target.getColorTextureView() != null) {
          CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
          MemoryStack stack = MemoryStack.stackPush();
 
@@ -256,7 +256,7 @@ public final class BlockBlur3D {
             data.position(0);
             encoder.writeToBuffer(blurUniformBuffer.slice(0L, 16L), data);
             RenderPass renderPass = encoder.createRenderPass(
-               () -> "daamky:block_blur_kawase", target.getColorAttachmentView(), OptionalInt.of(ColorUtil.TRANSPARENT)
+               () -> "daamky:block_blur_kawase", target.getColorTextureView(), OptionalInt.of(ColorUtil.TRANSPARENT)
             );
 
             try {
@@ -297,8 +297,8 @@ public final class BlockBlur3D {
       }
    }
 
-   private static void renderComposite(Framebuffer framebuffer, GpuTextureView blurred, float opacity) {
-      if (blurred != null && framebuffer.getColorAttachmentView() != null && framebuffer.getDepthAttachmentView() != null) {
+   private static void renderComposite(RenderTarget framebuffer, GpuTextureView blurred, float opacity) {
+      if (blurred != null && framebuffer.getColorTextureView() != null && framebuffer.getDepthTextureView() != null) {
          int count = Math.min(vertexCount, 16384);
          Matrix4f combined = combinedMatrix.set(projectionMatrix).mul(viewMatrix);
          ByteBuffer matrixData = MemoryUtil.memAlloc(128);
@@ -323,8 +323,8 @@ public final class BlockBlur3D {
 
             try {
                ByteBuffer data = stack.calloc(32);
-               data.putFloat(0, (float)framebuffer.textureWidth);
-               data.putFloat(4, (float)framebuffer.textureHeight);
+               data.putFloat(0, (float)framebuffer.width);
+               data.putFloat(4, (float)framebuffer.height);
                data.putFloat(8, opacity);
                data.putFloat(12, 0.0F);
                data.position(0);
@@ -347,9 +347,9 @@ public final class BlockBlur3D {
 
             RenderPass pass = encoder.createRenderPass(
                () -> "daamky:block_blur_composite",
-               framebuffer.getColorAttachmentView(),
+               framebuffer.getColorTextureView(),
                OptionalInt.empty(),
-               framebuffer.getDepthAttachmentView(),
+               framebuffer.getDepthTextureView(),
                OptionalDouble.empty()
             );
 
@@ -402,13 +402,13 @@ public final class BlockBlur3D {
       }
    }
 
-   private static boolean isUsable(Framebuffer framebuffer) {
+   private static boolean isUsable(RenderTarget framebuffer) {
       return framebuffer != null
-         && framebuffer.getColorAttachment() != null
-         && framebuffer.getColorAttachmentView() != null
-         && framebuffer.getDepthAttachmentView() != null
-         && framebuffer.textureWidth > 0
-         && framebuffer.textureHeight > 0;
+         && framebuffer.getColorTexture() != null
+         && framebuffer.getColorTextureView() != null
+         && framebuffer.getDepthTextureView() != null
+         && framebuffer.width > 0
+         && framebuffer.height > 0;
    }
 
    private static void closeTargets() {
@@ -425,12 +425,12 @@ public final class BlockBlur3D {
 
       for (int i = 0; i < 5; i++) {
          if (downTargets[i] != null) {
-            downTargets[i].delete();
+            downTargets[i].destroyBuffers();
             downTargets[i] = null;
          }
 
          if (upTargets[i] != null) {
-            upTargets[i].delete();
+            upTargets[i].destroyBuffers();
             upTargets[i] = null;
          }
       }

@@ -1,10 +1,5 @@
 package daamky.ua.mixin;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.screen.slot.Slot;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -17,18 +12,23 @@ import daamky.ua.api.events.impl.HandledScreenEvent;
 import daamky.ua.api.module.impl.player.AntiDrop;
 import daamky.ua.api.module.impl.visual.Animations;
 import daamky.ua.manager.Manager;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.world.inventory.Slot;
 
-@Mixin({HandledScreen.class})
+@Mixin({AbstractContainerScreen.class})
 public abstract class HandledScreenMixin {
    @Shadow
    @Final
-   protected int backgroundWidth;
+   protected int imageWidth;
    @Shadow
    @Final
-   protected int backgroundHeight;
+   protected int imageHeight;
    @Shadow
    @Nullable
-   protected Slot focusedSlot;
+   protected Slot hoveredSlot;
 
    public HandledScreenMixin() {
    }
@@ -38,8 +38,8 @@ public abstract class HandledScreenMixin {
       at = {@At("RETURN")},
       require = 0
    )
-   private void daamky$handledScreenRender(DrawContext graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-      Manager.postEvent(new HandledScreenEvent(graphics, this.focusedSlot, this.backgroundWidth, this.backgroundHeight));
+   private void daamky$handledScreenRender(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+      Manager.postEvent(new HandledScreenEvent(graphics, this.hoveredSlot, this.imageWidth, this.imageHeight));
    }
 
    @Inject(
@@ -47,24 +47,24 @@ public abstract class HandledScreenMixin {
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$preventProtectedItemDrop(KeyInput event, CallbackInfoReturnable<Boolean> cir) {
-      MinecraftClient minecraft = MinecraftClient.getInstance();
-      if (minecraft.options.dropKey.matchesKey(event)
-         && this.focusedSlot != null
-         && this.focusedSlot.hasStack()
-         && AntiDrop.shouldBlock(this.focusedSlot.getStack())) {
+   private void daamky$preventProtectedItemDrop(KeyEvent event, CallbackInfoReturnable<Boolean> cir) {
+      Minecraft minecraft = Minecraft.getInstance();
+      if (minecraft.options.keyDrop.matches(event)
+         && this.hoveredSlot != null
+         && this.hoveredSlot.hasItem()
+         && AntiDrop.shouldBlock(this.hoveredSlot.getItem())) {
          cir.setReturnValue(true);
       }
    }
 
    @Inject(
-      method = {"close"},
+      method = {"onClose"},
       at = {@At("HEAD")},
       cancellable = true,
       require = 0
    )
    private void daamky$animateContainerClose(CallbackInfo ci) {
-      if (Animations.deferScreenClose((HandledScreen)(Object)this)) {
+      if (Animations.deferScreenClose((AbstractContainerScreen)(Object)this)) {
          ci.cancel();
       }
    }

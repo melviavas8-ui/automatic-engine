@@ -1,16 +1,16 @@
 package daamky.ua.api.module.impl.combat.macetarget.prediction;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.module.impl.combat.macetarget.state.MaceState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
 
 public class TargetPredictor {
-   private static final MinecraftClient MC = MinecraftClient.getInstance();
+   private static final Minecraft MC = Minecraft.getInstance();
    private static final int MIN_SAMPLES = 2;
    private static final double SMOOTHING = 0.6;
-   private Vec3d lastPosition;
-   private Vec3d smoothedVelocity = Vec3d.ZERO;
+   private Vec3 lastPosition;
+   private Vec3 smoothedVelocity = Vec3.ZERO;
    private long lastUpdateTime;
    private int sampleCount;
 
@@ -21,13 +21,13 @@ public class TargetPredictor {
       if (target == null) {
          this.reset();
       } else {
-         Vec3d currentPos = target.getEntityPos();
+         Vec3 currentPos = target.position();
          long currentTime = System.currentTimeMillis();
          if (this.lastPosition != null && this.lastUpdateTime > 0L) {
             long deltaTime = currentTime - this.lastUpdateTime;
             if (deltaTime > 0L && deltaTime < 500L) {
-               Vec3d velocity = currentPos.subtract(this.lastPosition);
-               this.smoothedVelocity = this.smoothedVelocity.multiply(0.6).add(velocity.multiply(0.4));
+               Vec3 velocity = currentPos.subtract(this.lastPosition);
+               this.smoothedVelocity = this.smoothedVelocity.scale(0.6).add(velocity.scale(0.4));
                this.sampleCount++;
             }
          }
@@ -37,13 +37,13 @@ public class TargetPredictor {
       }
    }
 
-   public Vec3d getPredictedPosition(LivingEntity target, MaceState.Stage stage) {
+   public Vec3 getPredictedPosition(LivingEntity target, MaceState.Stage stage) {
       if (target != null && MC.player != null) {
-         Vec3d currentPos = target.getEntityPos();
-         if (this.sampleCount >= 2 && !(this.smoothedVelocity.horizontalLengthSquared() < 1.0E-4)) {
+         Vec3 currentPos = target.position();
+         if (this.sampleCount >= 2 && !(this.smoothedVelocity.horizontalDistanceSqr() < 1.0E-4)) {
             double distance = (double)MC.player.distanceTo(target);
-            double playerSpeed = MC.player.getVelocity().length();
-            double targetSpeed = this.smoothedVelocity.horizontalLength();
+            double playerSpeed = MC.player.getDeltaMovement().length();
+            double targetSpeed = this.smoothedVelocity.horizontalDistance();
 
             double ticksToReach = switch (stage) {
                case FLYING_UP -> (Math.abs(MC.player.getY() - target.getY()) + distance) / Math.max(playerSpeed * 20.0, 1.0) * 1.2;
@@ -53,22 +53,22 @@ public class TargetPredictor {
             };
             ticksToReach = Math.min(ticksToReach, 40.0);
             double leadMultiplier = targetSpeed > 0.4 ? 1.5 : (targetSpeed > 0.2 ? 1.3 : 1.0);
-            return currentPos.add(this.smoothedVelocity.multiply(ticksToReach * leadMultiplier));
+            return currentPos.add(this.smoothedVelocity.scale(ticksToReach * leadMultiplier));
          } else {
             return currentPos;
          }
       } else {
-         return Vec3d.ZERO;
+         return Vec3.ZERO;
       }
    }
 
    public boolean isMoving() {
-      return this.smoothedVelocity.horizontalLengthSquared() > 0.001;
+      return this.smoothedVelocity.horizontalDistanceSqr() > 0.001;
    }
 
    public void reset() {
       this.lastPosition = null;
-      this.smoothedVelocity = Vec3d.ZERO;
+      this.smoothedVelocity = Vec3.ZERO;
       this.lastUpdateTime = 0L;
       this.sampleCount = 0;
    }

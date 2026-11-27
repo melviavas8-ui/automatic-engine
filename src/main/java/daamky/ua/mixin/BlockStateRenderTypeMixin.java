@@ -1,29 +1,29 @@
 package daamky.ua.mixin;
 
-import net.minecraft.block.BlockRenderType;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.AbstractBlock.AbstractBlockState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import daamky.ua.api.module.impl.visual.NoRender;
+import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.state.BlockBehaviour.BlockStateBase;
+import net.minecraft.world.level.block.state.BlockState;
 
-@Mixin({AbstractBlockState.class})
+@Mixin({BlockStateBase.class})
 public abstract class BlockStateRenderTypeMixin {
    public BlockStateRenderTypeMixin() {
    }
 
    @Inject(
-      method = {"getRenderType"},
+      method = {"getRenderShape"},
       at = {@At("HEAD")},
       cancellable = true,
       require = 0
    )
-   private void daamky$getRenderShape(CallbackInfoReturnable<BlockRenderType> cir) {
+   private void daamky$getRenderShape(CallbackInfoReturnable<RenderShape> cir) {
       NoRender noRender = NoRender.getInstance();
       if (noRender != null && noRender.shouldHidePlants() && noRender.isPlantState((BlockState)(Object)this)) {
-         cir.setReturnValue(BlockRenderType.INVISIBLE);
+         cir.setReturnValue(RenderShape.INVISIBLE);
       }
    }
 }

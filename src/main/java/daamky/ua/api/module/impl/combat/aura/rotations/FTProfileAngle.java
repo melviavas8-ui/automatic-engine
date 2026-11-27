@@ -1,9 +1,5 @@
 package daamky.ua.api.module.impl.combat.aura.rotations;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.module.impl.combat.AuraModule;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.api.module.impl.combat.aura.MathAngle;
@@ -13,9 +9,13 @@ import daamky.ua.api.module.impl.combat.aura.impl.RotateConstructor;
 import daamky.ua.api.module.impl.combat.aura.target.RaycastAngle;
 import daamky.ua.api.module.impl.combat.aura.util.MathUtils;
 import daamky.ua.api.module.impl.combat.aura.utils.FromVector;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 public final class FTProfileAngle extends RotateConstructor {
-   private static final MinecraftClient MC = MinecraftClient.getInstance();
+   private static final Minecraft MC = Minecraft.getInstance();
    private static int angleCounter;
 
    public FTProfileAngle() {
@@ -23,21 +23,21 @@ public final class FTProfileAngle extends RotateConstructor {
    }
 
    @Override
-   public Angle limitAngleChange(Angle current, Angle target, Vec3d aimPoint, Entity entity) {
+   public Angle limitAngleChange(Angle current, Angle target, Vec3 aimPoint, Entity entity) {
       AuraModule aura = AuraModule.getInstance();
       if (aura == null || MC.player == null) {
          return current;
       } else if (entity == null) {
-         MC.options.attackKey.setPressed(false);
+         MC.options.keyAttack.setDown(false);
          Angle delta = MathAngle.calculateDelta(current, target);
          return new Angle(
-            current.getYaw() + MathHelper.clamp(delta.getYaw(), -60.0F, 25.0F), current.getPitch() + MathHelper.clamp(delta.getPitch(), -15.0F, 15.0F)
+            current.getYaw() + Mth.clamp(delta.getYaw(), -60.0F, 25.0F), current.getPitch() + Mth.clamp(delta.getPitch(), -15.0F, 15.0F)
          );
       } else {
          StrikeManager attackHandler = aura.getAttackHandlerRaw();
          StrikerConstructor.AttackPerpetratorConfigurable config = aura.getConfig();
          if (!attackHandler.canAttack(config, 1)) {
-            target = MathAngle.fromVec3d(FromVector.closest(entity).subtract(MC.player.getEyePos()));
+            target = MathAngle.fromVec3d(FromVector.closest(entity).subtract(MC.player.getEyePosition()));
          }
 
          Angle delta = MathAngle.calculateDelta(current, target);
@@ -64,16 +64,16 @@ public final class FTProfileAngle extends RotateConstructor {
             yawOffset = 0.0F;
          }
 
-         float yaw = current.getYaw() + MathHelper.clamp(delta.getYaw() + yawOffset, -yawSpeed, yawSpeed);
+         float yaw = current.getYaw() + Mth.clamp(delta.getYaw() + yawOffset, -yawSpeed, yawSpeed);
          if (counter(31) && !attackHandler.getAttackTimer().finished(300.0) && attackHandler.getAttackTimer().finished(200.0)) {
-            MC.options.attackKey.setPressed(true);
+            MC.options.keyAttack.setDown(true);
          } else {
-            MC.options.attackKey.setPressed(false);
+            MC.options.keyAttack.setDown(false);
          }
 
-         float playerPitch = MC.player.getPitch();
-         float pitch = MathHelper.clamp(current.getPitch() + MathHelper.clamp(delta.getPitch(), -pitchSpeed, pitchSpeed), -90.0F, 90.0F) + pitchJitter;
-         return new Angle(yaw, MC.player.getPitch() + pitchJitter);
+         float playerPitch = MC.player.getXRot();
+         float pitch = Mth.clamp(current.getPitch() + Mth.clamp(delta.getPitch(), -pitchSpeed, pitchSpeed), -90.0F, 90.0F) + pitchJitter;
+         return new Angle(yaw, MC.player.getXRot() + pitchJitter);
       }
    }
 
@@ -83,7 +83,7 @@ public final class FTProfileAngle extends RotateConstructor {
    }
 
    @Override
-   public Vec3d randomValue() {
-      return Vec3d.ZERO;
+   public Vec3 randomValue() {
+      return Vec3.ZERO;
    }
 }

@@ -5,23 +5,23 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.PlayerInput;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.Direction.Type;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Direction.Plane;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Input;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.InputEvent;
 import daamky.ua.api.events.impl.RotationUpdateEvent;
@@ -83,23 +83,23 @@ public final class Scaffold extends Module {
       this.lastDeltaYaw = 0.0F;
       this.placeCounter = 0;
       this.startTime = System.currentTimeMillis();
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (client.player != null) {
-         this.accumulatedYaw = client.player.getYaw();
-         this.accumulatedPitch = client.player.getPitch();
+         this.accumulatedYaw = client.player.getYRot();
+         this.accumulatedPitch = client.player.getXRot();
       }
    }
 
    @Override
    protected void onDisable() {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (this.previousSlot != -1 && client.player != null) {
          InventoryUtils.syncSelectedHotbarSlot(this.previousSlot);
          this.previousSlot = -1;
       }
 
       if (this.wasSneak && client.options != null) {
-         client.options.sneakKey.setPressed(false);
+         client.options.keyShift.setDown(false);
          this.wasSneak = false;
       }
 
@@ -109,8 +109,8 @@ public final class Scaffold extends Module {
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
-      if (client.player != null && client.world != null) {
+   public void onTick(Minecraft client) {
+      if (client.player != null && client.level != null) {
          if (this.placeCooldownTicks > 0) {
             this.placeCooldownTicks--;
          }
@@ -122,8 +122,8 @@ public final class Scaffold extends Module {
 
    @SubscribeEvent
    private void onRotationUpdate(RotationUpdateEvent event) {
-      MinecraftClient client = MinecraftClient.getInstance();
-      if (client.player == null || client.world == null) {
+      Minecraft client = Minecraft.getInstance();
+      if (client.player == null || client.level == null) {
          this.currentPlacement = null;
       } else if (event.isPre()) {
          Scaffold.BlockPlacement placement = this.findPlacement(client);
@@ -142,15 +142,15 @@ public final class Scaffold extends Module {
 
    @SubscribeEvent
    private void onInput(InputEvent event) {
-      MinecraftClient client = MinecraftClient.getInstance();
-      if (client.player != null && client.world != null) {
+      Minecraft client = Minecraft.getInstance();
+      if (client.player != null && client.level != null) {
          if (this.safeWalk.getValue() && this.safeWalkActive) {
-            client.options.sneakKey.setPressed(true);
+            client.options.keyShift.setDown(true);
             this.wasSneak = true;
-            PlayerInput input = event.getInput();
-            event.setInput(new PlayerInput(input.forward(), input.backward(), input.left(), input.right(), input.jump(), true, input.sprint()));
+            Input input = event.getInput();
+            event.setInput(new Input(input.forward(), input.backward(), input.left(), input.right(), input.jump(), true, input.sprint()));
          } else if (this.wasSneak && !this.safeWalkActive) {
-            client.options.sneakKey.setPressed(false);
+            client.options.keyShift.setDown(false);
             this.wasSneak = false;
          }
 
@@ -160,25 +160,25 @@ public final class Scaffold extends Module {
       }
    }
 
-   private boolean canPlaceBlock(MinecraftClient client) {
+   private boolean canPlaceBlock(Minecraft client) {
       return this.placeCooldownTicks <= 0 && !client.player.isUsingItem();
    }
 
-   private void updateSafeWalk(MinecraftClient client) {
+   private void updateSafeWalk(Minecraft client) {
       if (!this.safeWalk.getValue()) {
          this.safeWalkActive = false;
-      } else if (!client.player.isOnGround()) {
+      } else if (!client.player.onGround()) {
          this.safeWalkActive = false;
       } else if (!this.hasFullSupportBelow(client)) {
          this.safeWalkActive = true;
       } else {
-         Vec3d velocity = client.player.getVelocity();
+         Vec3 velocity = client.player.getDeltaMovement();
          double futureX = client.player.getX() + velocity.x * 1.5;
          double futureZ = client.player.getZ() + velocity.z * 1.5;
-         BlockPos futureBelow = BlockPos.ofFloored(futureX, client.player.getY() - 1.0, futureZ);
-         BlockState belowState = client.world.getBlockState(futureBelow);
+         BlockPos futureBelow = BlockPos.containing(futureX, client.player.getY() - 1.0, futureZ);
+         BlockState belowState = client.level.getBlockState(futureBelow);
          if (this.isReplaceable(belowState)) {
-            BlockState placed = this.currentPlacement != null ? client.world.getBlockState(this.currentPlacement.placePos) : null;
+            BlockState placed = this.currentPlacement != null ? client.level.getBlockState(this.currentPlacement.placePos) : null;
             if (placed == null || this.isReplaceable(placed)) {
                this.safeWalkActive = true;
                return;
@@ -189,16 +189,16 @@ public final class Scaffold extends Module {
       }
    }
 
-   private boolean hasFullSupportBelow(MinecraftClient client) {
-      Box box = client.player.getBoundingBox();
+   private boolean hasFullSupportBelow(Minecraft client) {
+      AABB box = client.player.getBoundingBox();
       double y = client.player.getY() - 0.01;
       double[][] points = new double[][]{
          {box.minX, box.minZ}, {box.minX, box.maxZ}, {box.maxX, box.minZ}, {box.maxX, box.maxZ}, {(box.minX + box.maxX) / 2.0, (box.minZ + box.maxZ) / 2.0}
       };
 
       for (double[] point : points) {
-         BlockPos pos = BlockPos.ofFloored(point[0], y - 0.5, point[1]);
-         if (!this.isReplaceable(client.world.getBlockState(pos))) {
+         BlockPos pos = BlockPos.containing(point[0], y - 0.5, point[1]);
+         if (!this.isReplaceable(client.level.getBlockState(pos))) {
             return true;
          }
       }
@@ -206,17 +206,17 @@ public final class Scaffold extends Module {
       return false;
    }
 
-   private List<BlockPos> findPlacePositions(MinecraftClient client) {
-      Vec3d playerPos = client.player.getEntityPos();
-      BlockPos playerBlock = client.player.getBlockPos();
-      BlockPos below = playerBlock.down();
+   private List<BlockPos> findPlacePositions(Minecraft client) {
+      Vec3 playerPos = client.player.position();
+      BlockPos playerBlock = client.player.blockPosition();
+      BlockPos below = playerBlock.below();
       Set<BlockPos> positions = new LinkedHashSet<>();
-      if (this.downward.getValue() && client.options.sneakKey.isPressed()) {
-         this.addPlacePosition(client, positions, below.down());
+      if (this.downward.getValue() && client.options.keyShift.isDown()) {
+         this.addPlacePosition(client, positions, below.below());
       }
 
       this.addPlacePosition(client, positions, below);
-      Box box = client.player.getBoundingBox();
+      AABB box = client.player.getBoundingBox();
       double y = (double)below.getY();
       double[][] corners = new double[][]{
          {box.minX + 0.03, box.minZ + 0.03},
@@ -230,11 +230,11 @@ public final class Scaffold extends Module {
       };
 
       for (double[] corner : corners) {
-         this.addPlacePosition(client, positions, BlockPos.ofFloored(corner[0], y, corner[1]));
+         this.addPlacePosition(client, positions, BlockPos.containing(corner[0], y, corner[1]));
       }
 
-      for (Direction direction : Type.HORIZONTAL) {
-         this.addPlacePosition(client, positions, below.offset(direction));
+      for (Direction direction : Plane.HORIZONTAL) {
+         this.addPlacePosition(client, positions, below.relative(direction));
       }
 
       this.addPlacePosition(client, positions, below.north().east());
@@ -243,25 +243,25 @@ public final class Scaffold extends Module {
       this.addPlacePosition(client, positions, below.south().west());
       int extendValue = this.extend.getValue().intValue();
       if (extendValue > 0) {
-         Vec3d moveDir = this.getMoveDirection(client);
-         if (moveDir.lengthSquared() > 0.001) {
+         Vec3 moveDir = this.getMoveDirection(client);
+         if (moveDir.lengthSqr() > 0.001) {
             for (int i = 1; i <= extendValue; i++) {
                double distance = (double)i * 0.45;
-               Vec3d side = new Vec3d(-moveDir.z, 0.0, moveDir.x);
+               Vec3 side = new Vec3(-moveDir.z, 0.0, moveDir.x);
                this.addPlacePosition(
-                  client, positions, BlockPos.ofFloored(playerPos.x + moveDir.x * distance, (double)below.getY(), playerPos.z + moveDir.z * distance)
+                  client, positions, BlockPos.containing(playerPos.x + moveDir.x * distance, (double)below.getY(), playerPos.z + moveDir.z * distance)
                );
                this.addPlacePosition(
                   client,
                   positions,
-                  BlockPos.ofFloored(
+                  BlockPos.containing(
                      playerPos.x + moveDir.x * distance + side.x * 0.28, (double)below.getY(), playerPos.z + moveDir.z * distance + side.z * 0.28
                   )
                );
                this.addPlacePosition(
                   client,
                   positions,
-                  BlockPos.ofFloored(
+                  BlockPos.containing(
                      playerPos.x + moveDir.x * distance - side.x * 0.28, (double)below.getY(), playerPos.z + moveDir.z * distance - side.z * 0.28
                   )
                );
@@ -269,25 +269,25 @@ public final class Scaffold extends Module {
          }
       }
 
-      Vec3d velocity = client.player.getVelocity();
+      Vec3 velocity = client.player.getDeltaMovement();
       if (Math.abs(velocity.x) > 0.05 || Math.abs(velocity.z) > 0.05) {
          for (double mult = 0.3; mult <= 2.0; mult += 0.3) {
-            this.addPlacePosition(client, positions, BlockPos.ofFloored(playerPos.x + velocity.x * mult, (double)below.getY(), playerPos.z + velocity.z * mult));
+            this.addPlacePosition(client, positions, BlockPos.containing(playerPos.x + velocity.x * mult, (double)below.getY(), playerPos.z + velocity.z * mult));
          }
       }
 
       return List.copyOf(positions);
    }
 
-   private void addPlacePosition(MinecraftClient client, Set<BlockPos> positions, BlockPos pos) {
-      if (pos != null && this.isPlaceTarget(client.world.getBlockState(pos))) {
-         positions.add(pos.toImmutable());
+   private void addPlacePosition(Minecraft client, Set<BlockPos> positions, BlockPos pos) {
+      if (pos != null && this.isPlaceTarget(client.level.getBlockState(pos))) {
+         positions.add(pos.immutable());
       }
    }
 
-   private boolean hasValidNeighbor(MinecraftClient client, BlockPos pos) {
+   private boolean hasValidNeighbor(Minecraft client, BlockPos pos) {
       for (Direction direction : Direction.values()) {
-         if (this.isValidSupport(client, pos.offset(direction))) {
+         if (this.isValidSupport(client, pos.relative(direction))) {
             return true;
          }
       }
@@ -295,38 +295,38 @@ public final class Scaffold extends Module {
       return false;
    }
 
-   private Vec3d getMoveDirection(MinecraftClient client) {
-      float yaw = client.player.getYaw();
+   private Vec3 getMoveDirection(Minecraft client) {
+      float yaw = client.player.getYRot();
       double forward = 0.0;
       double strafe = 0.0;
-      if (client.options.forwardKey.isPressed()) {
+      if (client.options.keyUp.isDown()) {
          forward++;
       }
 
-      if (client.options.backKey.isPressed()) {
+      if (client.options.keyDown.isDown()) {
          forward--;
       }
 
-      if (client.options.leftKey.isPressed()) {
+      if (client.options.keyLeft.isDown()) {
          strafe++;
       }
 
-      if (client.options.rightKey.isPressed()) {
+      if (client.options.keyRight.isDown()) {
          strafe--;
       }
 
       if (forward == 0.0 && strafe == 0.0) {
-         Vec3d velocity = client.player.getVelocity();
-         return !(Math.abs(velocity.x) > 0.05) && !(Math.abs(velocity.z) > 0.05) ? Vec3d.ZERO : new Vec3d(velocity.x, 0.0, velocity.z).normalize();
+         Vec3 velocity = client.player.getDeltaMovement();
+         return !(Math.abs(velocity.x) > 0.05) && !(Math.abs(velocity.z) > 0.05) ? Vec3.ZERO : new Vec3(velocity.x, 0.0, velocity.z).normalize();
       } else {
          double radians = Math.toRadians((double)yaw);
          double moveAngle = Math.atan2(forward, strafe) - (Math.PI / 2);
          double finalAngle = radians + moveAngle;
-         return new Vec3d(-Math.sin(finalAngle), 0.0, Math.cos(finalAngle)).normalize();
+         return new Vec3(-Math.sin(finalAngle), 0.0, Math.cos(finalAngle)).normalize();
       }
    }
 
-   private Scaffold.BlockPlacement findPlacement(MinecraftClient client) {
+   private Scaffold.BlockPlacement findPlacement(Minecraft client) {
       Scaffold.BlockPlacement best = null;
       double bestScore = Double.MAX_VALUE;
       int order = 0;
@@ -342,17 +342,17 @@ public final class Scaffold extends Module {
       return best;
    }
 
-   private Scaffold.BlockPlacement findPlacement(MinecraftClient client, BlockPos targetPos, int targetOrder) {
+   private Scaffold.BlockPlacement findPlacement(Minecraft client, BlockPos targetPos, int targetOrder) {
       Direction[] directions = new Direction[]{Direction.DOWN, Direction.UP, Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST};
       List<Scaffold.BlockPlacement> candidates = new ArrayList<>();
-      Vec3d eyePos = client.player.getEyePos();
+      Vec3 eyePos = client.player.getEyePosition();
 
       for (Direction direction : directions) {
-         BlockPos neighborPos = targetPos.offset(direction);
+         BlockPos neighborPos = targetPos.relative(direction);
          if (this.isValidSupport(client, neighborPos)) {
             Direction placeFace = direction.getOpposite();
             if (this.isFaceVisible(neighborPos, placeFace, eyePos)) {
-               Vec3d hitVec = this.calculateHitVec(neighborPos, placeFace);
+               Vec3 hitVec = this.calculateHitVec(neighborPos, placeFace);
                if (!(eyePos.distanceTo(hitVec) > 4.5)) {
                   candidates.add(new Scaffold.BlockPlacement(targetPos, neighborPos, placeFace, hitVec));
                }
@@ -387,8 +387,8 @@ public final class Scaffold extends Module {
       }
    }
 
-   private boolean isFaceVisible(BlockPos blockPos, Direction face, Vec3d eyePos) {
-      Box box = new Box(
+   private boolean isFaceVisible(BlockPos blockPos, Direction face, Vec3 eyePos) {
+      AABB box = new AABB(
          (double)blockPos.getX(),
          (double)blockPos.getY(),
          (double)blockPos.getZ(),
@@ -408,7 +408,7 @@ public final class Scaffold extends Module {
       };
    }
 
-   private Vec3d calculateHitVec(BlockPos blockPos, Direction face) {
+   private Vec3 calculateHitVec(BlockPos blockPos, Direction face) {
       double x = (double)blockPos.getX();
       double y = (double)blockPos.getY();
       double z = (double)blockPos.getZ();
@@ -417,12 +417,12 @@ public final class Scaffold extends Module {
       double rz = 0.25 + this.random.nextDouble() * 0.5;
 
       return switch (face) {
-         case UP -> new Vec3d(x + rx, y + 1.0, z + rz);
-         case DOWN -> new Vec3d(x + rx, y, z + rz);
-         case NORTH -> new Vec3d(x + rx, y + ry, z);
-         case SOUTH -> new Vec3d(x + rx, y + ry, z + 1.0);
-         case WEST -> new Vec3d(x, y + ry, z + rz);
-         case EAST -> new Vec3d(x + 1.0, y + ry, z + rz);
+         case UP -> new Vec3(x + rx, y + 1.0, z + rz);
+         case DOWN -> new Vec3(x + rx, y, z + rz);
+         case NORTH -> new Vec3(x + rx, y + ry, z);
+         case SOUTH -> new Vec3(x + rx, y + ry, z + 1.0);
+         case WEST -> new Vec3(x, y + ry, z + rz);
+         case EAST -> new Vec3(x + 1.0, y + ry, z + rz);
          default -> throw new MatchException(null, null);
       };
    }
@@ -439,9 +439,9 @@ public final class Scaffold extends Module {
          || block == Blocks.DAMAGED_ANVIL;
    }
 
-   private void rotateToPlacement(MinecraftClient client, Scaffold.BlockPlacement placement) {
-      Angle targetAngle = MathAngle.fromVec3d(placement.hitVec.subtract(client.player.getEyePos()));
-      targetAngle = new Angle(targetAngle.getYaw(), MathHelper.clamp(targetAngle.getPitch(), 30.0F, 89.0F));
+   private void rotateToPlacement(Minecraft client, Scaffold.BlockPlacement placement) {
+      Angle targetAngle = MathAngle.fromVec3d(placement.hitVec.subtract(client.player.getEyePosition()));
+      targetAngle = new Angle(targetAngle.getYaw(), Mth.clamp(targetAngle.getPitch(), 30.0F, 89.0F));
       Angle safeAngle = this.createSafeAngle(targetAngle);
       AngleConnection.INSTANCE
          .rotateTo(
@@ -472,9 +472,9 @@ public final class Scaffold extends Module {
       idleYawNoise += (this.random.nextFloat() - 0.5F) * 0.5F;
       idlePitchNoise += (this.random.nextFloat() - 0.5F) * 0.3F;
       float targetYaw = rawAngle.getYaw() + yawNoise + idleYawNoise;
-      float targetPitch = MathHelper.clamp(rawAngle.getPitch() + pitchNoise + idlePitchNoise, 30.0F, 89.0F);
+      float targetPitch = Mth.clamp(rawAngle.getPitch() + pitchNoise + idlePitchNoise, 30.0F, 89.0F);
       float currentServerYaw = AngleConnection.INSTANCE.getRotation().getYaw();
-      float yawDelta = MathHelper.wrapDegrees(targetYaw - currentServerYaw);
+      float yawDelta = Mth.wrapDegrees(targetYaw - currentServerYaw);
       float pitchDelta = targetPitch - this.accumulatedPitch;
       float absYaw = Math.abs(yawDelta);
       float yawSpeed;
@@ -492,15 +492,15 @@ public final class Scaffold extends Module {
       float yawStep = yawDelta * yawSpeed;
       float pitchStep = pitchDelta * pitchSpeed;
       float newYaw = currentServerYaw + yawStep;
-      this.accumulatedPitch = MathHelper.clamp(this.accumulatedPitch + pitchStep, -90.0F, 90.0F);
-      this.accumulatedYaw = MathHelper.wrapDegrees(newYaw);
+      this.accumulatedPitch = Mth.clamp(this.accumulatedPitch + pitchStep, -90.0F, 90.0F);
+      this.accumulatedYaw = Mth.wrapDegrees(newYaw);
       this.accumulatedYaw = this.applyGcd(this.accumulatedYaw, currentServerYaw);
       this.accumulatedPitch = this.applyGcd(this.accumulatedPitch, AngleConnection.INSTANCE.getRotation().getPitch());
-      return new Angle(this.accumulatedYaw, MathHelper.clamp(this.accumulatedPitch, -90.0F, 90.0F));
+      return new Angle(this.accumulatedYaw, Mth.clamp(this.accumulatedPitch, -90.0F, 90.0F));
    }
 
    private float applyGcd(float target, float current) {
-      double sensitivity = (Double)MinecraftClient.getInstance().options.getMouseSensitivity().getValue();
+      double sensitivity = (Double)Minecraft.getInstance().options.sensitivity().get();
       double factor = sensitivity * 0.6 + 0.2;
       float gcd = (float)(factor * factor * factor * 1.2);
       if (gcd <= 0.0F) {
@@ -512,11 +512,11 @@ public final class Scaffold extends Module {
       }
    }
 
-   private boolean tryPlaceBlock(MinecraftClient client, Scaffold.BlockPlacement placement) {
+   private boolean tryPlaceBlock(Minecraft client, Scaffold.BlockPlacement placement) {
       int blockSlot = this.findBlockSlot(client);
-      if (blockSlot == -1 || client.interactionManager == null) {
+      if (blockSlot == -1 || client.gameMode == null) {
          return false;
-      } else if (!this.isPlaceTarget(client.world.getBlockState(placement.placePos))) {
+      } else if (!this.isPlaceTarget(client.level.getBlockState(placement.placePos))) {
          return false;
       } else if (!this.isValidSupport(client, placement.neighborPos)) {
          return false;
@@ -533,17 +533,17 @@ public final class Scaffold extends Module {
                if (client.player.getInventory().getSelectedSlot() != blockSlot) {
                   InventoryUtils.syncSelectedHotbarSlot(blockSlot);
                }
-            } else if (!(client.player.getMainHandStack().getItem() instanceof BlockItem)) {
+            } else if (!(client.player.getMainHandItem().getItem() instanceof BlockItem)) {
                return false;
             }
 
-            ActionResult result = client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, hitResult);
-            if (result.isAccepted()) {
-               client.player.swingHand(Hand.MAIN_HAND);
+            InteractionResult result = client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND, hitResult);
+            if (result.consumesAction()) {
+               client.player.swing(InteractionHand.MAIN_HAND);
                this.placeCooldownTicks = 1;
                this.placeCounter++;
                float newYaw = AngleConnection.INSTANCE.getRotation().getYaw();
-               this.lastDeltaYaw = Math.abs(MathHelper.wrapDegrees(newYaw - this.lastPlaceYaw));
+               this.lastDeltaYaw = Math.abs(Mth.wrapDegrees(newYaw - this.lastPlaceYaw));
                this.lastPlaceYaw = newYaw;
                this.lastPlacePitch = AngleConnection.INSTANCE.getRotation().getPitch();
                return true;
@@ -554,26 +554,26 @@ public final class Scaffold extends Module {
       }
    }
 
-   private BlockHitResult raycastPlacementHit(MinecraftClient client, Scaffold.BlockPlacement placement) {
+   private BlockHitResult raycastPlacementHit(Minecraft client, Scaffold.BlockPlacement placement) {
       Angle currentAngle = AngleConnection.INSTANCE.getRotation();
       if (currentAngle == null) {
          return null;
       } else {
-         BlockHitResult hit = RaycastAngle.raycast(client.player.getEyePos(), 4.75, currentAngle, false);
-         if (hit == null || hit.getType() != net.minecraft.util.hit.HitResult.Type.BLOCK) {
+         BlockHitResult hit = RaycastAngle.raycast(client.player.getEyePosition(), 4.75, currentAngle, false);
+         if (hit == null || hit.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK) {
             return null;
          } else {
-            return hit.getBlockPos().equals(placement.neighborPos) && hit.getSide() == placement.direction ? hit : null;
+            return hit.getBlockPos().equals(placement.neighborPos) && hit.getDirection() == placement.direction ? hit : null;
          }
       }
    }
 
-   private int findBlockSlot(MinecraftClient client) {
+   private int findBlockSlot(Minecraft client) {
       int bestSlot = -1;
       int bestCount = 0;
 
       for (int i = 0; i < 9; i++) {
-         ItemStack stack = client.player.getInventory().getStack(i);
+         ItemStack stack = client.player.getInventory().getItem(i);
          if (!stack.isEmpty()) {
             Item var7 = stack.getItem();
             if (var7 instanceof BlockItem) {
@@ -613,22 +613,22 @@ public final class Scaffold extends Module {
          || block == Blocks.CACTUS;
    }
 
-   private void handleTower(MinecraftClient client) {
-      if (this.tower.getValue() && client.options.jumpKey.isPressed()) {
-         if (client.player.isOnGround() && this.currentPlacement != null) {
-            client.player.jump();
+   private void handleTower(Minecraft client) {
+      if (this.tower.getValue() && client.options.keyJump.isDown()) {
+         if (client.player.onGround() && this.currentPlacement != null) {
+            client.player.jumpFromGround();
          }
       }
    }
 
-   private void fixMovementForRotation(MinecraftClient client, InputEvent event) {
-      boolean w = client.options.forwardKey.isPressed();
-      boolean s = client.options.backKey.isPressed();
-      boolean a = client.options.leftKey.isPressed();
-      boolean d = client.options.rightKey.isPressed();
+   private void fixMovementForRotation(Minecraft client, InputEvent event) {
+      boolean w = client.options.keyUp.isDown();
+      boolean s = client.options.keyDown.isDown();
+      boolean a = client.options.keyLeft.isDown();
+      boolean d = client.options.keyRight.isDown();
       if (w || s || a || d) {
-         float playerYaw = client.player.getYaw();
-         float serverYaw = MathHelper.wrapDegrees(AngleConnection.INSTANCE.getRotation().getYaw());
+         float playerYaw = client.player.getYRot();
+         float serverYaw = Mth.wrapDegrees(AngleConnection.INSTANCE.getRotation().getYaw());
          float moveAngle;
          if (w && !s && !a && !d) {
             moveAngle = 0.0F;
@@ -650,8 +650,8 @@ public final class Scaffold extends Module {
             moveAngle = 180.0F;
          }
 
-         float desiredDirection = MathHelper.wrapDegrees(playerYaw + moveAngle);
-         float angleDiff = MathHelper.wrapDegrees(desiredDirection - serverYaw);
+         float desiredDirection = Mth.wrapDegrees(playerYaw + moveAngle);
+         float angleDiff = Mth.wrapDegrees(desiredDirection - serverYaw);
          boolean forward = false;
          boolean back = false;
          boolean left = false;
@@ -683,7 +683,7 @@ public final class Scaffold extends Module {
    }
 
    private void resetRotation() {
-      if (MinecraftClient.getInstance().player != null) {
+      if (Minecraft.getInstance().player != null) {
          AngleConnection.INSTANCE.startReturning();
          AngleConnection.INSTANCE.reset();
          this.rotationInitialized = false;
@@ -691,18 +691,18 @@ public final class Scaffold extends Module {
    }
 
    private boolean isReplaceable(BlockState state) {
-      return state.isAir() || state.isReplaceable();
+      return state.isAir() || state.canBeReplaced();
    }
 
    private boolean isPlaceTarget(BlockState state) {
       return this.isReplaceable(state) && state.getFluidState().isEmpty();
    }
 
-   private boolean isValidSupport(MinecraftClient client, BlockPos pos) {
-      BlockState state = client.world.getBlockState(pos);
+   private boolean isValidSupport(Minecraft client, BlockPos pos) {
+      BlockState state = client.level.getBlockState(pos);
       return !this.isReplaceable(state)
          && state.getFluidState().isEmpty()
-         && !state.getCollisionShape(client.world, pos).isEmpty()
+         && !state.getCollisionShape(client.level, pos).isEmpty()
          && !this.isBlacklistedNeighbor(state.getBlock());
    }
 
@@ -710,10 +710,10 @@ public final class Scaffold extends Module {
       private final BlockPos placePos;
       private final BlockPos neighborPos;
       private final Direction direction;
-      private final Vec3d hitVec;
+      private final Vec3 hitVec;
       private double score;
 
-      private BlockPlacement(BlockPos placePos, BlockPos neighborPos, Direction direction, Vec3d hitVec) {
+      private BlockPlacement(BlockPos placePos, BlockPos neighborPos, Direction direction, Vec3 hitVec) {
          this.placePos = placePos;
          this.neighborPos = neighborPos;
          this.direction = direction;

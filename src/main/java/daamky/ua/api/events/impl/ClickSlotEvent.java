@@ -1,15 +1,15 @@
 package daamky.ua.api.events.impl;
 
-import net.minecraft.screen.slot.SlotActionType;
 import daamky.ua.api.events.CancellableEvent;
+import net.minecraft.world.inventory.ClickType;
 
 public final class ClickSlotEvent extends CancellableEvent {
    private final int windowId;
    private final int slotId;
    private final int button;
-   private final SlotActionType actionType;
+   private final ClickType actionType;
 
-   public ClickSlotEvent(int windowId, int slotId, int button, SlotActionType actionType) {
+   public ClickSlotEvent(int windowId, int slotId, int button, ClickType actionType) {
       this.windowId = windowId;
       this.slotId = slotId;
       this.button = button;
@@ -28,7 +28,7 @@ public final class ClickSlotEvent extends CancellableEvent {
       return this.button;
    }
 
-   public SlotActionType getActionType() {
+   public ClickType getActionType() {
       return this.actionType;
    }
 }

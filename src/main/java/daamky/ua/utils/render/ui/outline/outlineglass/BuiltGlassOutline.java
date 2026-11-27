@@ -1,6 +1,6 @@
 package daamky.ua.utils.render.ui.outline.outlineglass;
 
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
 
 public record BuiltGlassOutline(
    float x,
@@ -68,7 +68,7 @@ public record BuiltGlassOutline(
       );
    }
 
-   public void render(DrawContext graphics) {
+   public void render(GuiGraphics graphics) {
       GlassOutlineRenderer.getInstance().draw(graphics, this);
    }
 

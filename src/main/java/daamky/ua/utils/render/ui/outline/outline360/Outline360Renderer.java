@@ -5,16 +5,16 @@ import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.resources.Identifier;
 import org.joml.Matrix3x2f;
 import org.lwjgl.system.MemoryStack;
 import daamky.ua.mixin.accessor.GuiGraphicsExtractorAccessor;
@@ -33,7 +33,7 @@ public final class Outline360Renderer implements AutoCloseable {
       .withLocation(id("pipeline/outline_360"))
       .withVertexShader(id("ui/shared/outline_quad"))
       .withFragmentShader(id("ui/outline_360/outline_360"))
-      .withVertexFormat(VertexFormats.POSITION_COLOR_LINE_WIDTH, DrawMode.QUADS)
+      .withVertexFormat(DefaultVertexFormat.POSITION_COLOR_LINE_WIDTH, Mode.QUADS)
       .withBlend(BlendFunction.TRANSLUCENT)
       .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
       .withCull(false)
@@ -43,7 +43,7 @@ public final class Outline360Renderer implements AutoCloseable {
       .withUniform("Outline360RangesArray", UniformType.UNIFORM_BUFFER)
       .build();
    private final List<BuiltOutline360> preparedOutlines = new ArrayList<>(64);
-   private DrawContext activeGraphics;
+   private GuiGraphics activeGraphics;
    private GpuBuffer paramsBuffer;
    private GpuBuffer rangesBuffer;
    private boolean paramsDirty = true;
@@ -74,11 +74,11 @@ public final class Outline360Renderer implements AutoCloseable {
       }
    }
 
-   public void beginFrame(DrawContext graphics) {
+   public void beginFrame(GuiGraphics graphics) {
       this.activeGraphics = graphics;
    }
 
-   public void draw(DrawContext graphics, BuiltOutline360 outline) {
+   public void draw(GuiGraphics graphics, BuiltOutline360 outline) {
       this.beginFrame(graphics);
       this.enqueue(outline);
       this.flush();
@@ -160,12 +160,12 @@ public final class Outline360Renderer implements AutoCloseable {
       }
    }
 
-   private void submit(DrawContext graphics, BuiltOutline360 outline) {
+   private void submit(GuiGraphics graphics, BuiltOutline360 outline) {
       if (graphics != null && outline != null && outline.visible()) {
          try {
             BuiltOutline360 normalized = this.normalize(outline);
             Matrix3x2f pose = Render2DCoordinateSpace.pose(graphics);
-            ((GuiGraphicsExtractorAccessor)graphics).daamky$getGuiRenderState().addSimpleElement(new Outline360RenderState(pose, normalized));
+            ((GuiGraphicsExtractorAccessor)graphics).daamky$getGuiRenderState().submitGuiElement(new Outline360RenderState(pose, normalized));
          } catch (RuntimeException var5) {
          }
       }
@@ -338,7 +338,7 @@ public final class Outline360Renderer implements AutoCloseable {
    }
 
    private static Identifier id(String path) {
-      return Identifier.of("daamky", path);
+      return Identifier.fromNamespaceAndPath("daamky", path);
    }
 
    @Override

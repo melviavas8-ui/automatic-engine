@@ -1,20 +1,20 @@
 package daamky.ua.api.module.impl.visual.esp;
 
 import java.util.List;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.entity.effect.StatusEffectCategory;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectCategory;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.utils.render.Render3D;
 import daamky.ua.utils.render.color.ColorUtil;
 import daamky.ua.utils.render.item.RenderItem;
@@ -38,7 +38,7 @@ public final class EspVisualRenderer {
    }
 
    public static void draw3DCornerBox(
-      Box box,
+      AABB box,
       int color,
       float width,
       boolean shaderFill,
@@ -56,9 +56,9 @@ public final class EspVisualRenderer {
          BlockOverlayShader3D.end(color, shaderColor, Math.clamp(shaderAlpha, 0.0F, 1.0F), shaderTime, shaderSpeed, shaderIntensity, shaderMode);
       }
 
-      double lenX = Math.max(0.08, Math.min(box.getLengthX() * 0.38, 0.34));
-      double lenY = Math.max(0.18, Math.min(box.getLengthY() * 0.22, 0.48));
-      double lenZ = Math.max(0.08, Math.min(box.getLengthZ() * 0.38, 0.34));
+      double lenX = Math.max(0.08, Math.min(box.getXsize() * 0.38, 0.34));
+      double lenY = Math.max(0.18, Math.min(box.getYsize() * 0.22, 0.48));
+      double lenZ = Math.max(0.08, Math.min(box.getZsize() * 0.38, 0.34));
       int renderColor = ColorUtil.multAlpha(color, 0.92F);
 
       for (int xi = 0; xi < 2; xi++) {
@@ -70,29 +70,29 @@ public final class EspVisualRenderer {
                double dx = xi == 0 ? lenX : -lenX;
                double dy = yi == 0 ? lenY : -lenY;
                double dz = zi == 0 ? lenZ : -lenZ;
-               Vec3d corner = new Vec3d(x, y, z);
-               Render3D.drawLineOverlay(corner, new Vec3d(x + dx, y, z), renderColor, width);
-               Render3D.drawLineOverlay(corner, new Vec3d(x, y + dy, z), renderColor, width);
-               Render3D.drawLineOverlay(corner, new Vec3d(x, y, z + dz), renderColor, width);
+               Vec3 corner = new Vec3(x, y, z);
+               Render3D.drawLineOverlay(corner, new Vec3(x + dx, y, z), renderColor, width);
+               Render3D.drawLineOverlay(corner, new Vec3(x, y + dy, z), renderColor, width);
+               Render3D.drawLineOverlay(corner, new Vec3(x, y, z + dz), renderColor, width);
             }
          }
       }
    }
 
-   public static float resolve3DLineWidth(MinecraftClient mc, Box box) {
-      double distance = mc.gameRenderer.getCamera().getCameraPos().distanceTo(box.getCenter());
-      return (float)MathHelper.clamp(2.4 - distance * 0.012, 1.05, 2.4);
+   public static float resolve3DLineWidth(Minecraft mc, AABB box) {
+      double distance = mc.gameRenderer.getMainCamera().position().distanceTo(box.getCenter());
+      return (float)Mth.clamp(2.4 - distance * 0.012, 1.05, 2.4);
    }
 
    public static void drawTagFrame(
-      PlayerEntity player,
+      Player player,
       List<TagPart> parts,
       ItemStack iconStack,
       boolean roundIcon,
       EspGeometry.ScreenBox box,
       EspGeometry.ScreenAnchor anchor,
       float alpha,
-      DrawContext graphics
+      GuiGraphics graphics
    ) {
       boolean playerTag = player != null;
       float textSize = 6.0F;
@@ -143,7 +143,7 @@ public final class EspVisualRenderer {
       }
    }
 
-   public static void drawCompactItemTag(List<EspVisualRenderer.ItemTagRow> rows, double anchorX, double anchorY, float alpha, DrawContext graphics) {
+   public static void drawCompactItemTag(List<EspVisualRenderer.ItemTagRow> rows, double anchorX, double anchorY, float alpha, GuiGraphics graphics) {
       if (rows != null && !rows.isEmpty()) {
          float textSize = 6.2F;
          float rowHeight = 11.0F;
@@ -205,13 +205,13 @@ public final class EspVisualRenderer {
       return ColorUtil.lerpColor(ColorUtil.rgba(255, 70, 70, 255), ColorUtil.rgba(70, 255, 115, 255), Math.clamp(health / maxHealth, 0.0F, 1.0F));
    }
 
-   public static void drawEquipment(PlayerEntity player, EspGeometry.ScreenBox box, EspGeometry.ScreenAnchor anchor, float alpha) {
-      ItemStack offhand = player.getOffHandStack();
-      ItemStack helmet = player.getEquippedStack(EquipmentSlot.HEAD);
-      ItemStack chestplate = player.getEquippedStack(EquipmentSlot.CHEST);
-      ItemStack leggings = player.getEquippedStack(EquipmentSlot.LEGS);
-      ItemStack boots = player.getEquippedStack(EquipmentSlot.FEET);
-      ItemStack mainHand = player.getMainHandStack();
+   public static void drawEquipment(Player player, EspGeometry.ScreenBox box, EspGeometry.ScreenAnchor anchor, float alpha) {
+      ItemStack offhand = player.getOffhandItem();
+      ItemStack helmet = player.getItemBySlot(EquipmentSlot.HEAD);
+      ItemStack chestplate = player.getItemBySlot(EquipmentSlot.CHEST);
+      ItemStack leggings = player.getItemBySlot(EquipmentSlot.LEGS);
+      ItemStack boots = player.getItemBySlot(EquipmentSlot.FEET);
+      ItemStack mainHand = player.getMainHandItem();
       int itemCount = equipmentCount(offhand, helmet, chestplate, leggings, boots, mainHand);
       if (itemCount != 0) {
          float totalWidth = (float)itemCount * 10.0F + (float)(itemCount - 1) * 1.4F;
@@ -230,12 +230,12 @@ public final class EspVisualRenderer {
    }
 
    public static void drawPotions(LivingEntity entity, EspGeometry.ScreenBox box, float alpha) {
-      if (!entity.getStatusEffects().isEmpty()) {
+      if (!entity.getActiveEffects().isEmpty()) {
          float x = (float)box.maxX() + 4.0F;
          float y = (float)box.minY() + 1.0F;
          int shown = 0;
 
-         for (StatusEffectInstance effect : entity.getStatusEffects()) {
+         for (MobEffectInstance effect : entity.getActiveEffects()) {
             if (shouldRenderEffect(effect)) {
                if (shown >= 5) {
                   break;
@@ -250,12 +250,12 @@ public final class EspVisualRenderer {
       }
    }
 
-   private static boolean shouldRenderEffect(StatusEffectInstance effect) {
-      return effect != null && effect.getEffectType() != null && ((StatusEffect)effect.getEffectType().value()).getCategory() != StatusEffectCategory.NEUTRAL;
+   private static boolean shouldRenderEffect(MobEffectInstance effect) {
+      return effect != null && effect.getEffect() != null && ((MobEffect)effect.getEffect().value()).getCategory() != MobEffectCategory.NEUTRAL;
    }
 
-   private static void drawPlayerHead(DrawContext graphics, PlayerEntity player, float x, float y, float size, float alpha) {
-      if (graphics != null && player instanceof AbstractClientPlayerEntity clientPlayer && !(size <= 0.0F) && !(alpha <= 0.0F)) {
+   private static void drawPlayerHead(GuiGraphics graphics, Player player, float x, float y, float size, float alpha) {
+      if (graphics != null && player instanceof AbstractClientPlayer clientPlayer && !(size <= 0.0F) && !(alpha <= 0.0F)) {
          Identifier skinTexture = clientPlayer.getSkin().body().texturePath();
          String texture = skinTexture.toString();
          int color = ColorUtil.rgba(255, 255, 255, Math.round(255.0F * Math.clamp(alpha, 0.0F, 1.0F)));
@@ -269,8 +269,8 @@ public final class EspVisualRenderer {
       return count > 1 ? "x" + count : "x1";
    }
 
-   private static String effectText(StatusEffectInstance effect) {
-      String name = ((StatusEffect)effect.getEffectType().value()).getName().getString();
+   private static String effectText(MobEffectInstance effect) {
+      String name = ((MobEffect)effect.getEffect().value()).getDisplayName().getString();
       int level = effect.getAmplifier() + 1;
       return name + (level > 1 ? " " + level : "") + " " + formatDuration(effect.getDuration());
    }

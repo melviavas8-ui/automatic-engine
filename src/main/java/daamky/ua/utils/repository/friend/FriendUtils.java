@@ -5,8 +5,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 import daamky.ua.utils.repository.RepositoryStorage;
 
 public final class FriendUtils {
@@ -23,14 +23,14 @@ public final class FriendUtils {
       RepositoryStorage.saveStringList("friends.daamky", "friends", getFriendNames());
    }
 
-   public static void addFriend(PlayerEntity player) {
+   public static void addFriend(Player player) {
       if (player != null) {
          addFriend(player.getName().getString());
       }
    }
 
    public static boolean isFriend(Entity entity) {
-      if (entity instanceof PlayerEntity player && isFriend(player.getName().getString())) {
+      if (entity instanceof Player player && isFriend(player.getName().getString())) {
          return true;
       }
 
@@ -54,7 +54,7 @@ public final class FriendUtils {
       save();
    }
 
-   public static void removeFriend(PlayerEntity player) {
+   public static void removeFriend(Player player) {
       if (player != null) {
          removeFriend(player.getName().getString());
       }

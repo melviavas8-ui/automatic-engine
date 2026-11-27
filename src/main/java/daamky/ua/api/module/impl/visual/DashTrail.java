@@ -8,18 +8,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider.Immediate;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.util.math.MatrixStack.Entry;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RotationAxis;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Quaternionf;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.PoseStack.Pose;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.math.Axis;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.WorldRenderEvent;
 import daamky.ua.api.module.Module;
@@ -71,8 +71,8 @@ public class DashTrail extends Module {
    };
    private final Random random = new Random(1234567891L);
    private final List<DashTrail.DashCubic> dashCubics = new ArrayList<>();
-   private final Map<Integer, Vec3d> lastPositions = new HashMap<>();
-   private final Set<RenderLayer> usedRenderTypes = new HashSet<>();
+   private final Map<Integer, Vec3> lastPositions = new HashMap<>();
+   private final Set<RenderType> usedRenderTypes = new HashSet<>();
    private final Set<Integer> seenPlayerIds = new HashSet<>();
    private final BooleanSetting self = this.register(new BooleanSetting("Self", "Draw dash trail for you.", true));
    private final BooleanSetting players = this.register(new BooleanSetting("Players", "Draw dash trail for other players.", false));
@@ -110,12 +110,12 @@ public class DashTrail extends Module {
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
-      if (client != null && client.world != null && client.player != null) {
+   public void onTick(Minecraft client) {
+      if (client != null && client.level != null && client.player != null) {
          if (this.hasAnyTargetEnabled()) {
             this.seenPlayerIds.clear();
 
-            for (PlayerEntity player : client.world.getPlayers()) {
+            for (Player player : client.level.players()) {
                if (this.isTarget(player, client)) {
                   this.seenPlayerIds.add(player.getId());
                   this.trackPlayer(player);
@@ -139,10 +139,10 @@ public class DashTrail extends Module {
       long now = System.currentTimeMillis();
       this.dashCubics.removeIf(cubic -> cubic.isDead(now));
       if (!this.dashCubics.isEmpty() && mc.gameRenderer != null) {
-         MatrixStack stack = event.getStack();
-         Immediate provider = mc.getBufferBuilders().getEntityVertexConsumers();
-         Vec3d cameraPos = mc.gameRenderer.getCamera().getCameraPos();
-         Quaternionf cameraRotation = mc.gameRenderer.getCamera().getRotation();
+         PoseStack stack = event.getStack();
+         BufferSource provider = mc.renderBuffers().bufferSource();
+         Vec3 cameraPos = mc.gameRenderer.getMainCamera().position();
+         Quaternionf cameraRotation = mc.gameRenderer.getMainCamera().rotation();
          float tickDelta = event.getPartialTicks();
          boolean renderDots = this.dashDots.getValue();
          boolean renderSegments = this.dashSegments.getValue();
@@ -152,7 +152,7 @@ public class DashTrail extends Module {
             float progress = cubic.progress(now);
             float alpha = dashAlpha(progress);
             if (!(alpha <= 0.02F)) {
-               Vec3d pos = cubic.renderPos(tickDelta);
+               Vec3 pos = cubic.renderPos(tickDelta);
                DashTrail.TextureInfo texture = cubic.texture.get(now);
                float sizeAlpha = easeOutQuad(alpha);
                float width = (float)texture.width() * 0.0033F * cubic.scale * sizeAlpha;
@@ -168,22 +168,22 @@ public class DashTrail extends Module {
             }
          }
 
-         for (RenderLayer type : this.usedRenderTypes) {
-            provider.draw(type);
+         for (RenderType type : this.usedRenderTypes) {
+            provider.endBatch(type);
          }
 
          this.usedRenderTypes.clear();
       }
    }
 
-   private void trackPlayer(PlayerEntity player) {
-      Vec3d current = player.getEntityPos();
-      Vec3d previous = this.lastPositions.put(player.getId(), current);
+   private void trackPlayer(Player player) {
+      Vec3 current = player.position();
+      Vec3 previous = this.lastPositions.put(player.getId(), current);
       if (previous != null) {
-         Vec3d delta = current.subtract(previous);
+         Vec3 delta = current.subtract(previous);
          double speedXZ = Math.sqrt(delta.x * delta.x + delta.z * delta.z);
-         if (!(speedXZ < 0.08) && !(delta.lengthSquared() > 36.0)) {
-            int count = MathHelper.clamp((int)(delta.length() / 0.08), 1, 16);
+         if (!(speedXZ < 0.08) && !(delta.lengthSqr() > 36.0)) {
+            int count = Mth.clamp((int)(delta.length() / 0.08), 1, 16);
             boolean addSparks = this.dashSegments.getValue() || this.dashDots.getValue();
 
             for (int i = 0; i < count; i++) {
@@ -196,13 +196,13 @@ public class DashTrail extends Module {
       }
    }
 
-   private void spawnCubic(PlayerEntity player, Vec3d current, Vec3d delta, float offset, boolean addSparks) {
-      double height = (double)player.getHeight();
+   private void spawnCubic(Player player, Vec3 current, Vec3 delta, float offset, boolean addSparks) {
+      double height = (double)player.getBbHeight();
       double x = current.x - delta.x * (double)offset + this.randomRange(0.175) - 0.0875;
       double y = current.y - delta.y * (double)offset + height / 3.0 + height / 4.0 * this.random.nextDouble() * 0.7;
       double z = current.z - delta.z * (double)offset + this.randomRange(0.175) - 0.0875;
-      Vec3d position = new Vec3d(x, y, z);
-      Vec3d motion = delta.multiply(0.04);
+      Vec3 position = new Vec3(x, y, z);
+      Vec3 motion = delta.scale(0.04);
       DashTrail.DashTexture texture = DashTrail.DashTexture.random(this.random, (long)this.getRandomTimeAnimation());
       int lifetime = this.getRandomTimeAnimation();
       int color = this.nextDashColor();
@@ -230,10 +230,10 @@ public class DashTrail extends Module {
    }
 
    private void renderBloom(
-      MatrixStack stack,
-      Immediate provider,
-      Vec3d pos,
-      Vec3d cameraPos,
+      PoseStack stack,
+      BufferSource provider,
+      Vec3 pos,
+      Vec3 cameraPos,
       Quaternionf cameraRotation,
       float width,
       float height,
@@ -266,11 +266,11 @@ public class DashTrail extends Module {
    }
 
    private void renderSparks(
-      MatrixStack stack,
-      Immediate provider,
+      PoseStack stack,
+      BufferSource provider,
       DashTrail.DashCubic cubic,
-      Vec3d center,
-      Vec3d cameraPos,
+      Vec3 center,
+      Vec3 cameraPos,
       Quaternionf cameraRotation,
       float tickDelta,
       float cubicAlpha,
@@ -280,9 +280,9 @@ public class DashTrail extends Module {
       for (DashTrail.DashSpark spark : cubic.sparks) {
          float sparkAlpha = easeInOutWave((float)spark.alpha(nowMs()) * cubicAlpha);
          if (!(sparkAlpha <= 0.01F)) {
-            Vec3d offset = spark.renderPos(tickDelta);
-            Vec3d first = center.add(offset);
-            Vec3d second = center.subtract(offset);
+            Vec3 offset = spark.renderPos(tickDelta);
+            Vec3 first = center.add(offset);
+            Vec3 second = center.subtract(offset);
             int sparkColor = ColorUtil.multAlpha(ColorUtil.lerpColor(cubic.color, ColorUtil.WHITE, 0.45F), sparkAlpha * 0.72F);
             if (renderDots) {
                float size = 0.052F + 0.07F * sparkAlpha;
@@ -303,11 +303,11 @@ public class DashTrail extends Module {
    }
 
    private void renderBillboard(
-      MatrixStack stack,
-      Immediate provider,
-      RenderLayer renderType,
-      Vec3d pos,
-      Vec3d cameraPos,
+      PoseStack stack,
+      BufferSource provider,
+      RenderType renderType,
+      Vec3 pos,
+      Vec3 cameraPos,
       Quaternionf cameraRotation,
       float width,
       float height,
@@ -317,29 +317,29 @@ public class DashTrail extends Module {
       if (!(width <= 0.001F) && !(height <= 0.001F) && ColorUtil.getAlpha(color) > 0) {
          this.usedRenderTypes.add(renderType);
          VertexConsumer consumer = provider.getBuffer(renderType);
-         stack.push();
+         stack.pushPose();
          stack.translate(pos.x - cameraPos.x, pos.y - cameraPos.y, pos.z - cameraPos.z);
-         stack.multiply(cameraRotation);
-         stack.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(rotation));
-         Entry pose = stack.peek();
+         stack.mulPose(cameraRotation);
+         stack.mulPose(Axis.ZP.rotationDegrees(rotation));
+         Pose pose = stack.last();
          float halfWidth = width / 2.0F;
          float halfHeight = height / 2.0F;
          WorldVertex.textured(consumer, pose, -halfWidth, -halfHeight, 0.0F, 0.0F, 0.0F, color);
          WorldVertex.textured(consumer, pose, halfWidth, -halfHeight, 0.0F, 1.0F, 0.0F, color);
          WorldVertex.textured(consumer, pose, halfWidth, halfHeight, 0.0F, 1.0F, 1.0F, color);
          WorldVertex.textured(consumer, pose, -halfWidth, halfHeight, 0.0F, 0.0F, 1.0F, color);
-         stack.pop();
+         stack.popPose();
       }
    }
 
-   private boolean isTarget(PlayerEntity player, MinecraftClient client) {
+   private boolean isTarget(Player player, Minecraft client) {
       if (player == null || !player.isAlive()) {
          return false;
       } else if (player == client.player) {
          return this.self.getValue();
       } else {
          double maxDistanceValue = this.maxDistance.getValue();
-         if (client.player.squaredDistanceTo(player) > maxDistanceValue * maxDistanceValue) {
+         if (client.player.distanceToSqr(player) > maxDistanceValue * maxDistanceValue) {
             return false;
          } else {
             boolean friend = FriendUtils.isFriend(player);
@@ -362,7 +362,7 @@ public class DashTrail extends Module {
       } else if (this.colorMode.is("Custom")) {
          return this.pickColor.getValue().getRGB();
       } else if (this.colorMode.is("Client")) {
-         float wave = (MathHelper.sin((double)((float)System.currentTimeMillis() / 520.0F)) + 1.0F) / 2.0F;
+         float wave = (Mth.sin((double)((float)System.currentTimeMillis() / 520.0F)) + 1.0F) / 2.0F;
          return ColorUtil.lerpColor(CLIENT_COLOR_FIRST, CLIENT_COLOR_SECOND, wave);
       } else {
          float hue = (float)(System.currentTimeMillis() % 1600L) / 1600.0F;
@@ -382,7 +382,7 @@ public class DashTrail extends Module {
    }
 
    private static float dashAlpha(float progress) {
-      float clamped = MathHelper.clamp(progress, 0.0F, 1.0F);
+      float clamped = Mth.clamp(progress, 0.0F, 1.0F);
       if (clamped < 0.08F) {
          return clamped / 0.08F;
       } else {
@@ -391,12 +391,12 @@ public class DashTrail extends Module {
    }
 
    private static float easeOutQuad(float value) {
-      float clamped = MathHelper.clamp(value, 0.0F, 1.0F);
+      float clamped = Mth.clamp(value, 0.0F, 1.0F);
       return 1.0F - (1.0F - clamped) * (1.0F - clamped);
    }
 
    private static float easeInOutWave(float value) {
-      float clamped = MathHelper.clamp(value, 0.0F, 1.0F);
+      float clamped = Mth.clamp(value, 0.0F, 1.0F);
       return clamped <= 0.5F ? 2.0F * clamped * clamped : 1.0F - (float)Math.pow((double)(-2.0F * clamped + 2.0F), 2.0) / 2.0F;
    }
 
@@ -405,7 +405,7 @@ public class DashTrail extends Module {
    }
 
    private static Identifier texture(String path) {
-      return Identifier.of("daamky", "textures/features/dashtrail/" + path);
+      return Identifier.fromNamespaceAndPath("daamky", "textures/features/dashtrail/" + path);
    }
 
    private static DashTrail.TextureInfo cubic(int number, int width, int height) {
@@ -431,13 +431,13 @@ public class DashTrail extends Module {
       private final float scale;
       private final boolean addSparks;
       private final List<DashTrail.DashSpark> sparks = new ArrayList<>();
-      private Vec3d pos;
-      private Vec3d prevPos;
-      private Vec3d motion;
+      private Vec3 pos;
+      private Vec3 prevPos;
+      private Vec3 motion;
       private float rotation;
 
       private DashCubic(
-         int entityId, Vec3d pos, Vec3d motion, DashTrail.DashTexture texture, int lifetime, int color, float scale, boolean addSparks, Random random
+         int entityId, Vec3 pos, Vec3 motion, DashTrail.DashTexture texture, int lifetime, int color, float scale, boolean addSparks, Random random
       ) {
          this.entityId = entityId;
          this.pos = pos;
@@ -453,8 +453,8 @@ public class DashTrail extends Module {
 
       private void tick(DashTrail.DashCubic next, Random random, boolean addSegments, boolean addDots, long now) {
          this.prevPos = this.pos;
-         Vec3d sourceMotion = next != null ? next.motion : this.motion;
-         this.motion = sourceMotion.multiply(0.9523809523809523);
+         Vec3 sourceMotion = next != null ? next.motion : this.motion;
+         this.motion = sourceMotion.scale(0.9523809523809523);
          double yDivider = this.motion.y < 0.0 ? 1.0 : 3.5;
          this.pos = this.pos.add(this.motion.x * 5.0, this.motion.y * 5.0 / yDivider, this.motion.z * 5.0);
          this.updateRotation(random);
@@ -477,12 +477,12 @@ public class DashTrail extends Module {
          }
       }
 
-      private Vec3d renderPos(float tickDelta) {
-         return this.prevPos.lerp(this.pos, (double)MathHelper.clamp(tickDelta, 0.0F, 1.0F));
+      private Vec3 renderPos(float tickDelta) {
+         return this.prevPos.lerp(this.pos, (double)Mth.clamp(tickDelta, 0.0F, 1.0F));
       }
 
       private float progress(long now) {
-         return MathHelper.clamp((float)(now - this.startTime) / (float)this.lifetime, 0.0F, 1.0F);
+         return Mth.clamp((float)(now - this.startTime) / (float)this.lifetime, 0.0F, 1.0F);
       }
 
       private boolean isDead(long now) {
@@ -519,8 +519,8 @@ public class DashTrail extends Module {
       private final double yaw;
       private final double pitch;
       private final long startTime = System.currentTimeMillis();
-      private Vec3d pos = Vec3d.ZERO;
-      private Vec3d prevPos = Vec3d.ZERO;
+      private Vec3 pos = Vec3.ZERO;
+      private Vec3 prevPos = Vec3.ZERO;
 
       private DashSpark(Random random) {
          this.speed = random.nextDouble() / 50.0;
@@ -533,12 +533,12 @@ public class DashTrail extends Module {
          this.pos = this.pos.add(Math.sin(this.yaw) * this.speed, Math.cos(this.pitch) * this.speed, Math.cos(this.yaw) * this.speed);
       }
 
-      private Vec3d renderPos(float tickDelta) {
-         return this.prevPos.lerp(this.pos, (double)MathHelper.clamp(tickDelta, 0.0F, 1.0F));
+      private Vec3 renderPos(float tickDelta) {
+         return this.prevPos.lerp(this.pos, (double)Mth.clamp(tickDelta, 0.0F, 1.0F));
       }
 
       private double alpha(long now) {
-         return 1.0 - MathHelper.clamp((double)(now - this.startTime) / 1000.0, 0.0, 1.0);
+         return 1.0 - Mth.clamp((double)(now - this.startTime) / 1000.0, 0.0, 1.0);
       }
 
       private boolean isDead() {
@@ -574,7 +574,7 @@ public class DashTrail extends Module {
             return this.textures[0];
          } else {
             long elapsed = Math.floorMod(now - this.startTime, this.animationTime);
-            int index = MathHelper.clamp((int)((float)elapsed / (float)this.animationTime * (float)this.textures.length), 0, this.textures.length - 1);
+            int index = Mth.clamp((int)((float)elapsed / (float)this.animationTime * (float)this.textures.length), 0, this.textures.length - 1);
             return this.textures[index];
          }
       }

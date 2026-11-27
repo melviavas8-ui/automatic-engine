@@ -5,12 +5,13 @@ import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import com.mojang.blaze3d.vertex.VertexFormatElement;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -18,17 +19,16 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.ScreenRect;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.gui.render.TextureSetup;
 import net.minecraft.client.gui.render.state.GuiRenderState;
-import net.minecraft.client.texture.AbstractTexture;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.client.texture.TextureManager;
-import net.minecraft.client.texture.TextureSetup;
-import net.minecraft.resource.ResourceManager;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.renderer.texture.AbstractTexture;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.client.renderer.texture.TextureManager;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.resources.ResourceManager;
 import org.joml.Matrix3x2f;
 import org.lwjgl.system.MemoryStack;
 import daamky.ua.access.GuiRenderStateLayerAccessor;
@@ -57,7 +57,7 @@ public final class ImageRenderer implements AutoCloseable {
       .withLocation(id("pipeline/image"))
       .withVertexShader(id("ui/image/image"))
       .withFragmentShader(id("ui/image/image"))
-      .withVertexFormat(IMAGE_VERTEX_FORMAT, DrawMode.QUADS)
+      .withVertexFormat(IMAGE_VERTEX_FORMAT, Mode.QUADS)
       .withBlend(BlendFunction.TRANSLUCENT)
       .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
       .withCull(false)
@@ -69,7 +69,7 @@ public final class ImageRenderer implements AutoCloseable {
    private final Map<ImageRenderer.TextureCacheKey, ImageRenderer.CachedTexture> textures = new HashMap<>();
    private final Map<ImageRenderer.FrameBatchKey, ImageRenderState> frameBatches = new LinkedHashMap<>(32);
    private final List<ImageQuad> preparedImages = new ArrayList<>(128);
-   private DrawContext activeGraphics;
+   private GuiGraphics activeGraphics;
    private GpuBuffer paramsBuffer;
    private boolean paramsDirty;
 
@@ -99,7 +99,7 @@ public final class ImageRenderer implements AutoCloseable {
       }
    }
 
-   public void beginFrame(DrawContext graphics) {
+   public void beginFrame(GuiGraphics graphics) {
       if (this.activeGraphics != graphics) {
          this.frameBatches.clear();
       }
@@ -182,7 +182,7 @@ public final class ImageRenderer implements AutoCloseable {
       }
    }
 
-   private void submit(DrawContext graphics, BuiltImage image) {
+   private void submit(GuiGraphics graphics, BuiltImage image) {
       if (graphics != null && image != null && image.visible()) {
          ImageTexture texture = this.resolveTexture(image.texture(), image.nearestFilter());
          if (texture != null) {
@@ -218,7 +218,7 @@ public final class ImageRenderer implements AutoCloseable {
                   GuiRenderState guiState = ((GuiGraphicsExtractorAccessor)graphics).daamky$getGuiRenderState();
                   int layerSerial = ((GuiRenderStateLayerAccessor)guiState).daamky$getLayerSerial();
                   Matrix3x2f pose = Render2DCoordinateSpace.pose(graphics);
-                  ScreenRect scissorArea = ScissorUtil.current();
+                  ScreenRectangle scissorArea = ScissorUtil.current();
                   ImageRenderer.FrameBatchKey key = new ImageRenderer.FrameBatchKey(
                      guiState, layerSerial, texture.id(), texture.nearestFilter(), ImageRenderer.PoseKey.of(pose), scissorArea
                   );
@@ -227,7 +227,7 @@ public final class ImageRenderer implements AutoCloseable {
                      state = new ImageRenderState(pose, texture, scissorArea);
                      state.add(quad);
                      this.frameBatches.put(key, state);
-                     guiState.addSimpleElement(state);
+                     guiState.submitGuiElement(state);
                   } else {
                      state.add(quad);
                   }
@@ -247,7 +247,7 @@ public final class ImageRenderer implements AutoCloseable {
          if (classpathTexture != null) {
             return classpathTexture;
          } else {
-            MinecraftClient minecraft = MinecraftClient.getInstance();
+            Minecraft minecraft = Minecraft.getInstance();
             if (minecraft == null) {
                return null;
             } else {
@@ -256,16 +256,16 @@ public final class ImageRenderer implements AutoCloseable {
                   return null;
                } else {
                   AbstractTexture texture = textureManager.getTexture(id);
-                  if (texture != null && texture.getGlTextureView() != null && texture.getGlTexture() != null) {
+                  if (texture != null && texture.getTextureView() != null && texture.getTexture() != null) {
                      ImageRenderer.TextureCacheKey key = new ImageRenderer.TextureCacheKey(id, nearestFilter);
                      ImageRenderer.CachedTexture cached = this.textures.get(key);
                      if (cached != null && cached.texture() == texture) {
                         return cached.value();
                      } else {
-                        int width = Math.max(1, texture.getGlTexture().getWidth(0));
-                        int height = Math.max(1, texture.getGlTexture().getHeight(0));
-                        TextureSetup setup = TextureSetup.of(
-                           texture.getGlTextureView(), RenderSystem.getSamplerCache().get(nearestFilter ? FilterMode.NEAREST : FilterMode.LINEAR)
+                        int width = Math.max(1, texture.getTexture().getWidth(0));
+                        int height = Math.max(1, texture.getTexture().getHeight(0));
+                        TextureSetup setup = TextureSetup.singleTexture(
+                           texture.getTextureView(), RenderSystem.getSamplerCache().getClampToEdge(nearestFilter ? FilterMode.NEAREST : FilterMode.LINEAR)
                         );
                         ImageTexture value = new ImageTexture(id, setup, nearestFilter, width, height);
                         this.textures.put(key, new ImageRenderer.CachedTexture(texture, value, false));
@@ -291,12 +291,12 @@ public final class ImageRenderer implements AutoCloseable {
          } else if (!GuiResourceLoader.exists(id)) {
             return null;
          } else {
-            NativeImageBackedTexture texture = GuiResourceLoader.loadTexture(id, "daamky_gui_image_");
-            if (texture != null && texture.getGlTextureView() != null && texture.getGlTexture() != null) {
-               int width = Math.max(1, texture.getGlTexture().getWidth(0));
-               int height = Math.max(1, texture.getGlTexture().getHeight(0));
-               TextureSetup setup = TextureSetup.of(
-                  texture.getGlTextureView(), RenderSystem.getSamplerCache().get(nearestFilter ? FilterMode.NEAREST : FilterMode.LINEAR)
+            DynamicTexture texture = GuiResourceLoader.loadTexture(id, "daamky_gui_image_");
+            if (texture != null && texture.getTextureView() != null && texture.getTexture() != null) {
+               int width = Math.max(1, texture.getTexture().getWidth(0));
+               int height = Math.max(1, texture.getTexture().getHeight(0));
+               TextureSetup setup = TextureSetup.singleTexture(
+                  texture.getTextureView(), RenderSystem.getSamplerCache().getClampToEdge(nearestFilter ? FilterMode.NEAREST : FilterMode.LINEAR)
                );
                ImageTexture value = new ImageTexture(id, setup, nearestFilter, width, height);
                this.textures.put(key, new ImageRenderer.CachedTexture(texture, value, true));
@@ -321,7 +321,7 @@ public final class ImageRenderer implements AutoCloseable {
             if (slash >= 0) {
                String namespace = path.substring(0, slash);
                String resourcePath = path.substring(slash + 1);
-               return Identifier.of(namespace, resourcePath);
+               return Identifier.fromNamespaceAndPath(namespace, resourcePath);
             }
          }
 
@@ -340,7 +340,7 @@ public final class ImageRenderer implements AutoCloseable {
                   path = path + ".png";
                }
 
-               return Identifier.of("daamky", path);
+               return Identifier.fromNamespaceAndPath("daamky", path);
             }
          }
       } else {
@@ -358,7 +358,7 @@ public final class ImageRenderer implements AutoCloseable {
          }
 
          for (String root : TEXTURE_SEARCH_ROOTS) {
-            Identifier identifier = Identifier.of("daamky", root + normalizedPath);
+            Identifier identifier = Identifier.fromNamespaceAndPath("daamky", root + normalizedPath);
             if (this.resourceExists(identifier)) {
                return identifier;
             }
@@ -372,7 +372,7 @@ public final class ImageRenderer implements AutoCloseable {
       if ("daamky".equals(identifier.getNamespace()) && GuiResourceLoader.exists(identifier)) {
          return true;
       } else {
-         MinecraftClient minecraft = MinecraftClient.getInstance();
+         Minecraft minecraft = Minecraft.getInstance();
          if (minecraft == null) {
             return false;
          } else {
@@ -476,7 +476,7 @@ public final class ImageRenderer implements AutoCloseable {
    }
 
    private static Identifier id(String path) {
-      return Identifier.of("daamky", path);
+      return Identifier.fromNamespaceAndPath("daamky", path);
    }
 
    @Override
@@ -499,7 +499,7 @@ public final class ImageRenderer implements AutoCloseable {
    }
 
    private static record FrameBatchKey(
-      GuiRenderState state, int layerSerial, Identifier texture, boolean nearestFilter, ImageRenderer.PoseKey pose, ScreenRect scissorArea
+      GuiRenderState state, int layerSerial, Identifier texture, boolean nearestFilter, ImageRenderer.PoseKey pose, ScreenRectangle scissorArea
    ) {
    }
 

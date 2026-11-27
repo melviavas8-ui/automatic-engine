@@ -1,19 +1,19 @@
 package daamky.ua.screens.clickgui;
 
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.input.CharInput;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.text.Text;
 import daamky.ua.api.module.impl.misc.ClientSounds;
 import daamky.ua.screens.clickgui.impl.ClickGuiController;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.Component;
 
 public final class ClickGui extends Screen {
    private boolean openedSoundPlayed;
 
    public ClickGui() {
-      super(Text.literal("daamky ClickGui"));
+      super(Component.literal("daamky ClickGui"));
    }
 
    protected void init() {
@@ -21,27 +21,27 @@ public final class ClickGui extends Screen {
       this.playOpenSound();
    }
 
-   public void render(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
+   public void render(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
       super.render(context, mouseX, mouseY, deltaTicks);
    }
 
-   public boolean keyPressed(KeyInput input) {
+   public boolean keyPressed(KeyEvent input) {
       return ClickGuiController.keyPressed(input) ? true : super.keyPressed(input);
    }
 
-   public boolean charTyped(CharInput input) {
+   public boolean charTyped(CharacterEvent input) {
       return ClickGuiController.charTyped(input) ? true : super.charTyped(input);
    }
 
-   public boolean mouseClicked(Click click, boolean doubled) {
+   public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
       return ClickGuiController.mouseClicked(click, doubled);
    }
 
-   public boolean mouseReleased(Click click) {
+   public boolean mouseReleased(MouseButtonEvent click) {
       return ClickGuiController.mouseReleased(click);
    }
 
-   public boolean mouseDragged(Click click, double offsetX, double offsetY) {
+   public boolean mouseDragged(MouseButtonEvent click, double offsetX, double offsetY) {
       return ClickGuiController.mouseDragged(click, offsetX, offsetY);
    }
 
@@ -51,15 +51,15 @@ public final class ClickGui extends Screen {
          : super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
    }
 
-   public void close() {
+   public void onClose() {
       ClickGuiController.startClosing();
    }
 
-   public boolean shouldPause() {
+   public boolean isPauseScreen() {
       return false;
    }
 
-   public static void renderPanels(DrawContext graphics, int screenWidth, int screenHeight) {
+   public static void renderPanels(GuiGraphics graphics, int screenWidth, int screenHeight) {
       ClickGuiController.renderPanels(graphics, screenWidth, screenHeight);
    }
 

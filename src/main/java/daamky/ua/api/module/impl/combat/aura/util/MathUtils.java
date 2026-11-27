@@ -1,9 +1,9 @@
 package daamky.ua.api.module.impl.combat.aura.util;
 
 import java.util.concurrent.ThreadLocalRandom;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 
 public final class MathUtils {
@@ -33,7 +33,7 @@ public final class MathUtils {
 
       double time = (double)System.currentTimeMillis() / ((double)Math.max(1.0F, smoothness) * 50.0);
       float progress = (float)((Math.sin(time) + 1.0) * 0.5);
-      return MathHelper.lerp(progress, min, max);
+      return Mth.lerp(progress, min, max);
    }
 
    public static double getrandomDouble(double min, double max) {
@@ -50,17 +50,17 @@ public final class MathUtils {
       }
    }
 
-   public static Angle fromVec3d(Vec3d vector) {
+   public static Angle fromVec3d(Vec3 vector) {
       return new Angle(
-         (float)MathHelper.wrapDegrees(Math.toDegrees(Math.atan2(vector.z, vector.x)) - 90.0),
-         (float)MathHelper.wrapDegrees(Math.toDegrees(-Math.atan2(vector.y, Math.hypot(vector.x, vector.z))))
+         (float)Mth.wrapDegrees(Math.toDegrees(Math.atan2(vector.z, vector.x)) - 90.0),
+         (float)Mth.wrapDegrees(Math.toDegrees(-Math.atan2(vector.y, Math.hypot(vector.x, vector.z))))
       );
    }
 
    public static double computeGcd() {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (client != null && client.options != null) {
-         double sensitivity = (Double)client.options.getMouseSensitivity().getValue();
+         double sensitivity = (Double)client.options.sensitivity().get();
          double factor = sensitivity * 0.6 + 0.2;
          return factor * factor * factor * 1.2;
       } else {

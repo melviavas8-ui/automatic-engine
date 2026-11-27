@@ -3,17 +3,17 @@ package daamky.ua.utils.inventory;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.gui.screen.ingame.AbstractCommandBlockScreen;
-import net.minecraft.client.gui.screen.ingame.AnvilScreen;
-import net.minecraft.client.gui.screen.ingame.GenericContainerScreen;
-import net.minecraft.client.gui.screen.ingame.SignEditScreen;
-import net.minecraft.client.gui.screen.ingame.StructureBlockScreen;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.client.util.Window;
-import net.minecraft.client.util.InputUtil.Key;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.inventory.AbstractCommandBlockEditScreen;
+import net.minecraft.client.gui.screens.inventory.AnvilScreen;
+import net.minecraft.client.gui.screens.inventory.ContainerScreen;
+import net.minecraft.client.gui.screens.inventory.SignEditScreen;
+import net.minecraft.client.gui.screens.inventory.StructureBlockEditScreen;
 import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.blaze3d.platform.InputConstants.Key;
+import com.mojang.blaze3d.platform.Window;
 import daamky.ua.IMinecraft;
 import daamky.ua.api.events.impl.InputEvent;
 import daamky.ua.api.module.impl.movement.InventoryMove;
@@ -195,8 +195,8 @@ public final class InventoryFlowManager implements IMinecraft {
 
    public static void unPressMoveKeys() {
       if (mc.options != null) {
-         for (KeyBinding key : getMoveKeys()) {
-            key.setPressed(false);
+         for (KeyMapping key : getMoveKeys()) {
+            key.setDown(false);
          }
 
          stopSprint();
@@ -205,22 +205,22 @@ public final class InventoryFlowManager implements IMinecraft {
 
    public static void updateMoveKeys() {
       if (mc.options != null && mc.getWindow() != null) {
-         for (KeyBinding key : getMoveKeys()) {
-            key.setPressed(isCurrentlyPressed(key));
+         for (KeyMapping key : getMoveKeys()) {
+            key.setDown(isCurrentlyPressed(key));
          }
       }
    }
 
    public static boolean shouldSkipExecution() {
-      if (mc.currentScreen == null) {
+      if (mc.screen == null) {
          return false;
       } else {
-         return !(mc.currentScreen instanceof ChatScreen)
-               && !(mc.currentScreen instanceof SignEditScreen)
-               && !(mc.currentScreen instanceof AnvilScreen)
-               && !(mc.currentScreen instanceof AbstractCommandBlockScreen)
-               && !(mc.currentScreen instanceof StructureBlockScreen)
-            ? !"HolyWorld".equals(getSelectedMode()) || !(mc.currentScreen instanceof GenericContainerScreen)
+         return !(mc.screen instanceof ChatScreen)
+               && !(mc.screen instanceof SignEditScreen)
+               && !(mc.screen instanceof AnvilScreen)
+               && !(mc.screen instanceof AbstractCommandBlockEditScreen)
+               && !(mc.screen instanceof StructureBlockEditScreen)
+            ? !"HolyWorld".equals(getSelectedMode()) || !(mc.screen instanceof ContainerScreen)
             : false;
       }
    }
@@ -257,13 +257,13 @@ public final class InventoryFlowManager implements IMinecraft {
 
    private static void updateSprintKey() {
       if (mc.options != null && mc.getWindow() != null) {
-         mc.options.sprintKey.setPressed(isCurrentlyPressed(mc.options.sprintKey));
+         mc.options.keySprint.setDown(isCurrentlyPressed(mc.options.keySprint));
       }
    }
 
    private static void stopSprint() {
       if (mc.options != null) {
-         mc.options.sprintKey.setPressed(false);
+         mc.options.keySprint.setDown(false);
       }
    }
 
@@ -294,21 +294,21 @@ public final class InventoryFlowManager implements IMinecraft {
       }
    }
 
-   private static List<KeyBinding> getMoveKeys() {
-      return List.of(mc.options.forwardKey, mc.options.backKey, mc.options.leftKey, mc.options.rightKey, mc.options.jumpKey, mc.options.sprintKey);
+   private static List<KeyMapping> getMoveKeys() {
+      return List.of(mc.options.keyUp, mc.options.keyDown, mc.options.keyLeft, mc.options.keyRight, mc.options.keyJump, mc.options.keySprint);
    }
 
-   private static boolean isCurrentlyPressed(KeyBinding key) {
+   private static boolean isCurrentlyPressed(KeyMapping key) {
       if (mc.getWindow() == null) {
          return false;
       } else {
-         Key inputKey = InputUtil.fromTranslationKey(key.getBoundKeyTranslationKey());
+         Key inputKey = InputConstants.getKey(key.saveString());
          Window window = mc.getWindow();
-         long handle = window.getHandle();
+         long handle = window.handle();
 
-         return switch (inputKey.getCategory()) {
-            case KEYSYM -> InputUtil.isKeyPressed(window, inputKey.getCode());
-            case MOUSE -> GLFW.glfwGetMouseButton(handle, inputKey.getCode()) == 1;
+         return switch (inputKey.getType()) {
+            case KEYSYM -> InputConstants.isKeyDown(window, inputKey.getValue());
+            case MOUSE -> GLFW.glfwGetMouseButton(handle, inputKey.getValue()) == 1;
             default -> false;
          };
       }

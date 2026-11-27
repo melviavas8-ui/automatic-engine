@@ -7,15 +7,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 
 public final class PointNavigator {
    private static final int MAX_VISITED_NODES = 12000;
    private static final int REPATH_AFTER_STUCK_TICKS = 20;
-   private final MinecraftClient mc = MinecraftClient.getInstance();
+   private final Minecraft mc = Minecraft.getInstance();
    private BlockPos target;
    private List<BlockPos> path = List.of();
    private int pathIndex;
@@ -31,7 +31,7 @@ public final class PointNavigator {
       if (newTarget == null) {
          this.stop();
       } else if (!newTarget.equals(this.target)) {
-         this.target = newTarget.toImmutable();
+         this.target = newTarget.immutable();
          this.path = List.of();
          this.pathIndex = 0;
          this.repathCooldown = 0;
@@ -41,8 +41,8 @@ public final class PointNavigator {
    }
 
    public void tick() {
-      if (this.target != null && this.mc.player != null && this.mc.world != null && this.mc.options != null) {
-         if (this.mc.player.squaredDistanceTo(Vec3d.ofCenter(this.target)) <= 2.25) {
+      if (this.target != null && this.mc.player != null && this.mc.level != null && this.mc.options != null) {
+         if (this.mc.player.distanceToSqr(Vec3.atCenterOf(this.target)) <= 2.25) {
             this.stop();
          } else {
             if (this.repathCooldown > 0) {
@@ -51,7 +51,7 @@ public final class PointNavigator {
 
             this.updateStuckState();
             if (this.path.isEmpty() || this.pathIndex >= this.path.size() || this.stuckTicks >= 20 && this.repathCooldown == 0) {
-               List<BlockPos> newPath = this.findPath(this.mc.player.getBlockPos(), this.target);
+               List<BlockPos> newPath = this.findPath(this.mc.player.blockPosition(), this.target);
                this.path = newPath.isEmpty() ? List.of(this.target) : newPath;
                this.pathIndex = 0;
                this.stuckTicks = 0;
@@ -86,20 +86,20 @@ public final class PointNavigator {
       } else {
          dx /= length;
          dz /= length;
-         double yaw = Math.toRadians((double)this.mc.player.getYaw());
+         double yaw = Math.toRadians((double)this.mc.player.getYRot());
          double forward = dx * -Math.sin(yaw) + dz * Math.cos(yaw);
          double right = dx * Math.cos(yaw) + dz * Math.sin(yaw);
-         this.mc.options.forwardKey.setPressed(forward > 0.2);
-         this.mc.options.backKey.setPressed(forward < -0.2);
-         this.mc.options.rightKey.setPressed(right > 0.2);
-         this.mc.options.leftKey.setPressed(right < -0.2);
-         boolean shouldJump = (double)waypoint.getY() > this.mc.player.getY() + 0.25 || this.mc.player.horizontalCollision && this.mc.player.isOnGround();
-         this.mc.options.jumpKey.setPressed(shouldJump);
-         this.mc.options.sprintKey.setPressed(forward > 0.2);
+         this.mc.options.keyUp.setDown(forward > 0.2);
+         this.mc.options.keyDown.setDown(forward < -0.2);
+         this.mc.options.keyRight.setDown(right > 0.2);
+         this.mc.options.keyLeft.setDown(right < -0.2);
+         boolean shouldJump = (double)waypoint.getY() > this.mc.player.getY() + 0.25 || this.mc.player.horizontalCollision && this.mc.player.onGround();
+         this.mc.options.keyJump.setDown(shouldJump);
+         this.mc.options.keySprint.setDown(forward > 0.2);
          this.mc.player.setSprinting(forward > 0.2);
          this.mc.player.setSprinting(true);
-         if (shouldJump && this.mc.player.isOnGround()) {
-            this.mc.player.jump();
+         if (shouldJump && this.mc.player.onGround()) {
+            this.mc.player.jumpFromGround();
          }
       }
    }
@@ -153,7 +153,7 @@ public final class PointNavigator {
 
    private BlockPos findNeighbor(BlockPos current, int dx, int dz) {
       for (int dy : new int[]{0, 1, -1}) {
-         BlockPos candidate = current.add(dx, dy, dz);
+         BlockPos candidate = current.offset(dx, dy, dz);
          if (this.isWalkable(candidate)) {
             return candidate;
          }
@@ -164,15 +164,15 @@ public final class PointNavigator {
 
    private BlockPos nearestWalkable(BlockPos pos) {
       if (this.isWalkable(pos)) {
-         return pos.toImmutable();
+         return pos.immutable();
       } else {
          for (int radius = 1; radius <= 2; radius++) {
             for (int x = -radius; x <= radius; x++) {
                for (int z = -radius; z <= radius; z++) {
                   for (int y = 1; y >= -1; y--) {
-                     BlockPos candidate = pos.add(x, y, z);
+                     BlockPos candidate = pos.offset(x, y, z);
                      if (this.isWalkable(candidate)) {
-                        return candidate.toImmutable();
+                        return candidate.immutable();
                      }
                   }
                }
@@ -184,15 +184,15 @@ public final class PointNavigator {
    }
 
    private boolean isWalkable(BlockPos pos) {
-      if (!this.mc.world.isChunkLoaded(pos)) {
+      if (!this.mc.level.hasChunkAt(pos)) {
          return false;
       } else {
-         BlockState feet = this.mc.world.getBlockState(pos);
-         BlockState head = this.mc.world.getBlockState(pos.up());
-         BlockState floor = this.mc.world.getBlockState(pos.down());
-         return feet.getCollisionShape(this.mc.world, pos).isEmpty()
-            && head.getCollisionShape(this.mc.world, pos.up()).isEmpty()
-            && !floor.getCollisionShape(this.mc.world, pos.down()).isEmpty()
+         BlockState feet = this.mc.level.getBlockState(pos);
+         BlockState head = this.mc.level.getBlockState(pos.above());
+         BlockState floor = this.mc.level.getBlockState(pos.below());
+         return feet.getCollisionShape(this.mc.level, pos).isEmpty()
+            && head.getCollisionShape(this.mc.level, pos.above()).isEmpty()
+            && !floor.getCollisionShape(this.mc.level, pos.below()).isEmpty()
             && feet.getFluidState().isEmpty()
             && head.getFluidState().isEmpty();
       }
@@ -245,12 +245,12 @@ public final class PointNavigator {
 
    private void releaseKeys() {
       if (this.mc.options != null) {
-         this.mc.options.forwardKey.setPressed(false);
-         this.mc.options.backKey.setPressed(false);
-         this.mc.options.leftKey.setPressed(false);
-         this.mc.options.rightKey.setPressed(false);
-         this.mc.options.jumpKey.setPressed(false);
-         this.mc.options.sprintKey.setPressed(false);
+         this.mc.options.keyUp.setDown(false);
+         this.mc.options.keyDown.setDown(false);
+         this.mc.options.keyLeft.setDown(false);
+         this.mc.options.keyRight.setDown(false);
+         this.mc.options.keyJump.setDown(false);
+         this.mc.options.keySprint.setDown(false);
          if (this.mc.player != null) {
             this.mc.player.setSprinting(false);
          }

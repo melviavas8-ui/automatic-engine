@@ -1,6 +1,6 @@
 package daamky.ua.utils.render.ui.rectangle.recthalficon;
 
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
 
 public record BuiltHalfIconRectangle(
    float x,
@@ -198,7 +198,7 @@ public record BuiltHalfIconRectangle(
       );
    }
 
-   public void render(DrawContext graphics) {
+   public void render(GuiGraphics graphics) {
       HalfIconRectangleRenderer.getInstance().draw(graphics, this);
    }
 

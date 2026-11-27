@@ -1,10 +1,10 @@
 package daamky.ua.api.module.impl.visual.particles;
 
 import java.util.Random;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.Perspective;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 final class ParticleMotion {
    private final ParticleSettings settings;
@@ -18,7 +18,7 @@ final class ParticleMotion {
       this.random = random;
    }
 
-   float[] startMotionRotations(MinecraftClient client, Vec3d sourcePos, Vec3d objPos, Entity entityFrom) {
+   float[] startMotionRotations(Minecraft client, Vec3 sourcePos, Vec3 objPos, Entity entityFrom) {
       String rule = entityFrom != null && entityFrom != client.player
          ? this.settings.spawnPulseMotionSideRuleOnAttack.getValue()
          : this.settings.spawnPulseMotionSideRuleInWorld.getValue();
@@ -38,12 +38,12 @@ final class ParticleMotion {
    }
 
    float[] changeRotationUpdateIfRule(
-      MinecraftClient client,
+      Minecraft client,
       String motionSideChangeRuleMode,
       double objPosX,
       double objPosY,
       double objPosZ,
-      Vec3d tentativeTargetVec,
+      Vec3 tentativeTargetVec,
       float yawIn,
       float pitchIn,
       float[] speedYawPitch,
@@ -84,7 +84,7 @@ final class ParticleMotion {
             break;
          case "To Source":
          case "From Source":
-            Vec3d target = tentativeTargetVec == null
+            Vec3 target = tentativeTargetVec == null
                ? ParticleWorld.entityVecForParticle(client, rules.entityFor, randomFloat01StaticValue)
                : tentativeTargetVec;
             float[] targetRotation = "From Source".equals(motionSideChangeRuleMode)
@@ -122,12 +122,12 @@ final class ParticleMotion {
       return this.rotationOut;
    }
 
-   private float cameraYaw(MinecraftClient client) {
+   private float cameraYaw(Minecraft client) {
       if (client.player == null) {
          return 0.0F;
       } else {
-         float yaw = client.player.getYaw();
-         if (client.options.getPerspective() == Perspective.THIRD_PERSON_FRONT) {
+         float yaw = client.player.getYRot();
+         if (client.options.getCameraType() == CameraType.THIRD_PERSON_FRONT) {
             yaw += 180.0F;
          }
 

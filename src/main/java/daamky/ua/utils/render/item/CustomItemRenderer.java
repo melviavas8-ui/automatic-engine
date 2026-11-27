@@ -5,12 +5,13 @@ import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import com.mojang.blaze3d.vertex.VertexFormatElement;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -19,27 +20,26 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.render.TextureSetup;
 import net.minecraft.client.gui.render.state.GuiRenderState;
-import net.minecraft.client.render.item.KeyedItemRenderState;
-import net.minecraft.client.render.item.ItemRenderState.Glint;
-import net.minecraft.client.render.item.ItemRenderState.LayerRenderState;
-import net.minecraft.client.render.model.BakedQuad;
-import net.minecraft.client.render.model.json.Transformation;
-import net.minecraft.client.texture.AbstractTexture;
-import net.minecraft.client.texture.TextureManager;
-import net.minecraft.client.texture.TextureSetup;
-import net.minecraft.client.util.math.Vector2f;
-import net.minecraft.component.ComponentMap;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.PotionContentsComponent;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemDisplayContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Direction;
+import net.minecraft.client.model.geom.builders.UVPair;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.renderer.block.model.ItemTransform;
+import net.minecraft.client.renderer.item.ItemStackRenderState.FoilType;
+import net.minecraft.client.renderer.item.ItemStackRenderState.LayerRenderState;
+import net.minecraft.client.renderer.item.TrackingItemStackRenderState;
+import net.minecraft.client.renderer.texture.AbstractTexture;
+import net.minecraft.client.renderer.texture.TextureManager;
+import net.minecraft.core.Direction;
+import net.minecraft.core.component.DataComponentMap;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.alchemy.PotionContents;
 import org.joml.Matrix3x2f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -74,7 +74,7 @@ public final class CustomItemRenderer implements AutoCloseable {
       .withLocation(id("pipeline/item"))
       .withVertexShader(id("ui/item/item"))
       .withFragmentShader(id("ui/item/item"))
-      .withVertexFormat(ITEM_VERTEX_FORMAT, DrawMode.QUADS)
+      .withVertexFormat(ITEM_VERTEX_FORMAT, Mode.QUADS)
       .withBlend(BlendFunction.TRANSLUCENT)
       .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
       .withCull(false)
@@ -95,7 +95,7 @@ public final class CustomItemRenderer implements AutoCloseable {
    private final Map<CustomItemRenderer.FrameBatchKey, ItemRenderState> frameBatches = new LinkedHashMap<>(32);
    private final float[] preparedGlints = new float[4096];
    private int preparedQuadCount;
-   private DrawContext activeGraphics;
+   private GuiGraphics activeGraphics;
    private GpuBuffer paramsBuffer;
    private boolean paramsDirty;
    private CustomItemRenderer.ServerCacheKey lastServerCacheKey;
@@ -126,7 +126,7 @@ public final class CustomItemRenderer implements AutoCloseable {
       }
    }
 
-   public void beginFrame(DrawContext graphics) {
+   public void beginFrame(GuiGraphics graphics) {
       if (this.activeGraphics != graphics) {
          this.frameBatches.clear();
       }
@@ -206,10 +206,10 @@ public final class CustomItemRenderer implements AutoCloseable {
       }
    }
 
-   private void submit(DrawContext graphics, BuiltRenderItem item) {
+   private void submit(GuiGraphics graphics, BuiltRenderItem item) {
       if (graphics != null && item != null && item.visible()) {
-         MinecraftClient minecraft = MinecraftClient.getInstance();
-         if (minecraft != null && minecraft.getItemModelManager() != null) {
+         Minecraft minecraft = Minecraft.getInstance();
+         if (minecraft != null && minecraft.getItemModelResolver() != null) {
             this.refreshServerCacheKey(minecraft);
 
             try {
@@ -220,9 +220,9 @@ public final class CustomItemRenderer implements AutoCloseable {
       }
    }
 
-   private CachedItemGeometry resolveGeometry(MinecraftClient minecraft, BuiltRenderItem item) {
-      KeyedItemRenderState renderState = this.buildRenderState(minecraft, item.stack(), item.seed());
-      CustomItemRenderer.GeometryCacheKey key = CustomItemRenderer.GeometryCacheKey.of(item.stack(), item.seed(), renderState.getModelKey());
+   private CachedItemGeometry resolveGeometry(Minecraft minecraft, BuiltRenderItem item) {
+      TrackingItemStackRenderState renderState = this.buildRenderState(minecraft, item.stack(), item.seed());
+      CustomItemRenderer.GeometryCacheKey key = CustomItemRenderer.GeometryCacheKey.of(item.stack(), item.seed(), renderState.getModelIdentity());
       CachedItemGeometry cached = this.geometryCache.get(key);
       if (cached != null) {
          return cached;
@@ -236,13 +236,13 @@ public final class CustomItemRenderer implements AutoCloseable {
       }
    }
 
-   private KeyedItemRenderState buildRenderState(MinecraftClient minecraft, ItemStack stack, int seed) {
-      KeyedItemRenderState renderState = new KeyedItemRenderState();
-      minecraft.getItemModelManager().clearAndUpdate(renderState, stack, ItemDisplayContext.GUI, minecraft.world, minecraft.player, seed);
+   private TrackingItemStackRenderState buildRenderState(Minecraft minecraft, ItemStack stack, int seed) {
+      TrackingItemStackRenderState renderState = new TrackingItemStackRenderState();
+      minecraft.getItemModelResolver().updateForTopItem(renderState, stack, ItemDisplayContext.GUI, minecraft.level, minecraft.player, seed);
       return renderState;
    }
 
-   private CachedItemGeometry buildGeometry(ItemStack stack, net.minecraft.client.render.item.ItemRenderState renderState) {
+   private CachedItemGeometry buildGeometry(ItemStack stack, net.minecraft.client.renderer.item.ItemStackRenderState renderState) {
       ItemStackRenderStateAccessor stateAccessor = (ItemStackRenderStateAccessor)renderState;
       LayerRenderState[] layers = stateAccessor.daamky$getLayers();
       int activeLayerCount = Math.min(stateAccessor.daamky$getActiveLayerCount(), layers.length);
@@ -282,11 +282,11 @@ public final class CustomItemRenderer implements AutoCloseable {
 
    private void collectLayerGeometry(List<CustomItemRenderer.RawItemQuad> output, CustomItemRenderer.Bounds bounds, LayerRenderState layer, ItemStack stack) {
       if (layer != null) {
-         List<BakedQuad> quads = layer.getQuads();
+         List<BakedQuad> quads = layer.prepareQuadList();
          if (!quads.isEmpty()) {
             ItemLayerRenderStateAccessor accessor = (ItemLayerRenderStateAccessor)layer;
-            Glint foilType = accessor.daamky$getFoilType();
-            boolean foil = foilType != Glint.NONE;
+            FoilType foilType = accessor.daamky$getFoilType();
+            boolean foil = foilType != FoilType.NONE;
             int[] tints = preparedTints(layer, accessor, maxTintLayer(quads));
             Matrix4f transform = this.layerTransform(accessor);
             boolean preserveModelScale = accessor.daamky$getUsesBlockLight();
@@ -327,24 +327,24 @@ public final class CustomItemRenderer implements AutoCloseable {
          state = new ItemRenderState(pose, texture);
          state.add(quad, x, y, size, color, glintStrength);
          this.frameBatches.put(key, state);
-         guiState.addSimpleElement(state);
+         guiState.submitGuiElement(state);
       } else {
          state.add(quad, x, y, size, color, glintStrength);
       }
    }
 
-   private void submitSpecialItem(DrawContext graphics, BuiltRenderItem item) {
+   private void submitSpecialItem(GuiGraphics graphics, BuiltRenderItem item) {
       float scale = item.size() / 16.0F;
       if (!(scale <= 0.0F)) {
-         graphics.getMatrices().pushMatrix();
+         graphics.pose().pushMatrix();
 
          try {
-            Render2DCoordinateSpace.applyGuiScaleIndependence(graphics.getMatrices());
-            graphics.getMatrices().translate(item.x(), item.y());
-            graphics.getMatrices().scale(scale);
-            graphics.drawItem(item.stack(), 0, 0, item.seed());
+            Render2DCoordinateSpace.applyGuiScaleIndependence(graphics.pose());
+            graphics.pose().translate(item.x(), item.y());
+            graphics.pose().scale(scale);
+            graphics.renderItem(item.stack(), 0, 0, item.seed());
          } finally {
-            graphics.getMatrices().popMatrix();
+            graphics.pose().popMatrix();
          }
       }
    }
@@ -363,25 +363,25 @@ public final class CustomItemRenderer implements AutoCloseable {
       long uv2 = quad.packedUV2();
       long uv3 = quad.packedUV3();
       float depth = (t0.z + t1.z + t2.z + t3.z) * 0.25F;
-      int shadedTint = shadeModel ? shadeColor(tint, faceShade(quad.face())) : tint;
+      int shadedTint = shadeModel ? shadeColor(tint, faceShade(quad.direction())) : tint;
       return new CustomItemRenderer.RawItemQuad(
-         quad.sprite().getAtlasId(),
+         quad.sprite().atlasLocation(),
          t0.x,
          t0.y,
-         Vector2f.getX(uv0),
-         Vector2f.getY(uv0),
+         UVPair.unpackU(uv0),
+         UVPair.unpackV(uv0),
          t1.x,
          t1.y,
-         Vector2f.getX(uv1),
-         Vector2f.getY(uv1),
+         UVPair.unpackU(uv1),
+         UVPair.unpackV(uv1),
          t2.x,
          t2.y,
-         Vector2f.getX(uv2),
-         Vector2f.getY(uv2),
+         UVPair.unpackU(uv2),
+         UVPair.unpackV(uv2),
          t3.x,
          t3.y,
-         Vector2f.getX(uv3),
-         Vector2f.getY(uv3),
+         UVPair.unpackU(uv3),
+         UVPair.unpackV(uv3),
          shadedTint,
          foil,
          depth,
@@ -418,14 +418,14 @@ public final class CustomItemRenderer implements AutoCloseable {
    }
 
    private Matrix4f layerTransform(ItemLayerRenderStateAccessor accessor) {
-      net.minecraft.client.util.math.MatrixStack.Entry pose = new net.minecraft.client.util.math.MatrixStack.Entry();
-      Transformation transform = accessor.daamky$getItemTransform();
+      com.mojang.blaze3d.vertex.PoseStack.Pose pose = new com.mojang.blaze3d.vertex.PoseStack.Pose();
+      ItemTransform transform = accessor.daamky$getItemTransform();
       if (transform == null) {
-         transform = Transformation.IDENTITY;
+         transform = ItemTransform.NO_TRANSFORM;
       }
 
       transform.apply(false, pose);
-      return new Matrix4f(pose.getPositionMatrix());
+      return new Matrix4f(pose.pose());
    }
 
    private static Vector3f transformPosition(Vector3fc position, Matrix4f transform) {
@@ -436,7 +436,7 @@ public final class CustomItemRenderer implements AutoCloseable {
       if (atlas == null) {
          return null;
       } else {
-         MinecraftClient minecraft = MinecraftClient.getInstance();
+         Minecraft minecraft = Minecraft.getInstance();
          if (minecraft == null) {
             return null;
          } else {
@@ -445,12 +445,12 @@ public final class CustomItemRenderer implements AutoCloseable {
                return null;
             } else {
                AbstractTexture texture = textureManager.getTexture(atlas);
-               if (texture != null && texture.getGlTextureView() != null) {
+               if (texture != null && texture.getTextureView() != null) {
                   CustomItemRenderer.CachedTexture cached = this.textures.get(atlas);
                   if (cached != null && cached.texture() == texture) {
                      return cached.value();
                   } else {
-                     TextureSetup setup = TextureSetup.of(texture.getGlTextureView(), RenderSystem.getSamplerCache().get(FilterMode.NEAREST));
+                     TextureSetup setup = TextureSetup.singleTexture(texture.getTextureView(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
                      ItemTexture value = new ItemTexture(atlas, setup);
                      this.textures.put(atlas, new CustomItemRenderer.CachedTexture(texture, value));
                      return value;
@@ -537,7 +537,7 @@ public final class CustomItemRenderer implements AutoCloseable {
       int max = 0;
 
       for (BakedQuad quad : quads) {
-         if (quad.hasTint()) {
+         if (quad.isTinted()) {
             max = Math.max(max, quad.tintIndex() + 1);
          }
       }
@@ -548,7 +548,7 @@ public final class CustomItemRenderer implements AutoCloseable {
    private static int[] preparedTints(LayerRenderState layer, ItemLayerRenderStateAccessor accessor, int tintLayerCount) {
       int[] tints = accessor.daamky$getTintLayers();
       if (tints == null || tints.length < tintLayerCount) {
-         tints = layer.initTints(tintLayerCount);
+         tints = layer.prepareTintLayers(tintLayerCount);
       }
 
       return tints;
@@ -556,7 +556,7 @@ public final class CustomItemRenderer implements AutoCloseable {
 
    private static int tintColor(BakedQuad quad, int[] tints, ItemStack stack) {
       int tint = -1;
-      if (quad.hasTint()) {
+      if (quad.isTinted()) {
          int tintIndex = quad.tintIndex();
          if (tintIndex >= 0 && tintIndex < tints.length) {
             tint = normalizeColor(tints[tintIndex]);
@@ -575,18 +575,18 @@ public final class CustomItemRenderer implements AutoCloseable {
    }
 
    private static boolean isPotionStack(ItemStack stack) {
-      return stack != null && !stack.isEmpty() && stack.contains(DataComponentTypes.POTION_CONTENTS);
+      return stack != null && !stack.isEmpty() && stack.has(DataComponents.POTION_CONTENTS);
    }
 
    private static boolean isPotionOverlayQuad(BakedQuad quad) {
-      return quad != null && quad.sprite() != null && quad.sprite().getContents() != null && quad.sprite().getContents().getId() != null
-         ? "minecraft:item/potion_overlay".equals(quad.sprite().getContents().getId().toString())
+      return quad != null && quad.sprite() != null && quad.sprite().contents() != null && quad.sprite().contents().name() != null
+         ? "minecraft:item/potion_overlay".equals(quad.sprite().contents().name().toString())
          : false;
    }
 
    private static int potionTint(ItemStack stack, int fallback) {
       if (stack != null && !stack.isEmpty()) {
-         PotionContentsComponent contents = (PotionContentsComponent)stack.get(DataComponentTypes.POTION_CONTENTS);
+         PotionContents contents = (PotionContents)stack.get(DataComponents.POTION_CONTENTS);
          return contents == null ? fallback : 0xFF000000 | contents.getColor() & 16777215;
       } else {
          return fallback;
@@ -655,7 +655,7 @@ public final class CustomItemRenderer implements AutoCloseable {
    }
 
    private static Identifier id(String path) {
-      return Identifier.of("daamky", path);
+      return Identifier.fromNamespaceAndPath("daamky", path);
    }
 
    @Override
@@ -673,7 +673,7 @@ public final class CustomItemRenderer implements AutoCloseable {
       this.textures.clear();
    }
 
-   private void refreshServerCacheKey(MinecraftClient minecraft) {
+   private void refreshServerCacheKey(Minecraft minecraft) {
       CustomItemRenderer.ServerCacheKey key = CustomItemRenderer.ServerCacheKey.of(minecraft);
       if (!key.equals(this.lastServerCacheKey)) {
          this.geometryCache.clear();
@@ -722,10 +722,10 @@ public final class CustomItemRenderer implements AutoCloseable {
    private static record FrameBatchKey(GuiRenderState state, int layerSerial, Identifier texture, CustomItemRenderer.PoseKey pose) {
    }
 
-   private static record GeometryCacheKey(Item item, ComponentMap components, int count, int seed, Object modelIdentity) {
+   private static record GeometryCacheKey(Item item, DataComponentMap components, int count, int seed, Object modelIdentity) {
       static CustomItemRenderer.GeometryCacheKey of(ItemStack stack, int seed, Object modelIdentity) {
          return new CustomItemRenderer.GeometryCacheKey(
-            stack.getItem(), stack.getImmutableComponents(), stack.getCount(), seed, stableModelIdentity(modelIdentity)
+            stack.getItem(), stack.immutableComponents(), stack.getCount(), seed, stableModelIdentity(modelIdentity)
          );
       }
 
@@ -797,10 +797,10 @@ public final class CustomItemRenderer implements AutoCloseable {
    }
 
    private static record ServerCacheKey(String address, int protocol) {
-      static CustomItemRenderer.ServerCacheKey of(MinecraftClient minecraft) {
-         return minecraft != null && minecraft.getNetworkHandler() != null && minecraft.getNetworkHandler().getServerInfo() != null
+      static CustomItemRenderer.ServerCacheKey of(Minecraft minecraft) {
+         return minecraft != null && minecraft.getConnection() != null && minecraft.getConnection().getServerData() != null
             ? new CustomItemRenderer.ServerCacheKey(
-               minecraft.getNetworkHandler().getServerInfo().address, minecraft.getNetworkHandler().getServerInfo().protocolVersion
+               minecraft.getConnection().getServerData().ip, minecraft.getConnection().getServerData().protocol
             )
             : new CustomItemRenderer.ServerCacheKey("", 0);
       }

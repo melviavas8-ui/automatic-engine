@@ -1,8 +1,8 @@
 package daamky.ua.utils.modules.warden.rotation;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.util.Mth;
 
 public final class FreeLookController {
    private static boolean active;
@@ -36,31 +36,31 @@ public final class FreeLookController {
    }
 
    public static void syncFromPlayer() {
-      ClientPlayerEntity player = MinecraftClient.getInstance().player;
+      LocalPlayer player = Minecraft.getInstance().player;
       if (player != null) {
-         freeYaw = player.getYaw();
-         freePitch = player.getPitch();
+         freeYaw = player.getYRot();
+         freePitch = player.getXRot();
       }
    }
 
    public static void applyMouseDelta(double cursorDeltaX, double cursorDeltaY) {
       if (active) {
          freeYaw += (float)cursorDeltaX * 0.15F;
-         freePitch = MathHelper.clamp(freePitch + (float)cursorDeltaY * 0.15F, -90.0F, 90.0F);
+         freePitch = Mth.clamp(freePitch + (float)cursorDeltaY * 0.15F, -90.0F, 90.0F);
       }
    }
 
    public static void restorePlayerLook() {
-      ClientPlayerEntity player = MinecraftClient.getInstance().player;
+      LocalPlayer player = Minecraft.getInstance().player;
       if (player != null) {
-         player.setYaw(freeYaw);
-         player.setPitch(freePitch);
-         player.lastYaw = freeYaw;
-         player.lastPitch = freePitch;
-         player.headYaw = freeYaw;
-         player.lastHeadYaw = freeYaw;
-         player.bodyYaw = freeYaw;
-         player.lastBodyYaw = freeYaw;
+         player.setYRot(freeYaw);
+         player.setXRot(freePitch);
+         player.yRotO = freeYaw;
+         player.xRotO = freePitch;
+         player.yHeadRot = freeYaw;
+         player.yHeadRotO = freeYaw;
+         player.yBodyRot = freeYaw;
+         player.yBodyRotO = freeYaw;
       }
    }
 }

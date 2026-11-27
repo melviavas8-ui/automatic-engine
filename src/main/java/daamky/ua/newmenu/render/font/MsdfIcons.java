@@ -1,6 +1,6 @@
 package daamky.ua.newmenu.render.font;
 
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
 
 /**
  * Semantic access to the imported Velka icon atlases.  The glyphs stay in
@@ -44,7 +44,7 @@ public final class MsdfIcons {
     }
 
     /** Draws a glyph centered in the supplied rectangle without raster scaling. */
-    public static void draw(DrawContext context, Icon icon, float x, float y, float width, float height, int color) {
+    public static void draw(GuiGraphics context, Icon icon, float x, float y, float width, float height, int color) {
         if (context == null || icon == null || width <= 0.0F || height <= 0.0F || (color >>> 24) == 0) {
             return;
         }

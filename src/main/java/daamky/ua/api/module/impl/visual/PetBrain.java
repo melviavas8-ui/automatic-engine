@@ -1,21 +1,21 @@
 package daamky.ua.api.module.impl.visual;
 
 import java.util.concurrent.ThreadLocalRandom;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.module.impl.combat.AuraModule;
 import daamky.ua.utils.timer.TimerUtil;
 
 public final class PetBrain {
-   private final MinecraftClient mc = MinecraftClient.getInstance();
-   private Vec3d pos;
-   private Vec3d motion = Vec3d.ZERO;
+   private final Minecraft mc = Minecraft.getInstance();
+   private Vec3 pos;
+   private Vec3 motion = Vec3.ZERO;
    private float direction = randomAngle();
    private float yaw;
    private float body;
@@ -30,18 +30,18 @@ public final class PetBrain {
    public float prevLimbSwingAmount;
    public float limbSwingAmount;
    public float limbSwing;
-   private PlayerEntity entity;
+   private Player entity;
 
    public PetBrain() {
    }
 
-   public void setEntity(PlayerEntity entity) {
+   public void setEntity(Player entity) {
       this.entity = entity;
    }
 
    public void onUpdate() {
-      if (this.entity != null && this.mc.world != null) {
-         Vec3d playerPos = this.entity.getEntityPos();
+      if (this.entity != null && this.mc.level != null) {
+         Vec3 playerPos = this.entity.position();
          if (this.pos == null || this.pos.distanceTo(playerPos) > 10.0) {
             this.pos = playerPos;
             this.x.animate((float)this.pos.x, 1);
@@ -50,30 +50,30 @@ public final class PetBrain {
          }
 
          this.motion = this.motion.add(0.0, -0.2, 0.0);
-         Vec3d newPos = this.pos.add(this.motion);
+         Vec3 newPos = this.pos.add(this.motion);
          if (this.isBlockSolid(newPos.x, newPos.y, newPos.z)) {
             int blockY = (int)newPos.y;
             double correctedY = (double)(blockY + 1) + 0.1;
-            newPos = new Vec3d(newPos.x, correctedY, newPos.z);
-            this.motion = new Vec3d(this.motion.x, 0.0, this.motion.z);
+            newPos = new Vec3(newPos.x, correctedY, newPos.z);
+            this.motion = new Vec3(this.motion.x, 0.0, this.motion.z);
          }
 
          if (this.collidesHorizontally(newPos)) {
-            newPos = new Vec3d(this.pos.x, newPos.y, this.pos.z);
-            this.motion = new Vec3d(-this.motion.x * 0.35, this.motion.y, -this.motion.z * 0.35);
+            newPos = new Vec3(this.pos.x, newPos.y, this.pos.z);
+            this.motion = new Vec3(-this.motion.x * 0.35, this.motion.y, -this.motion.z * 0.35);
             this.direction = randomAngle();
          }
 
-         this.motion = new Vec3d(this.motion.x, 0.0, this.motion.z);
+         this.motion = new Vec3(this.motion.x, 0.0, this.motion.z);
          LivingEntity target = this.auraTarget();
-         if (target != null && this.entity instanceof ClientPlayerEntity) {
+         if (target != null && this.entity instanceof LocalPlayer) {
             if (this.isBlockSolid(newPos.x, newPos.y - 0.1, newPos.z)) {
-               this.motion = new Vec3d(this.motion.x, 0.62, this.motion.z);
+               this.motion = new Vec3(this.motion.x, 0.62, this.motion.z);
             }
 
-            Box box = new Box(this.getPos().subtract(new Vec3d(0.4, 0.0, 0.4)), this.getPos().add(0.4, 0.4, 0.4));
-            Box targetBox = target.getBoundingBox().expand(-0.1, 0.0, -0.1);
-            this.motion = this.motion.add(target.getEntityPos().subtract(newPos).normalize());
+            AABB box = new AABB(this.getPos().subtract(new Vec3(0.4, 0.0, 0.4)), this.getPos().add(0.4, 0.4, 0.4));
+            AABB targetBox = target.getBoundingBox().inflate(-0.1, 0.0, -0.1);
+            this.motion = this.motion.add(target.position().subtract(newPos).normalize());
             if (box.maxX > targetBox.minX
                && box.maxY > targetBox.minY
                && box.maxZ > targetBox.minZ
@@ -95,7 +95,7 @@ public final class PetBrain {
             this.motion = this.motion.add(xMot, 0.0, zMot);
          }
 
-         this.motion = this.motion.multiply(0.5);
+         this.motion = this.motion.scale(0.5);
          int speed = 150;
          this.x.animate((float)this.pos.x, speed);
          this.y.animate((float)this.pos.y, speed);
@@ -119,10 +119,10 @@ public final class PetBrain {
          }
       }
 
-      float[] rotation = lookAt(this.pos, this.entity.getCameraPosVec(1.0F));
+      float[] rotation = lookAt(this.pos, this.entity.getEyePosition(1.0F));
       LivingEntity target = this.auraTarget();
-      if (target != null && this.entity instanceof ClientPlayerEntity) {
-         rotation = lookAt(this.pos, target.getEntityPos());
+      if (target != null && this.entity instanceof LocalPlayer) {
+         rotation = lookAt(this.pos, target.position());
       }
 
       float gradus = this.lay ? 200.0F : 150.0F;
@@ -136,7 +136,7 @@ public final class PetBrain {
          this.bodyAnim.animate(this.body + shortestYawPath, 150);
       }
 
-      this.yawAnim.animate(MathHelper.clamp(rotation[0] - this.yaw, -gradus1, gradus1), 150);
+      this.yawAnim.animate(Mth.clamp(rotation[0] - this.yaw, -gradus1, gradus1), 150);
       this.pitchAnim.animate(rotation[1], 150);
       this.body += shortestYawPath;
    }
@@ -145,7 +145,7 @@ public final class PetBrain {
       this.prevLimbSwingAmount = this.limbSwingAmount;
       double d0 = (double)this.x.get() - this.pos.x;
       double d2 = (double)this.z.get() - this.pos.z;
-      float f = MathHelper.sqrt((float)(d0 * d0 + d2 * d2)) * 4.0F;
+      float f = Mth.sqrt((float)(d0 * d0 + d2 * d2)) * 4.0F;
       if (f > 1.0F) {
          f = 1.0F;
       }
@@ -170,8 +170,8 @@ public final class PetBrain {
       return this.lay;
    }
 
-   public Vec3d getPos() {
-      return new Vec3d((double)this.x.get(), (double)this.y.get(), (double)this.z.get());
+   public Vec3 getPos() {
+      return new Vec3((double)this.x.get(), (double)this.y.get(), (double)this.z.get());
    }
 
    private LivingEntity auraTarget() {
@@ -179,7 +179,7 @@ public final class PetBrain {
       return aura != null && aura.isEnabled() ? AuraModule.target : null;
    }
 
-   private static float[] lookAt(Vec3d from, Vec3d to) {
+   private static float[] lookAt(Vec3 from, Vec3 to) {
       double dx = to.x - from.x;
       double dy = to.y - from.y;
       double dz = to.z - from.z;
@@ -194,15 +194,15 @@ public final class PetBrain {
    }
 
    private boolean isBlockSolid(double bx, double by, double bz) {
-      if (this.mc.world == null) {
+      if (this.mc.level == null) {
          return false;
       } else {
-         BlockPos bp = BlockPos.ofFloored(bx, by, bz);
-         return !this.mc.world.getBlockState(bp).getCollisionShape(this.mc.world, bp).isEmpty();
+         BlockPos bp = BlockPos.containing(bx, by, bz);
+         return !this.mc.level.getBlockState(bp).getCollisionShape(this.mc.level, bp).isEmpty();
       }
    }
 
-   private boolean collidesHorizontally(Vec3d position) {
+   private boolean collidesHorizontally(Vec3 position) {
       double radius = 0.35;
       double baseY = this.horizontalBaseY(position);
       double[] heights = new double[]{0.0, 0.45};
@@ -220,7 +220,7 @@ public final class PetBrain {
       return false;
    }
 
-   private double horizontalBaseY(Vec3d position) {
+   private double horizontalBaseY(Vec3 position) {
       double supportRadius = 0.32;
       double probeY = position.y - 0.2;
       double highest = Double.NEGATIVE_INFINITY;

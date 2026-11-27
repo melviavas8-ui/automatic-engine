@@ -92,7 +92,7 @@ public abstract class GuiRendererMixin {
    }
 
    @Inject(
-      method = {"renderPreparedDraws"},
+      method = {"draw"},
       at = {@At("HEAD")}
    )
    private void daamky$prepareBlurCapture(GpuBufferSlice fogBuffer, CallbackInfo ci) {
@@ -100,7 +100,7 @@ public abstract class GuiRendererMixin {
    }
 
    @Redirect(
-      method = {"render(Lnet/minecraft/client/gui/render/GuiRenderer$Draw;Lcom/mojang/blaze3d/systems/RenderPass;Lcom/mojang/blaze3d/buffers/GpuBuffer;Lcom/mojang/blaze3d/vertex/VertexFormat$IndexType;)V"},
+      method = {"executeDraw(Lnet/minecraft/client/gui/render/GuiRenderer$Draw;Lcom/mojang/blaze3d/systems/RenderPass;Lcom/mojang/blaze3d/buffers/GpuBuffer;Lcom/mojang/blaze3d/vertex/VertexFormat$IndexType;)V"},
       at = @At(
          value = "INVOKE",
          target = "Lcom/mojang/blaze3d/systems/RenderPass;setPipeline(Lcom/mojang/blaze3d/pipeline/RenderPipeline;)V"
@@ -124,7 +124,7 @@ public abstract class GuiRendererMixin {
    }
 
    @Inject(
-      method = {"render(Lnet/minecraft/client/gui/render/GuiRenderer$Draw;Lcom/mojang/blaze3d/systems/RenderPass;Lcom/mojang/blaze3d/buffers/GpuBuffer;Lcom/mojang/blaze3d/vertex/VertexFormat$IndexType;)V"},
+      method = {"executeDraw(Lnet/minecraft/client/gui/render/GuiRenderer$Draw;Lcom/mojang/blaze3d/systems/RenderPass;Lcom/mojang/blaze3d/buffers/GpuBuffer;Lcom/mojang/blaze3d/vertex/VertexFormat$IndexType;)V"},
       at = {@At(
          value = "INVOKE",
          target = "Lcom/mojang/blaze3d/systems/RenderPass;drawIndexed(IIII)V",
@@ -182,7 +182,7 @@ public abstract class GuiRendererMixin {
    }
 
    @Inject(
-      method = {"render(Lnet/minecraft/client/gui/render/GuiRenderer$Draw;Lcom/mojang/blaze3d/systems/RenderPass;Lcom/mojang/blaze3d/buffers/GpuBuffer;Lcom/mojang/blaze3d/vertex/VertexFormat$IndexType;)V"},
+      method = {"executeDraw(Lnet/minecraft/client/gui/render/GuiRenderer$Draw;Lcom/mojang/blaze3d/systems/RenderPass;Lcom/mojang/blaze3d/buffers/GpuBuffer;Lcom/mojang/blaze3d/vertex/VertexFormat$IndexType;)V"},
       at = {@At("RETURN")}
    )
    private void daamky$clearTrackedPipeline(@Coerce Object draw, RenderPass renderPass, GpuBuffer gpuBuffer, IndexType indexType, CallbackInfo ci) {

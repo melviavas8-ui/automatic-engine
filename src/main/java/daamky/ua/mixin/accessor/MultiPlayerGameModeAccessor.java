@@ -1,31 +1,31 @@
 package daamky.ua.mixin.accessor;
 
-import net.minecraft.client.network.ClientPlayerInteractionManager;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.multiplayer.MultiPlayerGameMode;
+import net.minecraft.core.BlockPos;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
-@Mixin({ClientPlayerInteractionManager.class})
+@Mixin({MultiPlayerGameMode.class})
 public interface MultiPlayerGameModeAccessor {
-   @Accessor("breakingBlock")
+   @Accessor("isDestroying")
    void daamky$setDestroying(boolean var1);
 
-   @Accessor("breakingBlock")
+   @Accessor("isDestroying")
    boolean daamky$isDestroying();
 
-   @Accessor("currentBreakingPos")
+   @Accessor("destroyBlockPos")
    BlockPos daamky$getDestroyBlockPos();
 
-   @Invoker("syncSelectedSlot")
+   @Invoker("ensureHasSentCarriedItem")
    void daamky$ensureHasSentCarriedItem();
 
-   @Accessor("blockBreakingCooldown")
+   @Accessor("destroyDelay")
    void daamky$setDestroyDelay(int var1);
 
-   @Accessor("currentBreakingProgress")
+   @Accessor("destroyProgress")
    float daamky$getDestroyProgress();
 
-   @Accessor("currentBreakingProgress")
+   @Accessor("destroyProgress")
    void daamky$setDestroyProgress(float var1);
 }

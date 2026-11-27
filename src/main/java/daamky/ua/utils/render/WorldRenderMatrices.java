@@ -1,18 +1,18 @@
 package daamky.ua.utils.render;
 
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 
 public final class WorldRenderMatrices {
    private static final Matrix4f projection = new Matrix4f();
    private static final Matrix4f view = new Matrix4f();
-   private static Vec3d cameraPosition = Vec3d.ZERO;
+   private static Vec3 cameraPosition = Vec3.ZERO;
 
    private WorldRenderMatrices() {
    }
 
-   public static void capture(Matrix4fc projectionMatrix, Matrix4fc viewMatrix, Vec3d cameraPos) {
+   public static void capture(Matrix4fc projectionMatrix, Matrix4fc viewMatrix, Vec3 cameraPos) {
       if (projectionMatrix != null) {
          projection.set(projectionMatrix);
       }
@@ -21,7 +21,7 @@ public final class WorldRenderMatrices {
          view.set(viewMatrix);
       }
 
-      cameraPosition = cameraPos == null ? Vec3d.ZERO : cameraPos;
+      cameraPosition = cameraPos == null ? Vec3.ZERO : cameraPos;
    }
 
    public static Matrix4f projection() {
@@ -32,7 +32,7 @@ public final class WorldRenderMatrices {
       return new Matrix4f(view);
    }
 
-   public static Vec3d cameraPosition() {
+   public static Vec3 cameraPosition() {
       return cameraPosition;
    }
 }

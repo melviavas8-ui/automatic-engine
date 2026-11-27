@@ -4,25 +4,25 @@ import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.GpuDevice;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.GpuSampler;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.textures.TextureFormat;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.nio.ByteBuffer;
 import java.util.OptionalInt;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.GpuSampler;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gl.SimpleFramebuffer;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
 import org.lwjgl.system.MemoryStack;
 import daamky.ua.utils.render.RenderSampler;
 import daamky.ua.utils.render.color.ColorUtil;
@@ -31,13 +31,13 @@ public final class FogBlurRenderer {
    private static final int COMPOSITE_UNIFORM_SIZE = 48;
    private static final int KAWASE_UNIFORM_SIZE = 48;
    private static final int MAX_BLUR_ITERATIONS = 4;
-   private static final Identifier KAWASE_DOWN_PIPELINE_ID = Identifier.of("daamky", "pipeline/post/fogblur/kawase_down");
-   private static final Identifier KAWASE_UP_PIPELINE_ID = Identifier.of("daamky", "pipeline/post/fogblur/kawase_up");
-   private static final Identifier COMPOSITE_PIPELINE_ID = Identifier.of("daamky", "pipeline/post/fogblur/composite");
-   private static final Identifier KAWASE_VERTEX = Identifier.of("daamky", "post/fogblur/kawase");
-   private static final Identifier KAWASE_DOWN_SHADER = Identifier.of("daamky", "ui/kawase/down");
-   private static final Identifier KAWASE_UP_SHADER = Identifier.of("daamky", "ui/kawase/up");
-   private static final Identifier COMPOSITE_SHADER = Identifier.of("daamky", "post/fogblur/composite");
+   private static final Identifier KAWASE_DOWN_PIPELINE_ID = Identifier.fromNamespaceAndPath("daamky", "pipeline/post/fogblur/kawase_down");
+   private static final Identifier KAWASE_UP_PIPELINE_ID = Identifier.fromNamespaceAndPath("daamky", "pipeline/post/fogblur/kawase_up");
+   private static final Identifier COMPOSITE_PIPELINE_ID = Identifier.fromNamespaceAndPath("daamky", "pipeline/post/fogblur/composite");
+   private static final Identifier KAWASE_VERTEX = Identifier.fromNamespaceAndPath("daamky", "post/fogblur/kawase");
+   private static final Identifier KAWASE_DOWN_SHADER = Identifier.fromNamespaceAndPath("daamky", "ui/kawase/down");
+   private static final Identifier KAWASE_UP_SHADER = Identifier.fromNamespaceAndPath("daamky", "ui/kawase/up");
+   private static final Identifier COMPOSITE_SHADER = Identifier.fromNamespaceAndPath("daamky", "post/fogblur/composite");
    private static float fallbackRed = 0.55F;
    private static float fallbackGreen = 0.65F;
    private static float fallbackBlue = 0.78F;
@@ -50,8 +50,8 @@ public final class FogBlurRenderer {
    private static GpuTextureView sceneCopyTextureView;
    private static GpuTexture depthCopyTexture;
    private static GpuTextureView depthCopyTextureView;
-   private static final SimpleFramebuffer[] downTargets = new SimpleFramebuffer[4];
-   private static final SimpleFramebuffer[] upTargets = new SimpleFramebuffer[4];
+   private static final TextureTarget[] downTargets = new TextureTarget[4];
+   private static final TextureTarget[] upTargets = new TextureTarget[4];
    private static int sceneWidth = -1;
    private static int sceneHeight = -1;
    private static int blurWidth = -1;
@@ -86,13 +86,13 @@ public final class FogBlurRenderer {
       closeTargets();
    }
 
-   public static void apply(Framebuffer renderTarget, float strength, float distanceBlocks, float opacityPercent, float renderScale, int maxPasses) {
+   public static void apply(RenderTarget renderTarget, float strength, float distanceBlocks, float opacityPercent, float renderScale, int maxPasses) {
       if (!disabledAfterError
          && renderTarget != null
-         && renderTarget.getColorAttachment() != null
-         && renderTarget.getColorAttachmentView() != null
-         && renderTarget.getDepthAttachment() != null) {
-         if (renderTarget.textureWidth > 0 && renderTarget.textureHeight > 0) {
+         && renderTarget.getColorTexture() != null
+         && renderTarget.getColorTextureView() != null
+         && renderTarget.getDepthTexture() != null) {
+         if (renderTarget.width > 0 && renderTarget.height > 0) {
             init();
             if (kawaseDownPipeline != null
                && kawaseUpPipeline != null
@@ -100,17 +100,17 @@ public final class FogBlurRenderer {
                && compositeUniformBuffer != null
                && kawaseUniformBuffer != null) {
                int passes = computePasses(strength, maxPasses);
-               if (ensureTargets(renderTarget.textureWidth, renderTarget.textureHeight, renderScale, passes)) {
+               if (ensureTargets(renderTarget.width, renderTarget.height, renderScale, passes)) {
                   try {
                      CommandEncoder copyEncoder = RenderSystem.getDevice().createCommandEncoder();
                      copyEncoder.copyTextureToTexture(
-                        renderTarget.getColorAttachment(), sceneCopyTexture, 0, 0, 0, 0, 0, renderTarget.textureWidth, renderTarget.textureHeight
+                        renderTarget.getColorTexture(), sceneCopyTexture, 0, 0, 0, 0, 0, renderTarget.width, renderTarget.height
                      );
                      copyEncoder.copyTextureToTexture(
-                        renderTarget.getDepthAttachment(), depthCopyTexture, 0, 0, 0, 0, 0, renderTarget.textureWidth, renderTarget.textureHeight
+                        renderTarget.getDepthTexture(), depthCopyTexture, 0, 0, 0, 0, 0, renderTarget.width, renderTarget.height
                      );
                      float offsetScale = clamp(0.85F + strength * 0.06F, 0.85F, 2.0F);
-                     GpuTextureView blurred = renderBlurChain(sceneCopyTextureView, renderTarget.textureWidth, renderTarget.textureHeight, passes, offsetScale);
+                     GpuTextureView blurred = renderBlurChain(sceneCopyTextureView, renderTarget.width, renderTarget.height, passes, offsetScale);
                      float farPlane = viewDistance();
                      float maxStartDistance = Math.max(1.0F, farPlane * 0.96F);
                      float startDistance = clamp(distanceBlocks, 1.0F, maxStartDistance);
@@ -119,7 +119,7 @@ public final class FogBlurRenderer {
                      float maxThreshold = clamp((startDistance + fadeDistance) / farPlane, minThreshold + 0.002F, 1.0F);
                      float opacity = clamp(opacityPercent / 100.0F, 0.0F, 1.0F);
                      composite(
-                        renderTarget.getColorAttachmentView(),
+                        renderTarget.getColorTextureView(),
                         sceneCopyTextureView,
                         blurred,
                         depthCopyTextureView,
@@ -150,7 +150,7 @@ public final class FogBlurRenderer {
                      .withLocation(KAWASE_DOWN_PIPELINE_ID)
                      .withVertexShader(KAWASE_VERTEX)
                      .withFragmentShader(KAWASE_DOWN_SHADER)
-                     .withVertexFormat(VertexFormats.EMPTY, DrawMode.TRIANGLES)
+                     .withVertexFormat(DefaultVertexFormat.EMPTY, Mode.TRIANGLES)
                      .withUniform("KawaseParams", UniformType.UNIFORM_BUFFER)
                      .withSampler("Sampler0")
                      .withBlend(BlendFunction.TRANSLUCENT)
@@ -167,7 +167,7 @@ public final class FogBlurRenderer {
                      .withLocation(KAWASE_UP_PIPELINE_ID)
                      .withVertexShader(KAWASE_VERTEX)
                      .withFragmentShader(KAWASE_UP_SHADER)
-                     .withVertexFormat(VertexFormats.EMPTY, DrawMode.TRIANGLES)
+                     .withVertexFormat(DefaultVertexFormat.EMPTY, Mode.TRIANGLES)
                      .withUniform("KawaseParams", UniformType.UNIFORM_BUFFER)
                      .withSampler("Sampler0")
                      .withBlend(BlendFunction.TRANSLUCENT)
@@ -182,9 +182,9 @@ public final class FogBlurRenderer {
                compositePipeline = RenderPipelines.register(
                   RenderPipeline.builder(new Snippet[0])
                      .withLocation(COMPOSITE_PIPELINE_ID)
-                     .withVertexShader(Identifier.of("daamky", "post/fogblur/fogblur"))
+                     .withVertexShader(Identifier.fromNamespaceAndPath("daamky", "post/fogblur/fogblur"))
                      .withFragmentShader(COMPOSITE_SHADER)
-                     .withVertexFormat(VertexFormats.EMPTY, DrawMode.TRIANGLES)
+                     .withVertexFormat(DefaultVertexFormat.EMPTY, Mode.TRIANGLES)
                      .withUniform("FogBlurData", UniformType.UNIFORM_BUFFER)
                      .withSampler("SceneSampler")
                      .withSampler("BlurSampler")
@@ -262,11 +262,11 @@ public final class FogBlurRenderer {
       }
    }
 
-   private static SimpleFramebuffer ensureTarget(SimpleFramebuffer target, String name, int width, int height) {
+   private static TextureTarget ensureTarget(TextureTarget target, String name, int width, int height) {
       if (target == null) {
-         return new SimpleFramebuffer(name, width, height, false);
+         return new TextureTarget(name, width, height, false);
       } else {
-         if (target.textureWidth != width || target.textureHeight != height) {
+         if (target.width != width || target.height != height) {
             target.resize(width, height);
          }
 
@@ -284,19 +284,19 @@ public final class FogBlurRenderer {
          GpuSampler sampler = RenderSampler.linear();
 
          for (int i = 0; i < passes; i++) {
-            SimpleFramebuffer target = downTargets[i];
+            TextureTarget target = downTargets[i];
             renderKawasePass(kawaseDownPipeline, currentSource, currentWidth, currentHeight, target, offsetScale, 0.0F, 0.0F, 1.0F, 1.0F, sampler);
-            currentSource = target.getColorAttachmentView();
-            currentWidth = target.textureWidth;
-            currentHeight = target.textureHeight;
+            currentSource = target.getColorTextureView();
+            currentWidth = target.width;
+            currentHeight = target.height;
          }
 
          for (int i = passes - 2; i >= 0; i--) {
-            SimpleFramebuffer target = upTargets[i];
+            TextureTarget target = upTargets[i];
             renderKawasePass(kawaseUpPipeline, currentSource, currentWidth, currentHeight, target, offsetScale, 0.0F, 0.0F, 1.0F, 1.0F, sampler);
-            currentSource = target.getColorAttachmentView();
-            currentWidth = target.textureWidth;
-            currentHeight = target.textureHeight;
+            currentSource = target.getColorTextureView();
+            currentWidth = target.width;
+            currentHeight = target.height;
          }
 
          return currentSource;
@@ -308,7 +308,7 @@ public final class FogBlurRenderer {
       GpuTextureView source,
       int sourceWidth,
       int sourceHeight,
-      SimpleFramebuffer target,
+      TextureTarget target,
       float offsetScale,
       float sourceX,
       float sourceY,
@@ -316,7 +316,7 @@ public final class FogBlurRenderer {
       float sourceH,
       GpuSampler sampler
    ) {
-      if (source != null && target != null && target.getColorAttachmentView() != null) {
+      if (source != null && target != null && target.getColorTextureView() != null) {
          CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
          MemoryStack stack = MemoryStack.stackPush();
 
@@ -335,7 +335,7 @@ public final class FogBlurRenderer {
             data.position(0);
             encoder.writeToBuffer(kawaseUniformBuffer.slice(0L, 48L), data);
             RenderPass renderPass = encoder.createRenderPass(
-               () -> "daamky:fog_blur_kawase", target.getColorAttachmentView(), OptionalInt.of(ColorUtil.TRANSPARENT)
+               () -> "daamky:fog_blur_kawase", target.getColorTextureView(), OptionalInt.of(ColorUtil.TRANSPARENT)
             );
 
             try {
@@ -470,9 +470,9 @@ public final class FogBlurRenderer {
    }
 
    private static float viewDistance() {
-      MinecraftClient minecraft = MinecraftClient.getInstance();
+      Minecraft minecraft = Minecraft.getInstance();
       return minecraft != null && minecraft.options != null
-         ? Math.max(96.0F, (float)((Integer)minecraft.options.getViewDistance().getValue() + 1) * 16.0F)
+         ? Math.max(96.0F, (float)((Integer)minecraft.options.renderDistance().get() + 1) * 16.0F)
          : 192.0F;
    }
 
@@ -499,12 +499,12 @@ public final class FogBlurRenderer {
 
       for (int i = 0; i < 4; i++) {
          if (downTargets[i] != null) {
-            downTargets[i].delete();
+            downTargets[i].destroyBuffers();
             downTargets[i] = null;
          }
 
          if (upTargets[i] != null) {
-            upTargets[i].delete();
+            upTargets[i].destroyBuffers();
             upTargets[i] = null;
          }
       }

@@ -1,9 +1,9 @@
 package daamky.ua.mixin;
 
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.world.WorldListWidget;
-import net.minecraft.client.gui.widget.Widget;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.layouts.LayoutElement;
+import net.minecraft.client.gui.screens.worldselection.WorldSelectionList;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.world.level.storage.LevelSummary;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -20,15 +20,15 @@ import daamky.ua.screens.mainmenu.WorldListEntryOrderAccess;
 import daamky.ua.screens.mainmenu.WorldOrderStore;
 
 @Mixin(
-   targets = {"net/minecraft/client/gui/screen/world/WorldListWidget$WorldEntry"}
+   targets = {"net/minecraft/client/gui/screens/worldselection/WorldSelectionList$WorldListEntry"}
 )
 public abstract class WorldListEntryThemeMixin implements WorldListEntryOrderAccess, DraggableListEntryAccess {
    @Shadow
    @Final
-   private WorldListWidget parent;
+   private WorldSelectionList list;
    @Shadow
    @Final
-   private LevelSummary level;
+   private LevelSummary summary;
    @Unique
    private boolean daamky$mouseDown;
    @Unique
@@ -48,25 +48,25 @@ public abstract class WorldListEntryThemeMixin implements WorldListEntryOrderAcc
    }
 
    @Redirect(
-      method = {"render"},
+      method = {"renderContent"},
       at = @At(
          value = "INVOKE",
-         target = "Lnet/minecraft/client/gui/DrawContext;fill(IIIII)V"
+         target = "Lnet/minecraft/client/gui/GuiGraphics;fill(IIIII)V"
       )
    )
-   private void daamky$hideVanillaIconHover(DrawContext graphics, int left, int top, int right, int bottom, int color) {
+   private void daamky$hideVanillaIconHover(GuiGraphics graphics, int left, int top, int right, int bottom, int color) {
    }
 
    @Inject(
       method = {"mouseClicked"},
       at = {@At("HEAD")}
    )
-   private void daamky$startDragging(Click event, boolean doubled, CallbackInfoReturnable<Boolean> cir) {
+   private void daamky$startDragging(MouseButtonEvent event, boolean doubled, CallbackInfoReturnable<Boolean> cir) {
       if (VanillaMenuTheme.active() && event.button() == 0) {
          this.daamky$mouseDown = true;
          this.daamky$dragging = false;
          this.daamky$pressY = event.y();
-         Widget entry = (Widget)(Object)this;
+         LayoutElement entry = (LayoutElement)(Object)this;
          this.daamky$grabX = event.x() - (double)entry.getX();
          this.daamky$grabY = event.y() - (double)entry.getY();
          this.daamky$cursorX = event.x();
@@ -74,7 +74,7 @@ public abstract class WorldListEntryThemeMixin implements WorldListEntryOrderAcc
       }
    }
 
-   public boolean mouseDragged(Click event, double dragX, double dragY) {
+   public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
       if (this.daamky$mouseDown && event.button() == 0) {
          if (!this.daamky$dragging && Math.abs(event.y() - this.daamky$pressY) < 3.0) {
             return false;
@@ -82,27 +82,27 @@ public abstract class WorldListEntryThemeMixin implements WorldListEntryOrderAcc
             this.daamky$dragging = true;
             this.daamky$cursorX = event.x();
             this.daamky$cursorY = event.y();
-            int index = this.parent.children().indexOf(this);
+            int index = this.list.children().indexOf(this);
             if (index < 0) {
                return true;
             } else {
                int target = index;
-               Widget entry = (Widget)(Object)this;
+               LayoutElement entry = (LayoutElement)(Object)this;
                double draggedCenter = this.daamky$cursorY - this.daamky$grabY + (double)entry.getHeight() * 0.5;
-               if (draggedCenter < (double)(Object)this.parent.getRowTop(index)
+               if (draggedCenter < (double)(Object)this.list.getRowTop(index)
                   && index > 0
-                  && this.parent.children().get(index - 1) instanceof WorldListEntryOrderAccess) {
+                  && this.list.children().get(index - 1) instanceof WorldListEntryOrderAccess) {
                   target = index - 1;
-               } else if (draggedCenter > (double)(Object)this.parent.getRowBottom(index)
-                  && index + 1 < this.parent.children().size()
-                  && this.parent.children().get(index + 1) instanceof WorldListEntryOrderAccess) {
+               } else if (draggedCenter > (double)(Object)this.list.getRowBottom(index)
+                  && index + 1 < this.list.children().size()
+                  && this.list.children().get(index + 1) instanceof WorldListEntryOrderAccess) {
                   target = index + 1;
                }
 
                if (target != index) {
-                  double scroll = this.parent.getScrollY();
-                  ((AbstractSelectionListAccessor)(Object)this.parent).daamky$swapEntries(index, target);
-                  this.parent.setScrollY(scroll);
+                  double scroll = this.list.scrollAmount();
+                  ((AbstractSelectionListAccessor)(Object)this.list).daamky$swapEntries(index, target);
+                  this.list.setScrollAmount(scroll);
                }
 
                return true;
@@ -113,12 +113,12 @@ public abstract class WorldListEntryThemeMixin implements WorldListEntryOrderAcc
       }
    }
 
-   public boolean mouseReleased(Click event) {
+   public boolean mouseReleased(MouseButtonEvent event) {
       boolean handled = this.daamky$dragging;
       this.daamky$mouseDown = false;
       this.daamky$dragging = false;
       if (handled) {
-         WorldOrderStore.save(this.parent);
+         WorldOrderStore.save(this.list);
       }
 
       return handled;
@@ -126,7 +126,7 @@ public abstract class WorldListEntryThemeMixin implements WorldListEntryOrderAcc
 
    @Override
    public String daamky$getLevelId() {
-      return this.level.getName();
+      return this.summary.getLevelId();
    }
 
    @Override

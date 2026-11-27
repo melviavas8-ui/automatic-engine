@@ -1,7 +1,7 @@
 package daamky.ua.newmenu.render.liqvid;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.Window;
+import com.mojang.blaze3d.platform.Window;
+import net.minecraft.client.Minecraft;
 import org.joml.Matrix4f;
 import org.lwjgl.glfw.GLFW;
 
@@ -22,9 +22,9 @@ public final class ScreenScale {
 
     public static void begin(double renderScale) {
         scale = (float) renderScale;
-        Window window = MinecraftClient.getInstance().getWindow();
-        double width = window.getFramebufferWidth() / renderScale;
-        double height = window.getFramebufferHeight() / renderScale;
+        Window window = Minecraft.getInstance().getWindow();
+        double width = window.getWidth() / renderScale;
+        double height = window.getHeight() / renderScale;
         projection.identity().setOrtho(0.0F, (float) width, (float) height, 0.0F, -1000.0F, 1000.0F);
         modelView.identity();
         active = true;
@@ -32,7 +32,7 @@ public final class ScreenScale {
 
     public static void end() {
         active = false;
-        scale = (float) MinecraftClient.getInstance().getWindow().getScaleFactor();
+        scale = (float) Minecraft.getInstance().getWindow().getGuiScale();
     }
 
     public static boolean isActive() {
@@ -61,25 +61,25 @@ public final class ScreenScale {
 
     /** Window cursor position -> scaled GUI coordinates. */
     public static double[] getScaledMouse() {
-        Window window = MinecraftClient.getInstance().getWindow();
+        Window window = Minecraft.getInstance().getWindow();
         double[] xpos = new double[1];
         double[] ypos = new double[1];
-        GLFW.glfwGetCursorPos(window.getHandle(), xpos, ypos);
+        GLFW.glfwGetCursorPos(window.handle(), xpos, ypos);
         return new double[] {
-            xpos[0] * window.getScaledWidth() / (double) window.getFramebufferWidth(),
-            ypos[0] * window.getScaledHeight() / (double) window.getFramebufferHeight()
+            xpos[0] * window.getGuiScaledWidth() / (double) window.getWidth(),
+            ypos[0] * window.getGuiScaledHeight() / (double) window.getHeight()
         };
     }
 
     /** Scaled GUI mouse coords -> HUD ortho coords (ScreenScale.begin(2.0)). */
     public static float toHudX(double scaledMouseX) {
-        Window window = MinecraftClient.getInstance().getWindow();
-        return (float) (scaledMouseX * (window.getFramebufferWidth() / 2.0) / window.getScaledWidth());
+        Window window = Minecraft.getInstance().getWindow();
+        return (float) (scaledMouseX * (window.getWidth() / 2.0) / window.getGuiScaledWidth());
     }
 
     public static float toHudY(double scaledMouseY) {
-        Window window = MinecraftClient.getInstance().getWindow();
-        return (float) (scaledMouseY * (window.getFramebufferHeight() / 2.0) / window.getScaledHeight());
+        Window window = Minecraft.getInstance().getWindow();
+        return (float) (scaledMouseY * (window.getHeight() / 2.0) / window.getGuiScaledHeight());
     }
 
     public static float mouseHudX() {
@@ -91,11 +91,11 @@ public final class ScreenScale {
     }
 
     public static float getRenderWidth() {
-        return toHudX(MinecraftClient.getInstance().getWindow().getScaledWidth());
+        return toHudX(Minecraft.getInstance().getWindow().getGuiScaledWidth());
     }
 
     public static float getRenderHeight() {
-        return toHudY(MinecraftClient.getInstance().getWindow().getScaledHeight());
+        return toHudY(Minecraft.getInstance().getWindow().getGuiScaledHeight());
     }
 }
 

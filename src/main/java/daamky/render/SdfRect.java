@@ -1,10 +1,7 @@
 package daamky.render;
 
-import net.minecraft.client.texture.*;
-import net.minecraft.client.gl.*;
 import net.minecraft.client.gui.*;
 import net.minecraft.client.gui.render.*;
-import net.minecraft.client.render.*;
 import org.joml.Matrix3x2f;
 
 
@@ -77,6 +74,6 @@ public final class SdfRect {
         b.v(x - e, y + h + e, z, bl, -hw - e, hh + e, hx, hy, rr, ex, nx);
         b.v(x + w + e, y + h + e, z, br, hw + e, hh + e, hx, hy, rr, ex, nx);
         b.v(x + w + e, y - e, z, tr, hw + e, -hh - e, hx, hy, rr, ex, nx);
-        b.submit(Gfx.RECT, TextureSetup.empty());
+        b.submit(Gfx.RECT, TextureSetup.noTexture());
     }
 }

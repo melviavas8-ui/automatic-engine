@@ -2,17 +2,17 @@ package daamky.ua.screens.clickgui.impl;
 
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.input.CharInput;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.client.input.MouseInput;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.client.util.InputUtil.Key;
-import net.minecraft.client.util.InputUtil.Type;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.MouseButtonInfo;
 import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.blaze3d.platform.InputConstants.Key;
+import com.mojang.blaze3d.platform.InputConstants.Type;
 import daamky.ua.api.drag.impl.ClientLanguage;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
@@ -66,10 +66,10 @@ public final class ClickGuiController {
       overlayActive = true;
       pendingOpenAnimation = true;
       OPEN_ANIMATION.set(0.0);
-      stopGuiMovement(MinecraftClient.getInstance());
+      stopGuiMovement(Minecraft.getInstance());
    }
 
-   public static void renderPanels(DrawContext graphics, int screenWidth, int screenHeight) {
+   public static void renderPanels(GuiGraphics graphics, int screenWidth, int screenHeight) {
       updateMousePosition();
       float coordinateScale = coordinateScale();
       int designScreenWidth = Math.max(1, Math.round((float)screenWidth / coordinateScale));
@@ -97,18 +97,18 @@ public final class ClickGuiController {
          List<ClickGuiPanelSlot> slots = panelSlots(designScreenHeight, startX, baseY, panelWidth, scaledPanelWidth, scale, openProgress);
          Render2D.beginFrame(graphics);
          renderCornerDimming(designScreenWidth, designScreenHeight, openProgress);
-         graphics.createNewRootLayer();
+         graphics.nextStratum();
 
          for (ClickGuiPanelSlot slot : slots) {
             slot.panel().renderShell(graphics, slot.x(), slot.y(), slot.width(), slot.height(), slot.scale(), slot.alpha());
-            graphics.createNewRootLayer();
+            graphics.nextStratum();
             slot.panel().renderContent(graphics, slot.x(), slot.y(), slot.width(), slot.height(), slot.scale(), slot.alpha());
-            graphics.createNewRootLayer();
+            graphics.nextStratum();
          }
 
          for (ClickGuiPanelSlot slot : slots) {
             slot.panel().renderOverlays(graphics);
-            graphics.createNewRootLayer();
+            graphics.nextStratum();
          }
 
          SEARCH_BAR.render(graphics, designScreenWidth, openProgress, 0.0F, 0.0F);
@@ -127,7 +127,7 @@ public final class ClickGuiController {
       }
    }
 
-   public static boolean keyPressed(KeyInput event) {
+   public static boolean keyPressed(KeyEvent event) {
       if (SEARCH_BAR.keyPressed(event, ClickGuiController::selectSearchResult)) {
          return true;
       } else if (event.key() != 256 && event.key() != 344) {
@@ -138,11 +138,11 @@ public final class ClickGuiController {
       }
    }
 
-   public static boolean charTyped(CharInput event) {
+   public static boolean charTyped(CharacterEvent event) {
       return SEARCH_BAR.charTyped(event) ? true : !closing && handlePanelCharTyped(event);
    }
 
-   public static boolean mouseClicked(Click event, boolean doubled) {
+   public static boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
       event = toDesignEvent(event);
       mouseX = event.x();
       mouseY = event.y();
@@ -156,14 +156,14 @@ public final class ClickGuiController {
       }
    }
 
-   public static boolean mouseReleased(Click event) {
+   public static boolean mouseReleased(MouseButtonEvent event) {
       event = toDesignEvent(event);
       mouseX = event.x();
       mouseY = event.y();
       return handlePanelMouseReleased(event) ? true : true;
    }
 
-   public static boolean mouseDragged(Click event, double dragX, double dragY) {
+   public static boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
       event = toDesignEvent(event);
       dragX /= (double)coordinateScale();
       dragY /= (double)coordinateScale();
@@ -198,8 +198,8 @@ public final class ClickGuiController {
          closing = true;
          overlayActive = true;
          OPEN_ANIMATION.run(0.0, 0.22, Easings.CUBIC_OUT);
-         MinecraftClient client = MinecraftClient.getInstance();
-         if (client.currentScreen instanceof ClickGui) {
+         Minecraft client = Minecraft.getInstance();
+         if (client.screen instanceof ClickGui) {
             client.setScreen(null);
          }
       }
@@ -213,29 +213,29 @@ public final class ClickGuiController {
    }
 
    public static boolean shouldRenderOverlay() {
-      MinecraftClient client = MinecraftClient.getInstance();
-      if (client.currentScreen != null && !(client.currentScreen instanceof ClickGui)) {
+      Minecraft client = Minecraft.getInstance();
+      if (client.screen != null && !(client.screen instanceof ClickGui)) {
          resetOverlayState();
          return false;
       } else {
-         return overlayActive || client.currentScreen instanceof ClickGui;
+         return overlayActive || client.screen instanceof ClickGui;
       }
    }
 
    public static void tickMovementKeys() {
-      MinecraftClient client = MinecraftClient.getInstance();
-      if (client.currentScreen instanceof ClickGui) {
+      Minecraft client = Minecraft.getInstance();
+      if (client.screen instanceof ClickGui) {
          if (client.player != null && client.getWindow() != null) {
-            long handle = client.getWindow().getHandle();
+            long handle = client.getWindow().handle();
             if (SEARCH_BAR.isFocused()) {
                stopGuiMovement(client);
             } else {
-               boolean forward = updateKey(client.options.forwardKey, handle);
-               boolean left = updateKey(client.options.leftKey, handle);
-               boolean back = updateKey(client.options.backKey, handle);
-               boolean right = updateKey(client.options.rightKey, handle);
-               updateKey(client.options.jumpKey, handle);
-               updateKey(client.options.sneakKey, handle);
+               boolean forward = updateKey(client.options.keyUp, handle);
+               boolean left = updateKey(client.options.keyLeft, handle);
+               boolean back = updateKey(client.options.keyDown, handle);
+               boolean right = updateKey(client.options.keyRight, handle);
+               updateKey(client.options.keyJump, handle);
+               updateKey(client.options.keyShift, handle);
             }
          }
       }
@@ -267,48 +267,48 @@ public final class ClickGuiController {
       return PANEL_SLOT_POOL.get(index);
    }
 
-   private static boolean updateKey(KeyBinding keyMapping, long windowHandle) {
-      Key key = InputUtil.fromTranslationKey(keyMapping.getBoundKeyTranslationKey());
-      if (key.getCategory() != Type.KEYSYM) {
+   private static boolean updateKey(KeyMapping keyMapping, long windowHandle) {
+      Key key = InputConstants.getKey(keyMapping.saveString());
+      if (key.getType() != Type.KEYSYM) {
          return false;
       } else {
-         boolean down = GLFW.glfwGetKey(windowHandle, key.getCode()) == 1;
-         KeyBinding.setKeyPressed(key, down);
+         boolean down = GLFW.glfwGetKey(windowHandle, key.getValue()) == 1;
+         KeyMapping.set(key, down);
          return down;
       }
    }
 
-   private static void stopGuiMovement(MinecraftClient client) {
+   private static void stopGuiMovement(Minecraft client) {
       releaseMovementKeys(client);
    }
 
-   private static void releaseMovementKeys(MinecraftClient client) {
-      releaseKey(client.options.forwardKey);
-      releaseKey(client.options.leftKey);
-      releaseKey(client.options.backKey);
-      releaseKey(client.options.rightKey);
-      releaseKey(client.options.jumpKey);
-      releaseKey(client.options.sneakKey);
+   private static void releaseMovementKeys(Minecraft client) {
+      releaseKey(client.options.keyUp);
+      releaseKey(client.options.keyLeft);
+      releaseKey(client.options.keyDown);
+      releaseKey(client.options.keyRight);
+      releaseKey(client.options.keyJump);
+      releaseKey(client.options.keyShift);
    }
 
-   private static void releaseKey(KeyBinding keyMapping) {
-      Key key = InputUtil.fromTranslationKey(keyMapping.getBoundKeyTranslationKey());
-      if (key.getCategory() == Type.KEYSYM) {
-         KeyBinding.setKeyPressed(key, false);
+   private static void releaseKey(KeyMapping keyMapping) {
+      Key key = InputConstants.getKey(keyMapping.saveString());
+      if (key.getType() == Type.KEYSYM) {
+         KeyMapping.set(key, false);
       }
    }
 
-   private static boolean isKeyPressed(KeyBinding keyMapping) {
-      MinecraftClient client = MinecraftClient.getInstance();
+   private static boolean isKeyPressed(KeyMapping keyMapping) {
+      Minecraft client = Minecraft.getInstance();
       if (client != null && client.getWindow() != null && keyMapping != null) {
-         Key key = InputUtil.fromTranslationKey(keyMapping.getBoundKeyTranslationKey());
-         return key.getCategory() == Type.KEYSYM && GLFW.glfwGetKey(client.getWindow().getHandle(), key.getCode()) == 1;
+         Key key = InputConstants.getKey(keyMapping.saveString());
+         return key.getType() == Type.KEYSYM && GLFW.glfwGetKey(client.getWindow().handle(), key.getValue()) == 1;
       } else {
          return false;
       }
    }
 
-   private static boolean handlePanelMouseClicked(Click event, boolean doubled) {
+   private static boolean handlePanelMouseClicked(MouseButtonEvent event, boolean doubled) {
       for (int i = PANELS.size() - 1; i >= 0; i--) {
          if (PANELS.get(i).mouseClickedPopup(event, doubled)) {
             return true;
@@ -324,7 +324,7 @@ public final class ClickGuiController {
       return false;
    }
 
-   private static boolean handlePanelMouseReleased(Click event) {
+   private static boolean handlePanelMouseReleased(MouseButtonEvent event) {
       for (int i = PANELS.size() - 1; i >= 0; i--) {
          if (PANELS.get(i).mouseReleased(event)) {
             return true;
@@ -334,7 +334,7 @@ public final class ClickGuiController {
       return false;
    }
 
-   private static boolean handlePanelMouseDragged(Click event, double dragX, double dragY) {
+   private static boolean handlePanelMouseDragged(MouseButtonEvent event, double dragX, double dragY) {
       for (int i = PANELS.size() - 1; i >= 0; i--) {
          if (PANELS.get(i).mouseDragged(event, dragX, dragY)) {
             return true;
@@ -354,7 +354,7 @@ public final class ClickGuiController {
       return true;
    }
 
-   private static boolean handlePanelKeyPressed(KeyInput event) {
+   private static boolean handlePanelKeyPressed(KeyEvent event) {
       for (int i = PANELS.size() - 1; i >= 0; i--) {
          if (PANELS.get(i).keyPressed(event)) {
             return true;
@@ -364,7 +364,7 @@ public final class ClickGuiController {
       return false;
    }
 
-   private static boolean handlePanelCharTyped(CharInput event) {
+   private static boolean handlePanelCharTyped(CharacterEvent event) {
       for (int i = PANELS.size() - 1; i >= 0; i--) {
          if (PANELS.get(i).charTyped(event)) {
             return true;
@@ -391,13 +391,13 @@ public final class ClickGuiController {
       return Math.max(min, Math.min(max, value));
    }
 
-   private static Click toDesignEvent(Click event) {
+   private static MouseButtonEvent toDesignEvent(MouseButtonEvent event) {
       float scale = coordinateScale();
       if (Math.abs(scale - 1.0F) <= 1.0E-4F) {
          return event;
       } else {
-         MouseInput info = new MouseInput(event.button(), event.modifiers());
-         return new Click(event.x() / (double)scale, event.y() / (double)scale, info);
+         MouseButtonInfo info = new MouseButtonInfo(event.button(), event.modifiers());
+         return new MouseButtonEvent(event.x() / (double)scale, event.y() / (double)scale, info);
       }
    }
 
@@ -406,11 +406,11 @@ public final class ClickGuiController {
    }
 
    private static void updateMousePosition() {
-      MinecraftClient client = MinecraftClient.getInstance();
-      if (client.mouse != null && client.getWindow() != null) {
+      Minecraft client = Minecraft.getInstance();
+      if (client.mouseHandler != null && client.getWindow() != null) {
          float scale = coordinateScale();
-         mouseX = client.mouse.getScaledX(client.getWindow()) / (double)scale;
-         mouseY = client.mouse.getScaledY(client.getWindow()) / (double)scale;
+         mouseX = client.mouseHandler.getScaledXPos(client.getWindow()) / (double)scale;
+         mouseY = client.mouseHandler.getScaledYPos(client.getWindow()) / (double)scale;
       }
    }
 

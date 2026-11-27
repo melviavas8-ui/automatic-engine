@@ -5,9 +5,9 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.world.entity.player.Player;
 import daamky.ua.api.module.impl.visual.Hud;
 import daamky.ua.utils.render.animation.Easings;
 import daamky.ua.utils.render.animation.SmoothAnimation;
@@ -24,8 +24,8 @@ public final class Staff extends HudPanel {
    private final List<Staff.RowEntry> rowEntries = new ArrayList<>();
    private final List<Staff.StaffEntry> cachedStaffEntries = new ArrayList<>();
    private final List<Staff.RowState> rowStates = new ArrayList<>();
-   private final Map<String, PlayerListEntry> tabPlayers = new HashMap<>();
-   private final Map<String, PlayerEntity> worldPlayers = new HashMap<>();
+   private final Map<String, PlayerInfo> tabPlayers = new HashMap<>();
+   private final Map<String, Player> worldPlayers = new HashMap<>();
    private final SmoothAnimation panelAnimation = new SmoothAnimation();
    private final SmoothAnimation iconAlphaAnimation = new SmoothAnimation();
    private boolean iconAlphaForward = true;
@@ -238,24 +238,24 @@ public final class Staff extends HudPanel {
 
    private List<Staff.StaffEntry> staffEntries() {
       this.cachedStaffEntries.clear();
-      if (this.mc.world != null && this.mc.getNetworkHandler() != null) {
+      if (this.mc.level != null && this.mc.getConnection() != null) {
          this.tabPlayers.clear();
 
-         for (PlayerListEntry info : this.mc.getNetworkHandler().getPlayerList()) {
+         for (PlayerInfo info : this.mc.getConnection().getOnlinePlayers()) {
             this.tabPlayers.put(StaffUtils.normalizeName(info.getProfile().name()).toLowerCase(), info);
          }
 
          this.worldPlayers.clear();
 
-         for (PlayerEntity player : this.mc.world.getPlayers()) {
+         for (Player player : this.mc.level.players()) {
             this.worldPlayers.put(StaffUtils.normalizeName(player.getName().getString()).toLowerCase(), player);
          }
 
          for (String staff : StaffUtils.getStaffNames()) {
             String key = StaffUtils.normalizeName(staff).toLowerCase();
             if (!key.isEmpty()) {
-               PlayerEntity player = this.worldPlayers.get(key);
-               PlayerListEntry info = this.tabPlayers.get(key);
+               Player player = this.worldPlayers.get(key);
+               PlayerInfo info = this.tabPlayers.get(key);
                if (player != null) {
                   this.cachedStaffEntries.add(new Staff.StaffEntry(staff, "Near", this.skin(player, info, staff), ColorUtil.rgba(255, 198, 76, 235)));
                } else if (info != null) {
@@ -272,14 +272,14 @@ public final class Staff extends HudPanel {
       }
    }
 
-   private String skin(PlayerEntity player, PlayerListEntry info, String name) {
+   private String skin(Player player, PlayerInfo info, String name) {
       try {
-         if (player instanceof AbstractClientPlayerEntity clientPlayer) {
+         if (player instanceof AbstractClientPlayer clientPlayer) {
             return clientPlayer.getSkin().body().texturePath().toString();
          }
 
          if (info != null) {
-            return info.getSkinTextures().body().texturePath().toString();
+            return info.getSkin().body().texturePath().toString();
          }
       } catch (RuntimeException var5) {
       }

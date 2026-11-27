@@ -6,12 +6,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
-import net.minecraft.client.gui.screen.ingame.GenericContainerScreen;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.screen.GenericContainerScreenHandler;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.client.gui.screens.inventory.ContainerScreen;
+import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.TickEvent;
 import daamky.ua.api.module.Module;
@@ -303,8 +303,8 @@ public final class AutoBuy extends Module {
 
    private void stopWalkKeys() {
       if (mc != null && mc.options != null) {
-         mc.options.forwardKey.setPressed(false);
-         mc.options.backKey.setPressed(false);
+         mc.options.keyUp.setDown(false);
+         mc.options.keyDown.setDown(false);
       }
    }
 
@@ -334,7 +334,7 @@ public final class AutoBuy extends Module {
 
    @SubscribeEvent
    public void onTick(TickEvent.Pre event) {
-      if (mc.player != null && mc.world != null && mc.interactionManager != null) {
+      if (mc.player != null && mc.level != null && mc.gameMode != null) {
          if (this.isEnabled()) {
             this.handleMenuBind();
             if (this.parseRunning) {
@@ -353,9 +353,9 @@ public final class AutoBuy extends Module {
                      this.handleAnarchySwap();
                   }
 
-                  if (mc.currentScreen instanceof GenericContainerScreen screen) {
+                  if (mc.screen instanceof ContainerScreen screen) {
                      String var10 = screen.getTitle().getString();
-                     int slotCount = ((GenericContainerScreenHandler)screen.getScreenHandler()).slots.size();
+                     int slotCount = ((ChestMenu)screen.getMenu()).slots.size();
                      if (AuctionUtils.isConfirmTitle(var10) || this.isLikelyConfirm(var10, slotCount)) {
                         this.clearPendingBuy();
                         if (this.confirmTimer.hasTimeElapsed(this.confirmDelay.getValue().longValue())) {
@@ -396,7 +396,7 @@ public final class AutoBuy extends Module {
                      this.boughtKeys.clear();
                      this.clearPendingBuy();
                      if (this.autoOpenAh.getValue() && this.ahTimer.hasTimeElapsed(this.ahReopenMs.getValue().longValue())) {
-                        mc.player.networkHandler.sendChatCommand("ah");
+                        mc.player.connection.sendCommand("ah");
                         this.ahTimer.resetCounter();
                      }
                   }
@@ -427,8 +427,8 @@ public final class AutoBuy extends Module {
          this.parseCmdTimer.resetCounter();
          this.parseWaitTimer.resetCounter();
          this.reparseTimer.resetCounter();
-         if (mc.player != null && mc.currentScreen != null) {
-            mc.player.closeHandledScreen();
+         if (mc.player != null && mc.screen != null) {
+            mc.player.closeContainer();
          }
 
          this.msg(
@@ -451,15 +451,15 @@ public final class AutoBuy extends Module {
          if (!this.parseWaitingResult) {
             if (this.parseCmdTimer.hasTimeElapsed(1100L)) {
                if (mc.player != null) {
-                  if (mc.currentScreen != null) {
-                     mc.player.closeHandledScreen();
+                  if (mc.screen != null) {
+                     mc.player.closeContainer();
                      this.parseCmdTimer.resetCounter();
                   } else {
                      String search = toSearchQuery(this.parseCurrentName);
                      if (this.serverMode.is("HolyWorld")) {
-                        mc.player.networkHandler.sendChatCommand("ah " + search);
+                        mc.player.connection.sendCommand("ah " + search);
                      } else {
-                        mc.player.networkHandler.sendChatCommand("ah search " + search);
+                        mc.player.connection.sendCommand("ah search " + search);
                      }
 
                      this.parseWaitingResult = true;
@@ -467,7 +467,7 @@ public final class AutoBuy extends Module {
                   }
                }
             }
-         } else if (!(mc.currentScreen instanceof GenericContainerScreen screen)) {
+         } else if (!(mc.screen instanceof ContainerScreen screen)) {
             if (this.parseWaitTimer.hasTimeElapsed(4500L)) {
                if (++this.parseRetries >= 3) {
                   this.msg("§c[AutoParse] §f" + shortName(this.parseCurrentName) + " §7пропущен: GUI не открылся (3 попытки)");
@@ -497,7 +497,7 @@ public final class AutoBuy extends Module {
                         this.parseWaitingResult = false;
                         this.parseCmdTimer.resetCounter();
                         if (mc.player != null) {
-                           mc.player.closeHandledScreen();
+                           mc.player.closeContainer();
                         }
                      }
                   }
@@ -513,7 +513,7 @@ public final class AutoBuy extends Module {
                            this.parseWaitingResult = false;
                            this.parseCmdTimer.resetCounter();
                            if (mc.player != null) {
-                              mc.player.closeHandledScreen();
+                              mc.player.closeContainer();
                            }
                         }
                      }
@@ -556,8 +556,8 @@ public final class AutoBuy extends Module {
       this.parseWaitingResult = false;
       this.parseCmdTimer.resetCounter();
       this.parseWaitTimer.resetCounter();
-      if (mc.player != null && mc.currentScreen != null) {
-         mc.player.closeHandledScreen();
+      if (mc.player != null && mc.screen != null) {
+         mc.player.closeContainer();
       }
 
       if (this.parseIndex < this.parseQueue.size()) {
@@ -584,16 +584,16 @@ public final class AutoBuy extends Module {
       this.msg("§d[AutoParse] §aГотово · обновлено " + updated + " поз.");
    }
 
-   private AutoBuy.ParsePrice findLowestUnitPrice(GenericContainerScreen screen, String targetName) {
+   private AutoBuy.ParsePrice findLowestUnitPrice(ContainerScreen screen, String targetName) {
       int lowestUnit = -1;
       int bestLot = -1;
       int bestCount = 1;
-      int limit = Math.min(45, ((GenericContainerScreenHandler)screen.getScreenHandler()).slots.size());
+      int limit = Math.min(45, ((ChestMenu)screen.getMenu()).slots.size());
       int matched = 0;
 
       for (int i = 0; i < limit; i++) {
-         Slot slot = (Slot)((GenericContainerScreenHandler)screen.getScreenHandler()).slots.get(i);
-         ItemStack stack = slot.getStack();
+         Slot slot = (Slot)((ChestMenu)screen.getMenu()).slots.get(i);
+         ItemStack stack = slot.getItem();
          if (!stack.isEmpty()) {
             int price = AuctionUtils.getPrice(stack);
             if (price > 0) {
@@ -614,8 +614,8 @@ public final class AutoBuy extends Module {
 
       if (lowestUnit < 0 && this.titleLooksLikeSearchFor(screen.getTitle().getString(), targetName)) {
          for (int ix = 0; ix < limit; ix++) {
-            Slot slot = (Slot)((GenericContainerScreenHandler)screen.getScreenHandler()).slots.get(ix);
-            ItemStack stack = slot.getStack();
+            Slot slot = (Slot)((ChestMenu)screen.getMenu()).slots.get(ix);
+            ItemStack stack = slot.getItem();
             if (!stack.isEmpty()) {
                int price = AuctionUtils.getPrice(stack);
                if (price > 0) {
@@ -635,11 +635,11 @@ public final class AutoBuy extends Module {
       return lowestUnit > 0 && (matched != 0 || bestLot > 0) ? new AutoBuy.ParsePrice(lowestUnit, bestLot, bestCount) : null;
    }
 
-   private boolean hasPricedLots(GenericContainerScreen screen) {
-      int limit = Math.min(45, ((GenericContainerScreenHandler)screen.getScreenHandler()).slots.size());
+   private boolean hasPricedLots(ContainerScreen screen) {
+      int limit = Math.min(45, ((ChestMenu)screen.getMenu()).slots.size());
 
       for (int i = 0; i < limit; i++) {
-         ItemStack stack = ((Slot)((GenericContainerScreenHandler)screen.getScreenHandler()).slots.get(i)).getStack();
+         ItemStack stack = ((Slot)((ChestMenu)screen.getMenu()).slots.get(i)).getItem();
          if (!stack.isEmpty() && AuctionUtils.getPrice(stack) > 0) {
             return true;
          }
@@ -696,9 +696,9 @@ public final class AutoBuy extends Module {
       if (stack != null && !stack.isEmpty() && target != null) {
          AutoBuyItem item = AutoBuyManager.get().findByName(target, this.serverMode.getValue());
          if (item != null) {
-            return item.matchesName(stack.getName().getString());
+            return item.matchesName(stack.getHoverName().getString());
          } else {
-            String a = AuctionUtils.cleanName(stack.getName().getString());
+            String a = AuctionUtils.cleanName(stack.getHoverName().getString());
             String b = AuctionUtils.cleanName(target);
             return !a.isEmpty() && !b.isEmpty() && (a.contains(b) || b.contains(a));
          }
@@ -708,7 +708,7 @@ public final class AutoBuy extends Module {
    }
 
    private boolean looseMatch(ItemStack stack, String target) {
-      String a = AuctionUtils.cleanName(stack.getName().getString());
+      String a = AuctionUtils.cleanName(stack.getHoverName().getString());
       String b = AuctionUtils.cleanName(target);
       if (!a.isEmpty() && !b.isEmpty()) {
          if (!a.contains(b) && !b.contains(a)) {
@@ -738,11 +738,11 @@ public final class AutoBuy extends Module {
 
          if (this.anarchyTimer.hasTimeElapsed(this.nextAnarchyMs)) {
             int n = ThreadLocalRandom.current().nextInt(1, 101);
-            if (mc.currentScreen != null && mc.player != null) {
-               mc.player.closeHandledScreen();
+            if (mc.screen != null && mc.player != null) {
+               mc.player.closeContainer();
             }
 
-            mc.player.networkHandler.sendChatCommand("an" + n);
+            mc.player.connection.sendCommand("an" + n);
             this.msg("§eСвап анархии → /an" + n);
             this.nextAnarchyMs = this.randomAnarchyDelay();
             this.anarchyTimer.resetCounter();
@@ -769,8 +769,8 @@ public final class AutoBuy extends Module {
 
                   this.pendingAnarchy = FT_ANARCHIES[ThreadLocalRandom.current().nextInt(FT_ANARCHIES.length)];
                   this.stopWalkKeys();
-                  if (mc.currentScreen != null) {
-                     mc.player.closeHandledScreen();
+                  if (mc.screen != null) {
+                     mc.player.closeContainer();
                   }
 
                   this.ftSwitch = AutoBuy.FtSwitch.SEND;
@@ -778,19 +778,19 @@ public final class AutoBuy extends Module {
                   return true;
                }
             case SEND:
-               if (mc.currentScreen != null) {
-                  mc.player.closeHandledScreen();
+               if (mc.screen != null) {
+                  mc.player.closeContainer();
                   return true;
                }
 
-               mc.player.networkHandler.sendChatCommand("an" + this.pendingAnarchy);
+               mc.player.connection.sendCommand("an" + this.pendingAnarchy);
                this.msg("§e[FT] Анархия → /an" + this.pendingAnarchy);
                this.ftPhaseAtMs = now;
                this.ftSwitch = AutoBuy.FtSwitch.WAIT;
                return true;
             case WAIT:
-               if (mc.currentScreen != null) {
-                  mc.player.closeHandledScreen();
+               if (mc.screen != null) {
+                  mc.player.closeContainer();
                }
 
                if (now - this.ftPhaseAtMs < 12000L) {
@@ -800,13 +800,13 @@ public final class AutoBuy extends Module {
                this.ftSwitch = AutoBuy.FtSwitch.OPEN_AH;
                return true;
             case OPEN_AH:
-               if (mc.currentScreen != null) {
-                  mc.player.closeHandledScreen();
+               if (mc.screen != null) {
+                  mc.player.closeContainer();
                   return true;
                }
 
                if (this.autoOpenAh.getValue()) {
-                  mc.player.networkHandler.sendChatCommand("ah");
+                  mc.player.connection.sendCommand("ah");
                }
 
                this.nextAnarchyMs = this.randomAnarchyDelay();
@@ -836,25 +836,25 @@ public final class AutoBuy extends Module {
                if (now < this.nextWalkAtMs) {
                   return false;
                } else {
-                  if (!(mc.currentScreen instanceof GenericContainerScreen)) {
+                  if (!(mc.screen instanceof ContainerScreen)) {
                      this.scheduleNextWalk();
                      return false;
                   }
 
                   this.walkForward = !this.walkForward;
-                  mc.player.closeHandledScreen();
+                  mc.player.closeContainer();
                   this.walkCloseAtMs = now;
                   this.walkState = AutoBuy.WalkState.CLOSING;
                   return true;
                }
             case CLOSING:
-               if (mc.currentScreen != null) {
+               if (mc.screen != null) {
                   if (now - this.walkCloseAtMs > 2000L) {
                      this.stopWalkKeys();
                      this.walkState = AutoBuy.WalkState.IDLE;
                      this.scheduleNextWalk();
                   } else {
-                     mc.player.closeHandledScreen();
+                     mc.player.closeContainer();
                   }
 
                   return true;
@@ -863,9 +863,9 @@ public final class AutoBuy extends Module {
                this.walkStartX = mc.player.getX();
                this.walkStartZ = mc.player.getZ();
                if (this.walkForward) {
-                  mc.options.forwardKey.setPressed(true);
+                  mc.options.keyUp.setDown(true);
                } else {
-                  mc.options.backKey.setPressed(true);
+                  mc.options.keyDown.setDown(true);
                }
 
                this.walkState = AutoBuy.WalkState.MOVING;
@@ -875,9 +875,9 @@ public final class AutoBuy extends Module {
                double dz = mc.player.getZ() - this.walkStartZ;
                if (dx * dx + dz * dz < needSq) {
                   if (this.walkForward) {
-                     mc.options.forwardKey.setPressed(true);
+                     mc.options.keyUp.setDown(true);
                   } else {
-                     mc.options.backKey.setPressed(true);
+                     mc.options.keyDown.setDown(true);
                   }
 
                   return true;
@@ -887,12 +887,12 @@ public final class AutoBuy extends Module {
                this.walkState = AutoBuy.WalkState.OPENING;
                return true;
             case OPENING:
-               if (mc.currentScreen != null) {
+               if (mc.screen != null) {
                   return true;
                }
 
                if (this.autoOpenAh.getValue()) {
-                  mc.player.networkHandler.sendChatCommand("ah");
+                  mc.player.connection.sendCommand("ah");
                }
 
                this.scheduleNextWalk();
@@ -931,40 +931,40 @@ public final class AutoBuy extends Module {
       }
    }
 
-   private void clickConfirm(GenericContainerScreen screen) {
-      int syncId = ((GenericContainerScreenHandler)screen.getScreenHandler()).syncId;
+   private void clickConfirm(ContainerScreen screen) {
+      int syncId = ((ChestMenu)screen.getMenu()).containerId;
       int confirmSlot = this.findConfirmSlot(screen);
       if (confirmSlot >= 0) {
-         mc.interactionManager.clickSlot(syncId, confirmSlot, 0, SlotActionType.PICKUP, mc.player);
+         mc.gameMode.handleInventoryMouseClick(syncId, confirmSlot, 0, ClickType.PICKUP, mc.player);
          this.msg("§a✓ Подтверждение покупки");
       } else {
          int[] candidates = new int[]{11, 13, 15, 1, 2, 3, 20, 21, 22, 24};
 
          for (int slot : candidates) {
-            if (slot < ((GenericContainerScreenHandler)screen.getScreenHandler()).slots.size()) {
-               ItemStack stack = ((Slot)((GenericContainerScreenHandler)screen.getScreenHandler()).slots.get(slot)).getStack();
+            if (slot < ((ChestMenu)screen.getMenu()).slots.size()) {
+               ItemStack stack = ((Slot)((ChestMenu)screen.getMenu()).slots.get(slot)).getItem();
                if (!stack.isEmpty()) {
-                  mc.interactionManager.clickSlot(syncId, slot, 0, SlotActionType.PICKUP, mc.player);
+                  mc.gameMode.handleInventoryMouseClick(syncId, slot, 0, ClickType.PICKUP, mc.player);
                   this.msg("§a✓ Подтверждение покупки");
                   return;
                }
             }
          }
 
-         if (((GenericContainerScreenHandler)screen.getScreenHandler()).slots.size() > 1) {
-            mc.interactionManager.clickSlot(syncId, 1, 0, SlotActionType.PICKUP, mc.player);
+         if (((ChestMenu)screen.getMenu()).slots.size() > 1) {
+            mc.gameMode.handleInventoryMouseClick(syncId, 1, 0, ClickType.PICKUP, mc.player);
             this.msg("§a✓ Подтверждение (fallback)");
          }
       }
    }
 
-   private int findConfirmSlot(GenericContainerScreen screen) {
-      int limit = Math.min(((GenericContainerScreenHandler)screen.getScreenHandler()).slots.size(), 54);
+   private int findConfirmSlot(ContainerScreen screen) {
+      int limit = Math.min(((ChestMenu)screen.getMenu()).slots.size(), 54);
 
       for (int i = 0; i < limit; i++) {
-         ItemStack stack = ((Slot)((GenericContainerScreenHandler)screen.getScreenHandler()).slots.get(i)).getStack();
+         ItemStack stack = ((Slot)((ChestMenu)screen.getMenu()).slots.get(i)).getItem();
          if (!stack.isEmpty()) {
-            String n = AuctionUtils.cleanName(stack.getName().getString());
+            String n = AuctionUtils.cleanName(stack.getHoverName().getString());
             if (n.contains("купить") || n.contains("подтверд") || n.contains("accept") || n.contains("buy")) {
                return i;
             }
@@ -981,9 +981,9 @@ public final class AutoBuy extends Module {
       return -1;
    }
 
-   private void refreshAuction(GenericContainerScreen screen) {
-      int syncId = ((GenericContainerScreenHandler)screen.getScreenHandler()).syncId;
-      int slots = ((GenericContainerScreenHandler)screen.getScreenHandler()).slots.size();
+   private void refreshAuction(ContainerScreen screen) {
+      int syncId = ((ChestMenu)screen.getMenu()).containerId;
+      int slots = ((ChestMenu)screen.getMenu()).slots.size();
       int refreshSlot = 49;
       if (this.serverMode.is("HolyWorld")) {
          int containerSize = Math.max(9, slots - 36);
@@ -992,35 +992,35 @@ public final class AutoBuy extends Module {
       }
 
       if (refreshSlot < slots) {
-         mc.interactionManager.clickSlot(syncId, refreshSlot, 0, SlotActionType.PICKUP, mc.player);
+         mc.gameMode.handleInventoryMouseClick(syncId, refreshSlot, 0, ClickType.PICKUP, mc.player);
       }
    }
 
-   private boolean scanAndBuy(GenericContainerScreen screen) {
+   private boolean scanAndBuy(ContainerScreen screen) {
       List<AutoBuyItem> enabled = AutoBuyManager.get().enabledItems(this.serverMode.getValue());
       if (enabled.isEmpty()) {
          this.clearPendingBuy();
          return false;
-      } else if (mc.player != null && !mc.player.currentScreenHandler.getCursorStack().isEmpty()) {
+      } else if (mc.player != null && !mc.player.containerMenu.getCarried().isEmpty()) {
          this.clearPendingBuy();
          return false;
       } else {
-         int syncId = ((GenericContainerScreenHandler)screen.getScreenHandler()).syncId;
-         int containerSlots = Math.max(0, ((GenericContainerScreenHandler)screen.getScreenHandler()).slots.size() - 36);
+         int syncId = ((ChestMenu)screen.getMenu()).containerId;
+         int containerSlots = Math.max(0, ((ChestMenu)screen.getMenu()).slots.size() - 36);
          int limit = Math.min(45, containerSlots > 0 ? containerSlots : 45);
-         limit = Math.min(limit, ((GenericContainerScreenHandler)screen.getScreenHandler()).slots.size());
+         limit = Math.min(limit, ((ChestMenu)screen.getMenu()).slots.size());
          AutoBuy.BuyCandidate best = null;
 
          for (int i = 0; i < limit; i++) {
-            Slot slot = (Slot)((GenericContainerScreenHandler)screen.getScreenHandler()).slots.get(i);
-            if (slot.inventory != mc.player.getInventory()) {
-               ItemStack stack = slot.getStack();
+            Slot slot = (Slot)((ChestMenu)screen.getMenu()).slots.get(i);
+            if (slot.container != mc.player.getInventory()) {
+               ItemStack stack = slot.getItem();
                if (!stack.isEmpty()) {
                   int price = AuctionUtils.getPrice(stack);
                   if (price > 0) {
                      int count = Math.max(1, stack.getCount());
                      int unit = AuctionUtils.unitPrice(price, count);
-                     String name = stack.getName().getString();
+                     String name = stack.getHoverName().getString();
                      String key = i + "|" + price + "|" + count + "|" + name.hashCode();
                      if (!this.boughtKeys.contains(key)) {
                         AutoBuyItem bestItem = null;
@@ -1064,9 +1064,9 @@ public final class AutoBuy extends Module {
             this.pendingCount = best.count;
             this.pendingSinceMs = now;
             return false;
-         } else if (this.pendingSlot >= 0 && this.pendingSlot < ((GenericContainerScreenHandler)screen.getScreenHandler()).slots.size()) {
-            Slot live = (Slot)((GenericContainerScreenHandler)screen.getScreenHandler()).slots.get(this.pendingSlot);
-            ItemStack liveStack = live.getStack();
+         } else if (this.pendingSlot >= 0 && this.pendingSlot < ((ChestMenu)screen.getMenu()).slots.size()) {
+            Slot live = (Slot)((ChestMenu)screen.getMenu()).slots.get(this.pendingSlot);
+            ItemStack liveStack = live.getItem();
             if (liveStack.isEmpty()) {
                this.clearPendingBuy();
                return false;
@@ -1074,7 +1074,7 @@ public final class AutoBuy extends Module {
                int livePrice = AuctionUtils.getPrice(liveStack);
                int liveCount = Math.max(1, liveStack.getCount());
                if (livePrice != this.pendingPrice || liveCount != this.pendingCount) {
-                  this.pendingKey = this.pendingSlot + "|" + livePrice + "|" + liveCount + "|" + liveStack.getName().getString().hashCode();
+                  this.pendingKey = this.pendingSlot + "|" + livePrice + "|" + liveCount + "|" + liveStack.getHoverName().getString().hashCode();
                   this.pendingPrice = livePrice;
                   this.pendingCount = liveCount;
                   this.pendingSinceMs = now;
@@ -1090,9 +1090,9 @@ public final class AutoBuy extends Module {
                      return false;
                   } else {
                      boolean holy = this.serverMode.is("HolyWorld");
-                     SlotActionType click = holy ? SlotActionType.PICKUP : SlotActionType.QUICK_MOVE;
+                     ClickType click = holy ? ClickType.PICKUP : ClickType.QUICK_MOVE;
                      int clickSlot = this.pendingSlot;
-                     mc.interactionManager.clickSlot(syncId, clickSlot, 0, click, mc.player);
+                     mc.gameMode.handleInventoryMouseClick(syncId, clickSlot, 0, click, mc.player);
                      this.boughtKeys.add(this.pendingKey);
                      this.lastBuyClickMs = now;
                      long pause = holy ? Math.max(this.postBuyPauseMs.getValue().longValue(), 650L) : this.postBuyPauseMs.getValue().longValue();

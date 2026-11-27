@@ -4,16 +4,16 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider.Immediate;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.WorldRenderEvent;
 import daamky.ua.api.module.Module;
@@ -32,9 +32,9 @@ public class FireFly extends Module {
    private static final float SPEED = 0.35F;
    private static final float SPAWN_RADIUS = 35.0F;
    private static final int TRAIL_LENGTH = 25;
-   private static final Identifier GLOW_TEXTURE = Identifier.of("daamky", "textures/world/dashbloom.png");
+   private static final Identifier GLOW_TEXTURE = Identifier.fromNamespaceAndPath("daamky", "textures/world/dashbloom.png");
    private final List<FireFly.FireFlyEntity> flies = new ArrayList<>();
-   private final List<Vec3d> trailPointsScratch = new ArrayList<>(21);
+   private final List<Vec3> trailPointsScratch = new ArrayList<>(21);
    private final Random random = new Random();
 
    public FireFly() {
@@ -52,9 +52,9 @@ public class FireFly extends Module {
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
-      if (client.player != null && client.world != null) {
-         Vec3d playerPos = client.player.getEntityPos();
+   public void onTick(Minecraft client) {
+      if (client.player != null && client.level != null) {
+         Vec3 playerPos = client.player.position();
          float maxSpeed = 0.525F;
          this.flies.forEach(f -> f.update(0.35F, maxSpeed, playerPos));
          this.flies.removeIf(f -> f.isDead(playerPos));
@@ -72,19 +72,19 @@ public class FireFly extends Module {
 
    @SubscribeEvent
    private void onWorldRender(WorldRenderEvent event) {
-      if (mc.player != null && mc.world != null && !this.flies.isEmpty()) {
-         MatrixStack stack = event.getStack();
-         Immediate provider = mc.getBufferBuilders().getEntityVertexConsumers();
-         Vec3d cam = mc.gameRenderer.getCamera().getCameraPos();
-         Quaternionf cameraRotation = mc.gameRenderer.getCamera().getRotation();
+      if (mc.player != null && mc.level != null && !this.flies.isEmpty()) {
+         PoseStack stack = event.getStack();
+         BufferSource provider = mc.renderBuffers().bufferSource();
+         Vec3 cam = mc.gameRenderer.getMainCamera().position();
+         Quaternionf cameraRotation = mc.gameRenderer.getMainCamera().rotation();
          float tickDelta = event.getTickDelta();
          boolean useTheme = this.useThemeColor.getValue();
          long animationTime = System.currentTimeMillis();
-         RenderLayer glowLayer = ClientPipelines.WORLD_PARTICLES_GLOW.apply(GLOW_TEXTURE);
+         RenderType glowLayer = ClientPipelines.WORLD_PARTICLES_GLOW.apply(GLOW_TEXTURE);
          VertexConsumer bufferGlow = provider.getBuffer(glowLayer);
-         stack.push();
+         stack.pushPose();
          stack.translate(-cam.x, -cam.y, -cam.z);
-         Matrix4f globalMatrix = stack.peek().getPositionMatrix();
+         Matrix4f globalMatrix = stack.last().pose();
          float baseWidth = 0.05F;
          float trailAlphaMultiplier = 0.6F;
          int maxInterpolatedPerSegment = 1;
@@ -105,27 +105,27 @@ public class FireFly extends Module {
                double py = fly.interpY(tickDelta);
                double pz = fly.interpZ(tickDelta);
                if (fly.trail.size() >= 2) {
-                  List<Vec3d> trailPoints = this.trailPointsScratch;
+                  List<Vec3> trailPoints = this.trailPointsScratch;
                   trailPoints.clear();
-                  trailPoints.add(new Vec3d(px, py, pz));
+                  trailPoints.add(new Vec3(px, py, pz));
                   int maxTrailSegments = Math.min(fly.trail.size(), 10);
 
                   for (int i = 0; i < maxTrailSegments; i++) {
                      FireFly.TrailPoint tp = fly.trail.get(i);
-                     Vec3d p = new Vec3d(tp.x, tp.y, tp.z);
-                     Vec3d lerped = new Vec3d((p.x + px) * 0.5, (p.y + py) * 0.5, (p.z + pz) * 0.5);
+                     Vec3 p = new Vec3(tp.x, tp.y, tp.z);
+                     Vec3 lerped = new Vec3((p.x + px) * 0.5, (p.y + py) * 0.5, (p.z + pz) * 0.5);
                      trailPoints.add(lerped);
                      trailPoints.add(p);
                   }
 
                   for (int i = 0; i < trailPoints.size() - 1; i++) {
-                     Vec3d curr = trailPoints.get(i);
-                     Vec3d next = trailPoints.get(i + 1);
-                     Vec3d seg = next.subtract(curr);
-                     if (!(seg.lengthSquared() < 1.0E-6)) {
-                        Vec3d dir = seg.normalize();
-                        Vec3d camDir = curr.subtract(cam).normalize();
-                        Vec3d side = dir.crossProduct(camDir).normalize();
+                     Vec3 curr = trailPoints.get(i);
+                     Vec3 next = trailPoints.get(i + 1);
+                     Vec3 seg = next.subtract(curr);
+                     if (!(seg.lengthSqr() < 1.0E-6)) {
+                        Vec3 dir = seg.normalize();
+                        Vec3 camDir = curr.subtract(cam).normalize();
+                        Vec3 side = dir.cross(camDir).normalize();
                         float t = (float)i / (float)Math.max(1, trailPoints.size() - 1);
                         float alpha = (1.0F - t) * lifeAlpha * trailAlphaMultiplier;
                         int col = ColorUtil.withAlpha(baseColor, Math.round(alpha * 255.0F));
@@ -141,23 +141,23 @@ public class FireFly extends Module {
                }
 
                float pulseAlpha = fly.pulseAlpha() * lifeAlpha;
-               stack.push();
+               stack.pushPose();
                stack.translate(px, py, pz);
-               stack.multiply(cameraRotation);
-               Matrix4f matrix = stack.peek().getPositionMatrix();
+               stack.mulPose(cameraRotation);
+               Matrix4f matrix = stack.last().pose();
                this.drawQuad(bufferGlow, matrix, 0.8F, ColorUtil.withAlpha(baseColor, (int)(pulseAlpha * 0.16F * 255.0F)));
                this.drawQuad(bufferGlow, matrix, 0.4F, ColorUtil.withAlpha(baseColor, (int)(pulseAlpha * 0.36F * 255.0F)));
                this.drawQuad(bufferGlow, matrix, 0.16F, ColorUtil.withAlpha(16777215, (int)(pulseAlpha * 0.95F * 255.0F)));
-               stack.pop();
+               stack.popPose();
             }
          }
 
-         stack.pop();
-         provider.draw(glowLayer);
+         stack.popPose();
+         provider.endBatch(glowLayer);
       }
    }
 
-   private void addTrailVertex(VertexConsumer buffer, Matrix4f matrix, Vec3d pos, Vec3d side, float width, int color, float u, float v) {
+   private void addTrailVertex(VertexConsumer buffer, Matrix4f matrix, Vec3 pos, Vec3 side, float width, int color, float u, float v) {
       float x = (float)(pos.x + side.x * (double)width);
       float y = (float)(pos.y + side.y * (double)width);
       float z = (float)(pos.z + side.z * (double)width);
@@ -165,7 +165,7 @@ public class FireFly extends Module {
       int g = color >> 8 & 0xFF;
       int b = color & 0xFF;
       int a = color >> 24 & 0xFF;
-      buffer.vertex(matrix, x, y, z).color(r, g, b, a).texture(u, v);
+      buffer.addVertex(matrix, x, y, z).setColor(r, g, b, a).setUv(u, v);
    }
 
    private void drawQuad(VertexConsumer buffer, Matrix4f matrix, float size, int color) {
@@ -174,13 +174,13 @@ public class FireFly extends Module {
       int g = color >> 8 & 0xFF;
       int b = color & 0xFF;
       int a = color >> 24 & 0xFF;
-      buffer.vertex(matrix, -halfSize, -halfSize, 0.0F).color(r, g, b, a).texture(0.0F, 1.0F);
-      buffer.vertex(matrix, halfSize, -halfSize, 0.0F).color(r, g, b, a).texture(1.0F, 1.0F);
-      buffer.vertex(matrix, halfSize, halfSize, 0.0F).color(r, g, b, a).texture(1.0F, 0.0F);
-      buffer.vertex(matrix, -halfSize, halfSize, 0.0F).color(r, g, b, a).texture(0.0F, 0.0F);
+      buffer.addVertex(matrix, -halfSize, -halfSize, 0.0F).setColor(r, g, b, a).setUv(0.0F, 1.0F);
+      buffer.addVertex(matrix, halfSize, -halfSize, 0.0F).setColor(r, g, b, a).setUv(1.0F, 1.0F);
+      buffer.addVertex(matrix, halfSize, halfSize, 0.0F).setColor(r, g, b, a).setUv(1.0F, 0.0F);
+      buffer.addVertex(matrix, -halfSize, halfSize, 0.0F).setColor(r, g, b, a).setUv(0.0F, 0.0F);
    }
 
-   private void spawnFly(Vec3d playerPos) {
+   private void spawnFly(Vec3 playerPos) {
       double dist = this.random.nextDouble() * 30.0 + 5.0;
       double yaw = Math.toRadians(this.random.nextDouble() * 360.0);
       double pitch = Math.toRadians((this.random.nextDouble() - 0.5) * 60.0);
@@ -235,7 +235,7 @@ public class FireFly extends Module {
          this.maxTrailLength = maxTrailLength;
       }
 
-      void update(float speedMult, float maxSpeed, Vec3d playerPos) {
+      void update(float speedMult, float maxSpeed, Vec3 playerPos) {
          this.prevX = this.x;
          this.prevY = this.y;
          this.prevZ = this.z;
@@ -266,9 +266,9 @@ public class FireFly extends Module {
          this.velX = this.velX + (this.rng.nextDouble() - 0.5) * wobble;
          this.velY = this.velY + (this.rng.nextDouble() - 0.5) * wobble;
          this.velZ = this.velZ + (this.rng.nextDouble() - 0.5) * wobble;
-         this.velX = MathHelper.clamp(this.velX, (double)(-maxSpeed), (double)maxSpeed);
-         this.velY = MathHelper.clamp(this.velY, (double)(-maxSpeed), (double)maxSpeed);
-         this.velZ = MathHelper.clamp(this.velZ, (double)(-maxSpeed), (double)maxSpeed);
+         this.velX = Mth.clamp(this.velX, (double)(-maxSpeed), (double)maxSpeed);
+         this.velY = Mth.clamp(this.velY, (double)(-maxSpeed), (double)maxSpeed);
+         this.velZ = Mth.clamp(this.velZ, (double)(-maxSpeed), (double)maxSpeed);
          this.x = this.x + this.velX;
          this.y = this.y + this.velY;
          this.z = this.z + this.velZ;
@@ -279,7 +279,7 @@ public class FireFly extends Module {
          }
       }
 
-      boolean isDead(Vec3d playerPos) {
+      boolean isDead(Vec3 playerPos) {
          double dx = this.x - playerPos.x;
          double dy = this.y - playerPos.y;
          double dz = this.z - playerPos.z;
@@ -287,15 +287,15 @@ public class FireFly extends Module {
       }
 
       double interpX(float td) {
-         return MathHelper.lerp((double)td, this.prevX, this.x);
+         return Mth.lerp((double)td, this.prevX, this.x);
       }
 
       double interpY(float td) {
-         return MathHelper.lerp((double)td, this.prevY, this.y);
+         return Mth.lerp((double)td, this.prevY, this.y);
       }
 
       double interpZ(float td) {
-         return MathHelper.lerp((double)td, this.prevZ, this.z);
+         return Mth.lerp((double)td, this.prevZ, this.z);
       }
 
       float pulseAlpha() {

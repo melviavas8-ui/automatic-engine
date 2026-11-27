@@ -1,20 +1,20 @@
 package daamky.ua.api.events.impl;
 
-import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.events.Event;
+import net.minecraft.world.phys.Vec3;
 
 public final class CameraPositionEvent implements Event {
-   private Vec3d pos;
+   private Vec3 pos;
 
-   public CameraPositionEvent(Vec3d pos) {
+   public CameraPositionEvent(Vec3 pos) {
       this.pos = pos;
    }
 
-   public Vec3d getPos() {
+   public Vec3 getPos() {
       return this.pos;
    }
 
-   public void setPos(Vec3d pos) {
+   public void setPos(Vec3 pos) {
       this.pos = pos;
    }
 }

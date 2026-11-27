@@ -1,24 +1,24 @@
 package daamky.ua.mixin;
 
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.text.OrderedText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import daamky.ua.screens.mainmenu.VanillaMenuTheme;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.FormattedCharSequence;
 
-@Mixin({DrawContext.class})
+@Mixin({GuiGraphics.class})
 public abstract class GuiGraphicsThemeMixin {
    public GuiGraphicsThemeMixin() {
    }
 
    @Inject(
-      method = {"drawGuiTexture(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/util/Identifier;IIII)V"},
+      method = {"blitSprite(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIII)V"},
       at = {@At("HEAD")},
       cancellable = true
    )
@@ -29,7 +29,7 @@ public abstract class GuiGraphicsThemeMixin {
    }
 
    @Inject(
-      method = {"drawTexture(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/util/Identifier;IIFFIIII)V"},
+      method = {"blit(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIFFIIII)V"},
       at = {@At("HEAD")},
       cancellable = true
    )
@@ -37,96 +37,96 @@ public abstract class GuiGraphicsThemeMixin {
       RenderPipeline pipeline, Identifier texture, int x, int y, float u, float v, int width, int height, int textureWidth, int textureHeight, CallbackInfo ci
    ) {
       if (VanillaMenuTheme.shouldRoundListIcon(width, height, textureWidth, textureHeight)) {
-         VanillaMenuTheme.renderRoundedListIcon((DrawContext)(Object)this, texture.toString(), (float)x, (float)y);
+         VanillaMenuTheme.renderRoundedListIcon((GuiGraphics)(Object)this, texture.toString(), (float)x, (float)y);
          ci.cancel();
       }
    }
 
    @Inject(
-      method = {"drawCenteredTextWithShadow(Lnet/minecraft/client/font/TextRenderer;Lnet/minecraft/text/OrderedText;III)V"},
+      method = {"drawCenteredString(Lnet/minecraft/client/gui/Font;Lnet/minecraft/util/FormattedCharSequence;III)V"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$drawThemedCenteredSequence(TextRenderer font, OrderedText text, int centerX, int y, int color, CallbackInfo ci) {
+   private void daamky$drawThemedCenteredSequence(Font font, FormattedCharSequence text, int centerX, int y, int color, CallbackInfo ci) {
       if (VanillaMenuTheme.active()) {
-         VanillaMenuTheme.drawCenteredText((DrawContext)(Object)this, plainText(text), (float)centerX, (float)y, color);
+         VanillaMenuTheme.drawCenteredText((GuiGraphics)(Object)this, plainText(text), (float)centerX, (float)y, color);
          ci.cancel();
       }
    }
 
    @Inject(
-      method = {"drawCenteredTextWithShadow(Lnet/minecraft/client/font/TextRenderer;Lnet/minecraft/text/Text;III)V"},
+      method = {"drawCenteredString(Lnet/minecraft/client/gui/Font;Lnet/minecraft/network/chat/Component;III)V"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$drawThemedCenteredComponent(TextRenderer font, Text text, int centerX, int y, int color, CallbackInfo ci) {
+   private void daamky$drawThemedCenteredComponent(Font font, Component text, int centerX, int y, int color, CallbackInfo ci) {
       if (VanillaMenuTheme.active()) {
-         VanillaMenuTheme.drawCenteredText((DrawContext)(Object)this, text.getString(), (float)centerX, (float)y, color);
+         VanillaMenuTheme.drawCenteredText((GuiGraphics)(Object)this, text.getString(), (float)centerX, (float)y, color);
          ci.cancel();
       }
    }
 
    @Inject(
-      method = {"drawCenteredTextWithShadow(Lnet/minecraft/client/font/TextRenderer;Ljava/lang/String;III)V"},
+      method = {"drawCenteredString(Lnet/minecraft/client/gui/Font;Ljava/lang/String;III)V"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$drawThemedCenteredString(TextRenderer font, String text, int centerX, int y, int color, CallbackInfo ci) {
+   private void daamky$drawThemedCenteredString(Font font, String text, int centerX, int y, int color, CallbackInfo ci) {
       if (VanillaMenuTheme.active()) {
-         VanillaMenuTheme.drawCenteredText((DrawContext)(Object)this, text, (float)centerX, (float)y, color);
+         VanillaMenuTheme.drawCenteredText((GuiGraphics)(Object)this, text, (float)centerX, (float)y, color);
          ci.cancel();
       }
    }
 
    @Inject(
-      method = {"drawTextWithShadow(Lnet/minecraft/client/font/TextRenderer;Lnet/minecraft/text/Text;III)V"},
+      method = {"drawString(Lnet/minecraft/client/gui/Font;Lnet/minecraft/network/chat/Component;III)V"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$drawThemedComponent(TextRenderer font, Text text, int x, int y, int color, CallbackInfo ci) {
+   private void daamky$drawThemedComponent(Font font, Component text, int x, int y, int color, CallbackInfo ci) {
       if (VanillaMenuTheme.active()) {
-         VanillaMenuTheme.drawText((DrawContext)(Object)this, text.getString(), (float)x, (float)y, color);
+         VanillaMenuTheme.drawText((GuiGraphics)(Object)this, text.getString(), (float)x, (float)y, color);
          ci.cancel();
       }
    }
 
    @Inject(
-      method = {"drawTextWithShadow(Lnet/minecraft/client/font/TextRenderer;Ljava/lang/String;III)V"},
+      method = {"drawString(Lnet/minecraft/client/gui/Font;Ljava/lang/String;III)V"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$drawThemedString(TextRenderer font, String text, int x, int y, int color, CallbackInfo ci) {
+   private void daamky$drawThemedString(Font font, String text, int x, int y, int color, CallbackInfo ci) {
       if (VanillaMenuTheme.active()) {
-         VanillaMenuTheme.drawText((DrawContext)(Object)this, text, (float)x, (float)y, color);
+         VanillaMenuTheme.drawText((GuiGraphics)(Object)this, text, (float)x, (float)y, color);
          ci.cancel();
       }
    }
 
    @Inject(
-      method = {"drawTextWithShadow(Lnet/minecraft/client/font/TextRenderer;Lnet/minecraft/text/OrderedText;III)V"},
+      method = {"drawString(Lnet/minecraft/client/gui/Font;Lnet/minecraft/util/FormattedCharSequence;III)V"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$drawThemedSequence(TextRenderer font, OrderedText text, int x, int y, int color, CallbackInfo ci) {
+   private void daamky$drawThemedSequence(Font font, FormattedCharSequence text, int x, int y, int color, CallbackInfo ci) {
       if (VanillaMenuTheme.active()) {
-         VanillaMenuTheme.drawText((DrawContext)(Object)this, plainText(text), (float)x, (float)y, color);
+         VanillaMenuTheme.drawText((GuiGraphics)(Object)this, plainText(text), (float)x, (float)y, color);
          ci.cancel();
       }
    }
 
    @Inject(
-      method = {"drawText(Lnet/minecraft/client/font/TextRenderer;Lnet/minecraft/text/OrderedText;IIIZ)V"},
+      method = {"drawString(Lnet/minecraft/client/gui/Font;Lnet/minecraft/util/FormattedCharSequence;IIIZ)V"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$drawThemedSequenceWithShadow(TextRenderer font, OrderedText text, int x, int y, int color, boolean shadow, CallbackInfo ci) {
+   private void daamky$drawThemedSequenceWithShadow(Font font, FormattedCharSequence text, int x, int y, int color, boolean shadow, CallbackInfo ci) {
       if (VanillaMenuTheme.active()) {
-         VanillaMenuTheme.drawText((DrawContext)(Object)this, plainText(text), (float)x, (float)y, color);
+         VanillaMenuTheme.drawText((GuiGraphics)(Object)this, plainText(text), (float)x, (float)y, color);
          ci.cancel();
       }
    }
 
-   private static String plainText(OrderedText sequence) {
+   private static String plainText(FormattedCharSequence sequence) {
       if (sequence == null) {
          return "";
       } else {

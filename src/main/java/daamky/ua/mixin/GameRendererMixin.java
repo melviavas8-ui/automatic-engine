@@ -2,26 +2,26 @@ package daamky.ua.mixin;
 
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.mojang.blaze3d.ProjectionType;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
-import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.Camera;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.render.GuiRenderer;
 import net.minecraft.client.gui.render.state.GuiRenderState;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.render.BufferBuilderStorage;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.ProjectionMatrix3;
-import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.client.render.command.RenderDispatcher;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.hit.HitResult;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.CachedPerspectiveProjectionMatrixBuffer;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.RenderBuffers;
+import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.HitResult;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 import org.joml.Quaternionf;
@@ -48,28 +48,28 @@ import daamky.ua.utils.render.post.saturation.Saturation2D;
 public abstract class GameRendererMixin {
    @Shadow
    @Final
-   private MinecraftClient client;
+   private Minecraft minecraft;
    @Shadow
    @Final
-   private GuiRenderState guiState;
+   private GuiRenderState guiRenderState;
    @Shadow
    @Final
-   private Camera camera;
+   private Camera mainCamera;
    @Shadow
    @Final
-   private ProjectionMatrix3 hudProjectionMatrix;
+   private CachedPerspectiveProjectionMatrixBuffer hud3dProjectionMatrixBuffer;
    @Shadow
    @Final
-   private RenderDispatcher entityRenderDispatcher;
+   private FeatureRenderDispatcher featureRenderDispatcher;
    @Shadow
    @Final
-   private BufferBuilderStorage buffers;
+   private RenderBuffers renderBuffers;
 
    public GameRendererMixin() {
    }
 
    @Shadow
-   private void renderHand(float partialTicks, boolean renderBlockOutline, Matrix4f projectionMatrix) {
+   private void renderItemInHand(float partialTicks, boolean renderBlockOutline, Matrix4f projectionMatrix) {
       throw new AssertionError();
    }
 
@@ -86,19 +86,19 @@ public abstract class GameRendererMixin {
          shift = Shift.BEFORE
       )}
    )
-   private void daamky$renderGuiOverlay(RenderTickCounter deltaTracker, boolean tick, CallbackInfo ci) {
+   private void daamky$renderGuiOverlay(DeltaTracker deltaTracker, boolean tick, CallbackInfo ci) {
       this.daamky$applyWorldSaturation();
-      if (HudRenderLayer.shouldRender(this.client)) {
-         Screen screen = this.client.currentScreen;
+      if (HudRenderLayer.shouldRender(this.minecraft)) {
+         Screen screen = this.minecraft.screen;
          if (screen == null || screen instanceof ClickGui || screen instanceof ChatScreen) {
             if (screen instanceof ChatScreen) {
-               HudRenderLayer.renderChatOverlay(this.client, this.daamky$newGuiGraphics(), deltaTracker.getTickProgress(false));
+               HudRenderLayer.renderChatOverlay(this.minecraft, this.daamky$newGuiGraphics(), deltaTracker.getGameTimeDeltaPartialTick(false));
             } else {
-               HudRenderLayer.renderGameHud(this.client, this.daamky$newGuiGraphics(), deltaTracker.getTickProgress(false));
+               HudRenderLayer.renderGameHud(this.minecraft, this.daamky$newGuiGraphics(), deltaTracker.getGameTimeDeltaPartialTick(false));
                if (ClickGui.shouldRenderOverlay()) {
-                  DrawContext graphics = this.daamky$newGuiGraphics();
-                  ClickGui.renderPanels(graphics, this.client.getWindow().getScaledWidth(), this.client.getWindow().getScaledHeight());
-                  this.daamky$renderHandsInClickGui(deltaTracker.getTickProgress(false));
+                  GuiGraphics graphics = this.daamky$newGuiGraphics();
+                  ClickGui.renderPanels(graphics, this.minecraft.getWindow().getGuiScaledWidth(), this.minecraft.getWindow().getGuiScaledHeight());
+                  this.daamky$renderHandsInClickGui(deltaTracker.getGameTimeDeltaPartialTick(false));
                }
             }
          }
@@ -106,19 +106,19 @@ public abstract class GameRendererMixin {
    }
 
    private void daamky$renderHandsInClickGui(float partialTicks) {
-      if (GuiHands.shouldRender() && this.client.currentScreen instanceof ClickGui && this.client.player != null && this.camera != null) {
+      if (GuiHands.shouldRender() && this.minecraft.screen instanceof ClickGui && this.minecraft.player != null && this.mainCamera != null) {
          RenderSystem.setProjectionMatrix(
-            this.hudProjectionMatrix
-               .set(
-                  this.client.getWindow().getFramebufferWidth(), this.client.getWindow().getFramebufferHeight(), this.getFov(this.camera, partialTicks, false)
+            this.hud3dProjectionMatrixBuffer
+               .getBuffer(
+                  this.minecraft.getWindow().getWidth(), this.minecraft.getWindow().getHeight(), this.getFov(this.mainCamera, partialTicks, false)
                ),
             ProjectionType.PERSPECTIVE
          );
-         RenderSystem.getDevice().createCommandEncoder().clearDepthTexture(this.client.getFramebuffer().getDepthAttachment(), 1.0);
-         Matrix4f cameraMatrix = new Matrix4f().rotation(this.camera.getRotation().conjugate(new Quaternionf()));
-         this.renderHand(partialTicks, false, cameraMatrix);
-         this.entityRenderDispatcher.render();
-         this.buffers.getEntityVertexConsumers().draw();
+         RenderSystem.getDevice().createCommandEncoder().clearDepthTexture(this.minecraft.getMainRenderTarget().getDepthTexture(), 1.0);
+         Matrix4f cameraMatrix = new Matrix4f().rotation(this.mainCamera.rotation().conjugate(new Quaternionf()));
+         this.renderItemInHand(partialTicks, false, cameraMatrix);
+         this.featureRenderDispatcher.renderAllFeatures();
+         this.renderBuffers.bufferSource().endBatch();
       }
    }
 
@@ -126,16 +126,16 @@ public abstract class GameRendererMixin {
       method = {"render"},
       at = {@At(
          value = "INVOKE",
-         target = "Lnet/minecraft/client/gui/screen/Screen;renderWithTooltip(Lnet/minecraft/client/gui/DrawContext;IIF)V",
+         target = "Lnet/minecraft/client/gui/screens/Screen;renderWithTooltipAndSubtitles(Lnet/minecraft/client/gui/GuiGraphics;IIF)V",
          shift = Shift.BEFORE
       )},
       require = 0
    )
-   private void daamky$renderHudBehindScreen(RenderTickCounter deltaTracker, boolean tick, CallbackInfo ci) {
-      if (HudRenderLayer.shouldRender(this.client)) {
-         Screen screen = this.client.currentScreen;
+   private void daamky$renderHudBehindScreen(DeltaTracker deltaTracker, boolean tick, CallbackInfo ci) {
+      if (HudRenderLayer.shouldRender(this.minecraft)) {
+         Screen screen = this.minecraft.screen;
          if (screen != null && !(screen instanceof ChatScreen) && !(screen instanceof ClickGui)) {
-            HudRenderLayer.renderScreenBackground(this.client, this.daamky$newGuiGraphics(), deltaTracker.getTickProgress(false));
+            HudRenderLayer.renderScreenBackground(this.minecraft, this.daamky$newGuiGraphics(), deltaTracker.getGameTimeDeltaPartialTick(false));
          }
       }
    }
@@ -144,21 +144,21 @@ public abstract class GameRendererMixin {
       method = {"render"},
       at = {@At(
          value = "INVOKE",
-         target = "Lnet/minecraft/client/gui/hud/InGameHud;render(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/render/RenderTickCounter;)V",
+         target = "Lnet/minecraft/client/gui/Gui;render(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V",
          shift = Shift.BEFORE
       )},
       require = 0
    )
-   private void daamky$renderDrawLayerBelowVanillaHud(RenderTickCounter deltaTracker, boolean tick, CallbackInfo ci) {
-      if (HudRenderLayer.shouldRender(this.client)) {
-         HudRenderLayer.renderGameDrawEvents(this.daamky$newGuiGraphics(), deltaTracker.getTickProgress(false));
+   private void daamky$renderDrawLayerBelowVanillaHud(DeltaTracker deltaTracker, boolean tick, CallbackInfo ci) {
+      if (HudRenderLayer.shouldRender(this.minecraft)) {
+         HudRenderLayer.renderGameDrawEvents(this.daamky$newGuiGraphics(), deltaTracker.getGameTimeDeltaPartialTick(false));
       }
    }
 
-   private DrawContext daamky$newGuiGraphics() {
-      int mouseX = this.client.mouse != null && this.client.getWindow() != null ? (int)Math.round(this.client.mouse.getScaledX(this.client.getWindow())) : 0;
-      int mouseY = this.client.mouse != null && this.client.getWindow() != null ? (int)Math.round(this.client.mouse.getScaledY(this.client.getWindow())) : 0;
-      return new DrawContext(this.client, this.guiState, mouseX, mouseY);
+   private GuiGraphics daamky$newGuiGraphics() {
+      int mouseX = this.minecraft.mouseHandler != null && this.minecraft.getWindow() != null ? (int)Math.round(this.minecraft.mouseHandler.getScaledXPos(this.minecraft.getWindow())) : 0;
+      int mouseY = this.minecraft.mouseHandler != null && this.minecraft.getWindow() != null ? (int)Math.round(this.minecraft.mouseHandler.getScaledYPos(this.minecraft.getWindow())) : 0;
+      return new GuiGraphics(this.minecraft, this.guiRenderState, mouseX, mouseY);
    }
 
    @WrapOperation(
@@ -169,16 +169,16 @@ public abstract class GameRendererMixin {
       )}
    )
    private void daamky$renderModernWorldAnimation(
-      GuiRenderer renderer, GpuBufferSlice fogBuffer, Operation<Void> original, RenderTickCounter deltaTracker, boolean tick
+      GuiRenderer renderer, GpuBufferSlice fogBuffer, Operation<Void> original, DeltaTracker deltaTracker, boolean tick
    ) {
       original.call(new Object[]{renderer, fogBuffer});
-      if (this.client.currentScreen == null && WorldAnimation.isActive()) {
-         WorldAnimation.render(renderer, this.daamky$newGuiGraphics(), fogBuffer, deltaTracker.getTickProgress(false));
+      if (this.minecraft.screen == null && WorldAnimation.isActive()) {
+         WorldAnimation.render(renderer, this.daamky$newGuiGraphics(), fogBuffer, deltaTracker.getGameTimeDeltaPartialTick(false));
       }
    }
 
    private void daamky$applyWorldSaturation() {
-      if (this.client != null && this.client.player != null && this.client.world != null) {
+      if (this.minecraft != null && this.minecraft.player != null && this.minecraft.level != null) {
          float saturation = KillEffect.getWorldSaturationMultiplier();
          Ambience ambience = Ambience.getInstance();
          if (ambience != null && ambience.isEnabled()) {
@@ -192,32 +192,32 @@ public abstract class GameRendererMixin {
    }
 
    @WrapOperation(
-      method = {"updateCrosshairTarget"},
+      method = {"pick"},
       at = {@At(
          value = "INVOKE",
-         target = "Lnet/minecraft/client/network/ClientPlayerEntity;getCrosshairTarget(FLnet/minecraft/entity/Entity;)Lnet/minecraft/util/hit/HitResult;"
+         target = "Lnet/minecraft/client/player/LocalPlayer;raycastHitResult(FLnet/minecraft/world/entity/Entity;)Lnet/minecraft/world/phys/HitResult;"
       )},
       require = 0
    )
-   private HitResult daamky$noEntityTracePick(ClientPlayerEntity player, float tickProgress, Entity cameraEntity, Operation<HitResult> original) {
+   private HitResult daamky$noEntityTracePick(LocalPlayer player, float tickProgress, Entity cameraEntity, Operation<HitResult> original) {
       NoEntityTrace noEntityTrace = NoEntityTrace.getInstance();
-      if (noEntityTrace != null && noEntityTrace.shouldIgnoreEntityTrace() && cameraEntity != null && this.client.player != null) {
-         double range = Math.max(player.getBlockInteractionRange(), player.getEntityInteractionRange());
-         return cameraEntity.raycast(range, tickProgress, false);
+      if (noEntityTrace != null && noEntityTrace.shouldIgnoreEntityTrace() && cameraEntity != null && this.minecraft.player != null) {
+         double range = Math.max(player.blockInteractionRange(), player.entityInteractionRange());
+         return cameraEntity.pick(range, tickProgress, false);
       } else {
          return (HitResult)original.call(new Object[]{player, tickProgress, cameraEntity});
       }
    }
 
    @Inject(
-      method = {"getBasicProjectionMatrix"},
+      method = {"getProjectionMatrix"},
       at = {@At("TAIL")},
       cancellable = true
    )
    private void daamky$aspectRatio(float fovDegrees, CallbackInfoReturnable<Matrix4f> cir) {
-      if (this.client != null && this.client.getWindow() != null) {
-         int width = this.client.getWindow().getFramebufferWidth();
-         int height = this.client.getWindow().getFramebufferHeight();
+      if (this.minecraft != null && this.minecraft.getWindow() != null) {
+         int width = this.minecraft.getWindow().getWidth();
+         int height = this.minecraft.getWindow().getHeight();
          if (width > 0 && height > 0) {
             float adjustedWidth = AspectRatio.resolveRatio((float)width, (float)height);
             if (!(Math.abs(adjustedWidth - (float)width) <= 1.0E-4F)) {
@@ -234,19 +234,19 @@ public abstract class GameRendererMixin {
    }
 
    @Inject(
-      method = {"tiltViewWhenHurt"},
+      method = {"bobHurt"},
       at = {@At("HEAD")},
       cancellable = true,
       require = 0
    )
-   private void daamky$noHurtBob(MatrixStack stack, float tickDelta, CallbackInfo ci) {
+   private void daamky$noHurtBob(PoseStack stack, float tickDelta, CallbackInfo ci) {
       if (NoRender.isActive("Damage")) {
          ci.cancel();
       }
    }
 
    @Inject(
-      method = {"showFloatingItem"},
+      method = {"displayItemActivation"},
       at = {@At("HEAD")},
       cancellable = true,
       require = 0

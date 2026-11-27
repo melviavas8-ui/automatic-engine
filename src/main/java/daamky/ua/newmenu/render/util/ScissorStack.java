@@ -1,10 +1,10 @@
 package daamky.ua.newmenu.render.util;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.platform.Window;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.Window;
+import net.minecraft.client.Minecraft;
 import org.lwjgl.opengl.GL11;
 
 /**
@@ -55,12 +55,12 @@ public final class ScissorStack {
     }
 
     private static void apply(ScissorRect rect) {
-        Window window = MinecraftClient.getInstance().getWindow();
+        Window window = Minecraft.getInstance().getWindow();
         if (window == null) {
             return;
         }
-        double scale = window.getScaleFactor();
-        int fbHeight = window.getFramebufferHeight();
+        double scale = window.getGuiScale();
+        int fbHeight = window.getHeight();
 
         int x = (int) Math.round(rect.x * scale);
         int y = (int) Math.round((rect.y + rect.height) * scale);

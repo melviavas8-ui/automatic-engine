@@ -4,18 +4,18 @@ import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
 import com.mojang.blaze3d.platform.DepthTestFunction;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
+import com.mojang.blaze3d.shaders.UniformType;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.ScreenRect;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.gui.render.TextureSetup;
 import net.minecraft.client.gui.render.state.GuiRenderState;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.texture.TextureSetup;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 import org.joml.Matrix3x2f;
 import daamky.ua.access.GuiRenderStateLayerAccessor;
 import daamky.ua.mixin.accessor.GuiGraphicsExtractorAccessor;
@@ -28,7 +28,7 @@ public final class TextRenderer implements AutoCloseable {
       .withLocation(id("pipeline/text_atlas"))
       .withVertexShader(id("ui/shared/text_atlas"))
       .withFragmentShader(id("ui/text_atlas/text_atlas"))
-      .withVertexFormat(VertexFormats.POSITION_TEXTURE_COLOR, DrawMode.QUADS)
+      .withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, Mode.QUADS)
       .withBlend(BlendFunction.TRANSLUCENT)
       .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
       .withCull(false)
@@ -40,7 +40,7 @@ public final class TextRenderer implements AutoCloseable {
       .withLocation(id("pipeline/text_atlas_fade"))
       .withVertexShader(id("ui/shared/text_atlas"))
       .withFragmentShader(id("ui/text_atlas_fade/text_atlas_fade"))
-      .withVertexFormat(VertexFormats.POSITION_TEXTURE_COLOR, DrawMode.QUADS)
+      .withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, Mode.QUADS)
       .withBlend(BlendFunction.TRANSLUCENT)
       .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
       .withCull(false)
@@ -50,7 +50,7 @@ public final class TextRenderer implements AutoCloseable {
       .build();
    private final FontManager fontManager = new FontManager();
    private final Map<TextRenderer.FrameBatchKey, TextRenderState> frameBatches = new LinkedHashMap<>(64);
-   private DrawContext activeGraphics;
+   private GuiGraphics activeGraphics;
 
    private TextRenderer() {
    }
@@ -78,7 +78,7 @@ public final class TextRenderer implements AutoCloseable {
       }
    }
 
-   public void beginFrame(DrawContext graphics) {
+   public void beginFrame(GuiGraphics graphics) {
       if (this.activeGraphics != graphics) {
          this.frameBatches.clear();
       }
@@ -90,7 +90,7 @@ public final class TextRenderer implements AutoCloseable {
       this.submit(this.activeGraphics, text);
    }
 
-   public void draw(DrawContext graphics, BuiltText text) {
+   public void draw(GuiGraphics graphics, BuiltText text) {
       this.beginFrame(graphics);
       this.enqueue(text);
       this.flush();
@@ -136,7 +136,7 @@ public final class TextRenderer implements AutoCloseable {
       }
    }
 
-   private void submit(DrawContext graphics, BuiltText text) {
+   private void submit(GuiGraphics graphics, BuiltText text) {
       if (graphics != null && text != null) {
          BuiltText normalized = text;
          if (text.visible()) {
@@ -152,7 +152,7 @@ public final class TextRenderer implements AutoCloseable {
                GuiRenderState guiState = ((GuiGraphicsExtractorAccessor)graphics).daamky$getGuiRenderState();
                int layerSerial = ((GuiRenderStateLayerAccessor)guiState).daamky$getLayerSerial();
                TextRenderer.PoseKey poseKey = TextRenderer.PoseKey.of(pose);
-               ScreenRect scissorArea = ScissorUtil.current();
+               ScreenRectangle scissorArea = ScissorUtil.current();
                RenderPipeline pipeline = normalized.hasHorizontalFade() ? TEXT_FADE_PIPELINE : TEXT_PIPELINE;
 
                for (TextLayout.Page page : layout.pages()) {
@@ -162,7 +162,7 @@ public final class TextRenderer implements AutoCloseable {
                      if (state == null) {
                         state = new TextRenderState(pose, page.page(), scissorArea, pipeline);
                         this.frameBatches.put(key, state);
-                        guiState.addPreparedTextElement(state);
+                        guiState.submitGlyphToCurrentLayer(state);
                      }
 
                      state.add(
@@ -193,7 +193,7 @@ public final class TextRenderer implements AutoCloseable {
    }
 
    private static Identifier id(String path) {
-      return Identifier.of("daamky", path);
+      return Identifier.fromNamespaceAndPath("daamky", path);
    }
 
    @Override
@@ -204,7 +204,7 @@ public final class TextRenderer implements AutoCloseable {
    }
 
    private static record FrameBatchKey(
-      GuiRenderState state, int layerSerial, GlyphAtlasPage page, TextRenderer.PoseKey pose, ScreenRect scissorArea, RenderPipeline pipeline
+      GuiRenderState state, int layerSerial, GlyphAtlasPage page, TextRenderer.PoseKey pose, ScreenRectangle scissorArea, RenderPipeline pipeline
    ) {
    }
 

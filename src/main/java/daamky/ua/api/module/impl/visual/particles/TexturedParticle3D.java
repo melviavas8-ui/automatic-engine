@@ -4,17 +4,17 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.function.Supplier;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.VertexConsumerProvider.Immediate;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Quaternionf;
+import com.mojang.blaze3d.vertex.PoseStack;
 import daamky.ua.utils.render.color.ColorUtil;
 
 final class TexturedParticle3D {
-   private final Supplier<Vec3d> nullableTargetPosSup;
+   private final Supplier<Vec3> nullableTargetPosSup;
    private final Runnable onDeath;
    private double posX;
    private double posY;
@@ -49,8 +49,8 @@ final class TexturedParticle3D {
       Random random,
       ParticleMotion motionHelper,
       Identifier texture,
-      Vec3d spawnPos,
-      Supplier<Vec3d> nullableTargetPosSup,
+      Vec3 spawnPos,
+      Supplier<Vec3> nullableTargetPosSup,
       float baseSpeed,
       float[] rotationMovementOnStart,
       float timeAlive,
@@ -90,7 +90,7 @@ final class TexturedParticle3D {
       this.randomFloat01StaticValue = ParticleMath.quadInOut(ParticleMath.valWave01(random.nextFloat()));
    }
 
-   void updateOnTickWorld(MinecraftClient client, ParticleMotion motionHelper, List<TexturedParticle3D> allParticles) {
+   void updateOnTickWorld(Minecraft client, ParticleMotion motionHelper, List<TexturedParticle3D> allParticles) {
       this.prevTicksExisted = this.ticksExisted++;
       this.rules.updateScalePreUpdate();
       this.rules.updateMotionRulePreUpdate(this.ticksExisted, this.timeAliveTicks);
@@ -155,11 +155,11 @@ final class TexturedParticle3D {
          cancelUpdatePosition = this.handleBlockCollision(client, gravity);
       }
 
-      this.motionX = MathHelper.clamp(this.motionX, (double)(-speedLimit), (double)speedLimit);
-      this.motionY = MathHelper.clamp(this.motionY, (double)(-speedLimit), (double)speedLimit);
-      this.motionZ = MathHelper.clamp(this.motionZ, (double)(-speedLimit), (double)speedLimit);
+      this.motionX = Mth.clamp(this.motionX, (double)(-speedLimit), (double)speedLimit);
+      this.motionY = Mth.clamp(this.motionY, (double)(-speedLimit), (double)speedLimit);
+      this.motionZ = Mth.clamp(this.motionZ, (double)(-speedLimit), (double)speedLimit);
       if (this.nullableTargetPosSup != null && this.nullableTargetPosSup.get() != null) {
-         Vec3d target = this.nullableTargetPosSup.get();
+         Vec3 target = this.nullableTargetPosSup.get();
          float toSup01 = Math.min(this.getTimePC(1.0F) * 1.3333333F, 1.0F);
          float lerpValue = toSup01 / (float)this.timeAliveTicks;
          this.posX = ParticleMath.interpolate(this.posX, target.x, lerpValue);
@@ -179,13 +179,13 @@ final class TexturedParticle3D {
 
    void render(
       ParticleRenderer renderer,
-      MatrixStack stack,
-      Immediate provider,
+      PoseStack stack,
+      BufferSource provider,
       float partialTicks,
       float alphaPC,
       boolean scaleOfAlpha,
       boolean bloom,
-      Vec3d cameraPos,
+      Vec3 cameraPos,
       Quaternionf cameraRotation
    ) {
       float timePC = this.getTimePC(partialTicks);
@@ -204,7 +204,7 @@ final class TexturedParticle3D {
                float trueAlpha = (float)ColorUtil.getAlpha(color) / 255.0F;
                float angle = this.getRenderAngle2D(partialTicks);
                float scale = scaleOfAlpha ? this.getScaleUnique() * trueAlpha : this.getScaleUnique();
-               Vec3d renderPos = this.getRenderPosition(partialTicks).add(0.0, (double)(scale / 5.0F), 0.0);
+               Vec3 renderPos = this.getRenderPosition(partialTicks).add(0.0, (double)(scale / 5.0F), 0.0);
                if (this.rules.renderTexture) {
                   renderer.drawTexture(stack, provider, this.texture, renderPos, cameraPos, cameraRotation, scale, angle, color, bloom);
                }
@@ -229,7 +229,7 @@ final class TexturedParticle3D {
       }
    }
 
-   private boolean handleBlockCollision(MinecraftClient client, float gravity) {
+   private boolean handleBlockCollision(Minecraft client, float gravity) {
       float predictCollideValue = 1.0F;
       if (this.rules.instantDeathOnCollide) {
          if (!this.holdIsCollideChecks
@@ -307,15 +307,15 @@ final class TexturedParticle3D {
       }
    }
 
-   private boolean hasCollideX(MinecraftClient client, float motionExtPC) {
+   private boolean hasCollideX(Minecraft client, float motionExtPC) {
       return ParticleWorld.isSolidCollisionBlock(client, this.posX + this.motionX * (double)motionExtPC, this.posY, this.posZ);
    }
 
-   private boolean hasCollideY(MinecraftClient client, float motionExtPC) {
+   private boolean hasCollideY(Minecraft client, float motionExtPC) {
       return ParticleWorld.isSolidCollisionBlock(client, this.posX, this.posY + this.motionY * (double)motionExtPC, this.posZ);
    }
 
-   private boolean hasCollideZ(MinecraftClient client, float motionExtPC) {
+   private boolean hasCollideZ(Minecraft client, float motionExtPC) {
       return ParticleWorld.isSolidCollisionBlock(client, this.posX, this.posY, this.posZ + this.motionZ * (double)motionExtPC);
    }
 
@@ -359,8 +359,8 @@ final class TexturedParticle3D {
       return ParticleMath.interpolate(this.rules.minScale, this.rules.maxScale, this.renderScaleMultiplier);
    }
 
-   private Vec3d getRenderPosition(float partialTicks) {
-      return new Vec3d(
+   private Vec3 getRenderPosition(float partialTicks) {
+      return new Vec3(
          ParticleMath.interpolate(this.prevX, this.posX, partialTicks),
          ParticleMath.interpolate(this.prevY, this.posY, partialTicks),
          ParticleMath.interpolate(this.prevZ, this.posZ, partialTicks)

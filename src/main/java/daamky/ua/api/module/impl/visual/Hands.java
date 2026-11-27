@@ -1,7 +1,7 @@
 package daamky.ua.api.module.impl.visual;
 
 import java.awt.Color;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.settings.impl.BooleanSetting;
@@ -40,7 +40,7 @@ public class Hands extends Module {
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
+   public void onTick(Minecraft client) {
       this.syncRenderer();
    }
 

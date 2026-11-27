@@ -1,7 +1,7 @@
 package daamky.ua.utils.render.ui.image;
 
-import net.minecraft.client.texture.TextureSetup;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.render.TextureSetup;
+import net.minecraft.resources.Identifier;
 
 record ImageTexture(Identifier id, TextureSetup setup, boolean nearestFilter, int width, int height) {
    float drawWidth(float size) {

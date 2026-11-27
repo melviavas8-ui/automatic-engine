@@ -2,9 +2,9 @@ package daamky.ua.utils.modules.autobuy;
 
 import java.util.Locale;
 import java.util.function.Supplier;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import daamky.ua.utils.modules.autobuy.catalog.AutoBuyItemCategory;
 
 public final class AutoBuyItem {

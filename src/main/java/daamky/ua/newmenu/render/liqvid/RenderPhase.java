@@ -1,11 +1,11 @@
 package daamky.ua.newmenu.render.liqvid;
 
+import com.mojang.blaze3d.opengl.GlDevice;
 import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.opengl.GlTexture;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.GlBackend;
-import net.minecraft.client.texture.GlTexture;
+import net.minecraft.client.Minecraft;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 
@@ -58,14 +58,14 @@ public final class RenderPhase {
 
         frameIndex++;
         mainFbo = -1;
-        MinecraftClient client = MinecraftClient.getInstance();
-        Framebuffer framebuffer = client.getFramebuffer();
+        Minecraft client = Minecraft.getInstance();
+        RenderTarget framebuffer = client.getMainRenderTarget();
         if (framebuffer != null
-                && framebuffer.getColorAttachment() instanceof GlTexture colorTexture
-                && RenderSystem.getDevice() instanceof GlBackend backend) {
-            mainFbo = colorTexture.getOrCreateFramebuffer(backend.getBufferManager(), framebuffer.getDepthAttachment());
+                && framebuffer.getColorTexture() instanceof GlTexture colorTexture
+                && RenderSystem.getDevice() instanceof GlDevice backend) {
+            mainFbo = colorTexture.getFbo(backend.directStateAccess(), framebuffer.getDepthTexture());
             GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, mainFbo);
-            GlStateManager._viewport(0, 0, framebuffer.textureWidth, framebuffer.textureHeight);
+            GlStateManager._viewport(0, 0, framebuffer.width, framebuffer.height);
         }
 
         GL11.glDisable(GL11.GL_SCISSOR_TEST);

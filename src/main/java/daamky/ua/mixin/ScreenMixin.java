@@ -1,12 +1,5 @@
 package daamky.ua.mixin;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.ClickEvent;
-import net.minecraft.text.ClickEvent.CopyToClipboard;
-import net.minecraft.text.ClickEvent.RunCommand;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -16,6 +9,13 @@ import daamky.ua.api.command.CommandManager;
 import daamky.ua.api.module.impl.visual.Animations;
 import daamky.ua.screens.mainmenu.VanillaMenuTheme;
 import daamky.ua.utils.string.chat.ChatMessage;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.ClickEvent;
+import net.minecraft.network.chat.ClickEvent.CopyToClipboard;
+import net.minecraft.network.chat.ClickEvent.RunCommand;
 
 @Mixin({Screen.class})
 public class ScreenMixin {
@@ -39,13 +39,13 @@ public class ScreenMixin {
    }
 
    @Inject(
-      method = {"renderWithTooltip"},
+      method = {"renderWithTooltipAndSubtitles"},
       at = {@At(
          value = "INVOKE",
-         target = "Lnet/minecraft/client/gui/screen/Screen;render(Lnet/minecraft/client/gui/DrawContext;IIF)V"
+         target = "Lnet/minecraft/client/gui/screens/Screen;render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V"
       )}
    )
-   private void daamky$beginOpeningTransform(DrawContext graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+   private void daamky$beginOpeningTransform(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
       Screen screen = (Screen)(Object)this;
       boolean menuAnimation = VanillaMenuTheme.usesOpeningAnimation(screen);
       boolean chatAnimation = screen instanceof ChatScreen && Animations.chatEnabled();
@@ -53,25 +53,25 @@ public class ScreenMixin {
       if (menuAnimation || chatAnimation || containerAnimation) {
          float centerX = (float)screen.width * 0.5F;
          float centerY = (float)screen.height * 0.5F;
-         graphics.getMatrices().pushMatrix();
+         graphics.pose().pushMatrix();
          if (menuAnimation) {
             float progress = Math.min(1.0F, (float)(System.nanoTime() - this.daamky$openedAtNanos) / 4.2E8F);
             float eased = 1.0F - (float)Math.pow((double)(1.0F - progress), 3.0);
             float scale = 0.925F + eased * 0.075F;
-            graphics.getMatrices().translate(centerX, centerY + (1.0F - eased) * 11.0F);
-            graphics.getMatrices().scale(scale, scale);
-            graphics.getMatrices().translate(-centerX, -centerY);
+            graphics.pose().translate(centerX, centerY + (1.0F - eased) * 11.0F);
+            graphics.pose().scale(scale, scale);
+            graphics.pose().translate(-centerX, -centerY);
          }
 
          if (chatAnimation) {
-            graphics.getMatrices().translate(0.0F, Animations.chatOffset());
+            graphics.pose().translate(0.0F, Animations.chatOffset());
          }
 
          if (containerAnimation) {
             float scale = Animations.screenScale(screen);
-            graphics.getMatrices().translate(centerX, centerY);
-            graphics.getMatrices().scale(scale, scale);
-            graphics.getMatrices().translate(-centerX, -centerY);
+            graphics.pose().translate(centerX, centerY);
+            graphics.pose().scale(scale, scale);
+            graphics.pose().translate(-centerX, -centerY);
          }
 
          this.daamky$openingPosePushed = true;
@@ -79,15 +79,15 @@ public class ScreenMixin {
    }
 
    @Inject(
-      method = {"renderWithTooltip"},
+      method = {"renderWithTooltipAndSubtitles"},
       at = {@At(
          value = "INVOKE",
-         target = "Lnet/minecraft/client/gui/DrawContext;drawDeferredElements()V"
+         target = "Lnet/minecraft/client/gui/GuiGraphics;renderDeferredElements()V"
       )}
    )
-   private void daamky$finishOpeningTransform(DrawContext graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+   private void daamky$finishOpeningTransform(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
       if (this.daamky$openingPosePushed) {
-         graphics.getMatrices().popMatrix();
+         graphics.pose().popMatrix();
          this.daamky$openingPosePushed = false;
       }
    }
@@ -97,7 +97,7 @@ public class ScreenMixin {
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$renderThemedBackground(DrawContext graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+   private void daamky$renderThemedBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
       Screen screen = (Screen)(Object)this;
       if (VanillaMenuTheme.usesNeonBackground(screen)) {
          VanillaMenuTheme.renderBackground(graphics, screen.width, screen.height);
@@ -106,16 +106,16 @@ public class ScreenMixin {
    }
 
    @Inject(
-      method = {"handleBasicClickEvent"},
+      method = {"defaultHandleClickEvent"},
       at = {@At("HEAD")},
       cancellable = true,
       require = 0
    )
-   private static void daamky$handleClientClickEvent(ClickEvent clickEvent, MinecraftClient client, Screen screen, CallbackInfo ci) {
+   private static void daamky$handleClientClickEvent(ClickEvent clickEvent, Minecraft client, Screen screen, CallbackInfo ci) {
       if (clickEvent instanceof CopyToClipboard copyToClipboard) {
          String value = copyToClipboard.value();
-         if (client != null && client.keyboard != null && value != null && !value.isEmpty()) {
-            client.keyboard.setClipboard(value);
+         if (client != null && client.keyboardHandler != null && value != null && !value.isEmpty()) {
+            client.keyboardHandler.setClipboard(value);
             ChatMessage.brandmessage("Copied to clipboard.");
             ci.cancel();
             return;
@@ -133,7 +133,7 @@ public class ScreenMixin {
    }
 
    @Inject(
-      method = {"close"},
+      method = {"onClose"},
       at = {@At("HEAD")},
       cancellable = true,
       require = 0

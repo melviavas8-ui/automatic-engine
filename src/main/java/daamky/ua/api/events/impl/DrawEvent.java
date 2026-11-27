@@ -1,14 +1,14 @@
 package daamky.ua.api.events.impl;
 
-import net.minecraft.client.gui.DrawContext;
 import daamky.ua.api.events.Event;
+import net.minecraft.client.gui.GuiGraphics;
 
-public record DrawEvent(DrawContext graphics, float partialTicks, DrawEvent.Layer layer) implements Event {
-   public DrawEvent(DrawContext graphics, float partialTicks) {
+public record DrawEvent(GuiGraphics graphics, float partialTicks, DrawEvent.Layer layer) implements Event {
+   public DrawEvent(GuiGraphics graphics, float partialTicks) {
       this(graphics, partialTicks, DrawEvent.Layer.GAME);
    }
 
-   public DrawContext getGraphics() {
+   public GuiGraphics getGraphics() {
       return this.graphics;
    }
 

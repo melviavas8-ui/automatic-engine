@@ -1,11 +1,11 @@
 package daamky.ua.utils.inventory.movement;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
+import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
 
 public class MovementController {
-   private static final MinecraftClient mc = MinecraftClient.getInstance();
+   private static final Minecraft mc = Minecraft.getInstance();
    private boolean forward;
    private boolean back;
    private boolean left;
@@ -21,12 +21,12 @@ public class MovementController {
 
    public void saveState() {
       if (mc.player != null) {
-         this.forward = this.isKeyPressed(mc.options.forwardKey);
-         this.back = this.isKeyPressed(mc.options.backKey);
-         this.left = this.isKeyPressed(mc.options.leftKey);
-         this.right = this.isKeyPressed(mc.options.rightKey);
-         this.jump = this.isKeyPressed(mc.options.jumpKey);
-         this.sneak = this.isKeyPressed(mc.options.sneakKey);
+         this.forward = this.isKeyPressed(mc.options.keyUp);
+         this.back = this.isKeyPressed(mc.options.keyDown);
+         this.left = this.isKeyPressed(mc.options.keyLeft);
+         this.right = this.isKeyPressed(mc.options.keyRight);
+         this.jump = this.isKeyPressed(mc.options.keyJump);
+         this.sneak = this.isKeyPressed(mc.options.keyShift);
          this.sprint = mc.player.isSprinting();
          this.saved = true;
       }
@@ -34,13 +34,13 @@ public class MovementController {
 
    public void block() {
       if (mc.player != null) {
-         mc.options.forwardKey.setPressed(false);
-         mc.options.backKey.setPressed(false);
-         mc.options.leftKey.setPressed(false);
-         mc.options.rightKey.setPressed(false);
-         mc.options.jumpKey.setPressed(false);
-         mc.options.sneakKey.setPressed(false);
-         mc.options.sprintKey.setPressed(false);
+         mc.options.keyUp.setDown(false);
+         mc.options.keyDown.setDown(false);
+         mc.options.keyLeft.setDown(false);
+         mc.options.keyRight.setDown(false);
+         mc.options.keyJump.setDown(false);
+         mc.options.keyShift.setDown(false);
+         mc.options.keySprint.setDown(false);
          this.blocked = true;
       }
    }
@@ -48,31 +48,31 @@ public class MovementController {
    public void stopSprint() {
       if (mc.player != null) {
          mc.player.setSprinting(false);
-         mc.options.sprintKey.setPressed(false);
+         mc.options.keySprint.setDown(false);
       }
    }
 
    public void restore() {
       if (this.saved) {
-         mc.options.forwardKey.setPressed(this.forward && this.isCurrentlyPressed(mc.options.forwardKey));
-         mc.options.backKey.setPressed(this.back && this.isCurrentlyPressed(mc.options.backKey));
-         mc.options.leftKey.setPressed(this.left && this.isCurrentlyPressed(mc.options.leftKey));
-         mc.options.rightKey.setPressed(this.right && this.isCurrentlyPressed(mc.options.rightKey));
-         mc.options.jumpKey.setPressed(this.jump && this.isCurrentlyPressed(mc.options.jumpKey));
-         mc.options.sneakKey.setPressed(this.sneak && this.isCurrentlyPressed(mc.options.sneakKey));
+         mc.options.keyUp.setDown(this.forward && this.isCurrentlyPressed(mc.options.keyUp));
+         mc.options.keyDown.setDown(this.back && this.isCurrentlyPressed(mc.options.keyDown));
+         mc.options.keyLeft.setDown(this.left && this.isCurrentlyPressed(mc.options.keyLeft));
+         mc.options.keyRight.setDown(this.right && this.isCurrentlyPressed(mc.options.keyRight));
+         mc.options.keyJump.setDown(this.jump && this.isCurrentlyPressed(mc.options.keyJump));
+         mc.options.keyShift.setDown(this.sneak && this.isCurrentlyPressed(mc.options.keyShift));
          this.blocked = false;
          this.saved = false;
       }
    }
 
    public void restoreFromCurrent() {
-      mc.options.forwardKey.setPressed(this.isCurrentlyPressed(mc.options.forwardKey));
-      mc.options.backKey.setPressed(this.isCurrentlyPressed(mc.options.backKey));
-      mc.options.leftKey.setPressed(this.isCurrentlyPressed(mc.options.leftKey));
-      mc.options.rightKey.setPressed(this.isCurrentlyPressed(mc.options.rightKey));
-      mc.options.jumpKey.setPressed(this.isCurrentlyPressed(mc.options.jumpKey));
-      mc.options.sneakKey.setPressed(this.isCurrentlyPressed(mc.options.sneakKey));
-      mc.options.sprintKey.setPressed(this.isCurrentlyPressed(mc.options.sprintKey));
+      mc.options.keyUp.setDown(this.isCurrentlyPressed(mc.options.keyUp));
+      mc.options.keyDown.setDown(this.isCurrentlyPressed(mc.options.keyDown));
+      mc.options.keyLeft.setDown(this.isCurrentlyPressed(mc.options.keyLeft));
+      mc.options.keyRight.setDown(this.isCurrentlyPressed(mc.options.keyRight));
+      mc.options.keyJump.setDown(this.isCurrentlyPressed(mc.options.keyJump));
+      mc.options.keyShift.setDown(this.isCurrentlyPressed(mc.options.keyShift));
+      mc.options.keySprint.setDown(this.isCurrentlyPressed(mc.options.keySprint));
       this.blocked = false;
    }
 
@@ -80,8 +80,8 @@ public class MovementController {
       if (mc.player == null) {
          return true;
       } else {
-         double vx = Math.abs(mc.player.getVelocity().x);
-         double vz = Math.abs(mc.player.getVelocity().z);
+         double vx = Math.abs(mc.player.getDeltaMovement().x);
+         double vz = Math.abs(mc.player.getDeltaMovement().z);
          return vx < threshold && vz < threshold;
       }
    }
@@ -95,11 +95,11 @@ public class MovementController {
       this.blocked = false;
    }
 
-   private boolean isKeyPressed(KeyBinding key) {
-      return key.isPressed();
+   private boolean isKeyPressed(KeyMapping key) {
+      return key.isDown();
    }
 
-   private boolean isCurrentlyPressed(KeyBinding key) {
-      return InputUtil.isKeyPressed(mc.getWindow(), InputUtil.fromTranslationKey(key.getBoundKeyTranslationKey()).getCode());
+   private boolean isCurrentlyPressed(KeyMapping key) {
+      return InputConstants.isKeyDown(mc.getWindow(), InputConstants.getKey(key.saveString()).getValue());
    }
 }

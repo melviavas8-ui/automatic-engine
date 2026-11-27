@@ -1,22 +1,22 @@
 package daamky.ua.api.module.impl.combat.aura.attack;
 
 import java.util.concurrent.ThreadLocalRandom;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.entity.EntityPose;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.ClientTickEndC2SPacket;
-import net.minecraft.network.packet.c2s.play.HandSwingC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractEntityC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
-import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractEntityC2SPacket.Handler;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.game.ServerboundClientTickEndPacket;
+import net.minecraft.network.protocol.game.ServerboundInteractPacket;
+import net.minecraft.network.protocol.game.ServerboundInteractPacket.Handler;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+import net.minecraft.network.protocol.game.ServerboundSwingPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Pose;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.IMinecraft;
 import daamky.ua.api.events.impl.PacketEvent;
 import daamky.ua.api.events.impl.UsingItemEvent;
@@ -68,10 +68,10 @@ public class StrikeManager implements IMinecraft {
    void onPacket(PacketEvent e) {
       if (e.isSend()) {
          Object packet = e.getPacket();
-         if (packet instanceof HandSwingC2SPacket || packet instanceof UpdateSelectedSlotC2SPacket) {
+         if (packet instanceof ServerboundSwingPacket || packet instanceof ServerboundSetCarriedItemPacket) {
             this.clickScheduler.recalculate();
-         } else if (!(packet instanceof PlayerMoveC2SPacket) && !(packet instanceof ClientTickEndC2SPacket)) {
-            if (packet instanceof PlayerInteractEntityC2SPacket interactPacket
+         } else if (!(packet instanceof ServerboundMovePlayerPacket) && !(packet instanceof ServerboundClientTickEndPacket)) {
+            if (packet instanceof ServerboundInteractPacket interactPacket
                && this.waitingForPostReleaseTick
                && this.isRightClickInteraction(interactPacket)) {
                e.cancel();
@@ -99,12 +99,12 @@ public class StrikeManager implements IMinecraft {
       this.waitingForPostReleaseTick = false;
    }
 
-   public boolean shouldCancelShieldUse(Hand hand) {
+   public boolean shouldCancelShieldUse(InteractionHand hand) {
       if (mc.player != null && hand != null) {
          this.syncShieldState();
          return this.waitingForPostReleaseTick
             ? true
-            : this.tickCounter <= this.shieldSuppressedUntilTick && mc.player.getStackInHand(hand).getItem() == Items.SHIELD;
+            : this.tickCounter <= this.shieldSuppressedUntilTick && mc.player.getItemInHand(hand).getItem() == Items.SHIELD;
       } else {
          return false;
       }
@@ -181,16 +181,16 @@ public class StrikeManager implements IMinecraft {
    }
 
    public void syncShieldState() {
-      if (mc.options == null || !mc.options.useKey.isPressed()) {
+      if (mc.options == null || !mc.options.keyUse.isDown()) {
          this.shieldSuppressedUntilTick = -1;
       }
    }
 
    private boolean releaseShieldForAttack() {
-      if (mc.player != null && mc.interactionManager != null) {
-         if (mc.player.isUsingItem() && !mc.player.getActiveItem().isEmpty() && mc.player.getActiveItem().getItem() == Items.SHIELD) {
-            mc.interactionManager.stopUsingItem(mc.player);
-            mc.player.clearActiveItem();
+      if (mc.player != null && mc.gameMode != null) {
+         if (mc.player.isUsingItem() && !mc.player.getUseItem().isEmpty() && mc.player.getUseItem().getItem() == Items.SHIELD) {
+            mc.gameMode.releaseUsingItem(mc.player);
+            mc.player.stopUsingItem();
             this.lastShieldReleaseTick = this.tickCounter;
             this.shieldSuppressedUntilTick = this.tickCounter;
             this.waitingForPostReleaseTick = true;
@@ -205,14 +205,14 @@ public class StrikeManager implements IMinecraft {
 
    void attackEntity(StrikerConstructor.AttackPerpetratorConfigurable config) {
       if (this.isAiMode(config) && (this.count + 1) % 15 == 0) {
-         mc.player.swingHand(Hand.MAIN_HAND);
+         mc.player.swing(InteractionHand.MAIN_HAND);
          this.attackTimer.reset();
          this.count++;
       } else {
          AutoSwap autoSwap = AutoSwap.getInstance();
          Runnable attack = () -> {
-            mc.interactionManager.attackEntity(mc.player, config.getTarget());
-            mc.player.swingHand(Hand.MAIN_HAND);
+            mc.gameMode.attack(mc.player, config.getTarget());
+            mc.player.swing(InteractionHand.MAIN_HAND);
             this.finishAttack(config);
          };
          if (autoSwap == null || !autoSwap.runMaxDamageAuraAttack(attack)) {
@@ -245,18 +245,18 @@ public class StrikeManager implements IMinecraft {
       return config != null && config.getAimMode() != null && "Ai".equals(config.getAimMode().getValue());
    }
 
-   private boolean isRightClickInteraction(PlayerInteractEntityC2SPacket packet) {
+   private boolean isRightClickInteraction(ServerboundInteractPacket packet) {
       final boolean[] interaction = new boolean[]{false};
-      packet.handle(new Handler() {
-         public void interact(Hand hand) {
+      packet.dispatch(new Handler() {
+         public void onInteraction(InteractionHand hand) {
             interaction[0] = true;
          }
 
-         public void interactAt(Hand hand, Vec3d pos) {
+         public void onInteraction(InteractionHand hand, Vec3 pos) {
             interaction[0] = true;
          }
 
-         public void attack() {
+         public void onAttack() {
             interaction[0] = false;
          }
       });
@@ -278,7 +278,7 @@ public class StrikeManager implements IMinecraft {
          AutoSwap autoSwap = AutoSwap.getInstance();
          if (autoSwap != null && autoSwap.shouldBlockAuraAttack()) {
             return false;
-         } else if (mc.player.isUsingItem() && mc.player.getActiveItem().getItem() != Items.SHIELD && config.isEatAndAttack()) {
+         } else if (mc.player.isUsingItem() && mc.player.getUseItem().getItem() != Items.SHIELD && config.isEatAndAttack()) {
             return false;
          } else {
             AuraModule aura = AuraModule.getInstance();
@@ -297,13 +297,13 @@ public class StrikeManager implements IMinecraft {
                   if (criticals != null && criticals.isEnabled()) {
                      if (criticals.mode.is("Vanilla")) {
                         criticalState = true;
-                     } else if (criticals.mode.is("Matrix") && !mc.player.isOnGround()) {
+                     } else if (criticals.mode.is("Matrix") && !mc.player.onGround()) {
                         criticalState = true;
                      }
                   }
 
                   boolean smartCritical = aura != null && aura.isEnabled() && aura.getSmartCriticals().getValue();
-                  if (smartCritical && !mc.options.jumpKey.isPressed()) {
+                  if (smartCritical && !mc.options.keyJump.isDown()) {
                      return criticalState || simulated.onGround;
                   } else {
                      return config.isOnlyCritical() ? criticalState : true;
@@ -327,7 +327,7 @@ public class StrikeManager implements IMinecraft {
    }
 
    private boolean canCritTrigger(StrikerConstructor.AttackPerpetratorConfigurable config, TriggerBot triggerBot, int ticks) {
-      if (mc.player.isUsingItem() && !mc.player.getActiveItem().getItem().equals(Items.SHIELD) && config.isEatAndAttack()) {
+      if (mc.player.isUsingItem() && !mc.player.getUseItem().getItem().equals(Items.SHIELD) && config.isEatAndAttack()) {
          return false;
       } else if (!this.clickScheduler.isCooldownComplete(false, (float)ticks)) {
          return false;
@@ -364,13 +364,13 @@ public class StrikeManager implements IMinecraft {
    }
 
    private boolean hasMovementRestrictions(PlayerSimulation simulated) {
-      return simulated.hasStatusEffect(StatusEffects.BLINDNESS)
-         || simulated.hasStatusEffect(StatusEffects.LEVITATION)
-         || PlayerInteractionHelper.isBoxInBlock(simulated.boundingBox.expand(-0.001), Blocks.COBWEB)
+      return simulated.hasStatusEffect(MobEffects.BLINDNESS)
+         || simulated.hasStatusEffect(MobEffects.LEVITATION)
+         || PlayerInteractionHelper.isBoxInBlock(simulated.boundingBox.inflate(-0.001), Blocks.COBWEB)
          || simulated.isSubmergedInWater()
          || simulated.isInLava()
          || simulated.isClimbing()
-         || !PlayerInteractionHelper.canChangeIntoPose(EntityPose.STANDING, simulated.pos)
+         || !PlayerInteractionHelper.canChangeIntoPose(Pose.STANDING, simulated.pos)
          || simulated.player.getAbilities().flying;
    }
 
@@ -379,7 +379,7 @@ public class StrikeManager implements IMinecraft {
    }
 
    private boolean isInsideTightSpace(PlayerSimulation simulated) {
-      return !PlayerInteractionHelper.canChangeIntoPose(EntityPose.STANDING, simulated.pos)
+      return !PlayerInteractionHelper.canChangeIntoPose(Pose.STANDING, simulated.pos)
          || simulated.horizontalCollision
          || this.hasHorizontalBoxPressure(simulated)
          || this.countBlockingSides(simulated) >= 2;
@@ -401,9 +401,9 @@ public class StrikeManager implements IMinecraft {
    }
 
    private boolean hasHorizontalBoxPressure(PlayerSimulation simulated) {
-      if (mc.world != null && simulated != null) {
-         Box expandedBox = simulated.boundingBox.expand(0.22, 0.0, 0.22).contract(1.0E-7);
-         return !mc.world.isSpaceEmpty(simulated.player, expandedBox);
+      if (mc.level != null && simulated != null) {
+         AABB expandedBox = simulated.boundingBox.inflate(0.22, 0.0, 0.22).deflate(1.0E-7);
+         return !mc.level.noCollision(simulated.player, expandedBox);
       } else {
          return false;
       }
@@ -431,22 +431,22 @@ public class StrikeManager implements IMinecraft {
    }
 
    private boolean isLateralSideBlocked(PlayerSimulation simulated, double offsetX, double offsetZ) {
-      if (mc.world != null && simulated != null) {
+      if (mc.level != null && simulated != null) {
          double footY = simulated.boundingBox.minY + 0.1;
          double bodyY = Math.min(simulated.boundingBox.maxY - 0.1, simulated.boundingBox.minY + 0.95);
-         return this.isSolidCollisionBlock(BlockPos.ofFloored(simulated.pos.x + offsetX, footY, simulated.pos.z + offsetZ))
-            || this.isSolidCollisionBlock(BlockPos.ofFloored(simulated.pos.x + offsetX, bodyY, simulated.pos.z + offsetZ));
+         return this.isSolidCollisionBlock(BlockPos.containing(simulated.pos.x + offsetX, footY, simulated.pos.z + offsetZ))
+            || this.isSolidCollisionBlock(BlockPos.containing(simulated.pos.x + offsetX, bodyY, simulated.pos.z + offsetZ));
       } else {
          return false;
       }
    }
 
    private boolean isSolidCollisionBlock(BlockPos pos) {
-      if (mc.world == null) {
+      if (mc.level == null) {
          return false;
       } else {
-         BlockState state = mc.world.getBlockState(pos);
-         return !state.isAir() && !state.getCollisionShape(mc.world, pos).isEmpty();
+         BlockState state = mc.level.getBlockState(pos);
+         return !state.isAir() && !state.getCollisionShape(mc.level, pos).isEmpty();
       }
    }
 
@@ -471,18 +471,18 @@ public class StrikeManager implements IMinecraft {
          return false;
       } else {
          float requiredStrength = this.isHoldingMace() ? 0.45F : 0.88F;
-         return mc.player.getAttackCooldownProgress(ticks) > requiredStrength;
+         return mc.player.getAttackStrengthScale(ticks) > requiredStrength;
       }
    }
 
    private boolean isHoldingMace() {
-      ItemStack mainHand = mc.player.getMainHandStack();
-      return mainHand.getItem().getTranslationKey().toLowerCase().contains("mace");
+      ItemStack mainHand = mc.player.getMainHandItem();
+      return mainHand.getItem().getDescriptionId().toLowerCase().contains("mace");
    }
 
    private boolean hasCriticalRestrictions(PlayerSimulation simulated) {
-      return simulated.hasStatusEffect(StatusEffects.BLINDNESS)
-         || simulated.hasStatusEffect(StatusEffects.LEVITATION)
+      return simulated.hasStatusEffect(MobEffects.BLINDNESS)
+         || simulated.hasStatusEffect(MobEffects.LEVITATION)
          || simulated.isSubmergedInWater()
          || simulated.isInLava()
          || simulated.isClimbing()
@@ -492,7 +492,7 @@ public class StrikeManager implements IMinecraft {
    }
 
    private boolean hasDebuffThatBreaksCrit(PlayerSimulation simulated) {
-      return simulated.hasStatusEffect(StatusEffects.BLINDNESS) || simulated.hasStatusEffect(StatusEffects.LEVITATION);
+      return simulated.hasStatusEffect(MobEffects.BLINDNESS) || simulated.hasStatusEffect(MobEffects.LEVITATION);
    }
 
    private boolean isSmartCritJumpRequired() {
@@ -503,20 +503,20 @@ public class StrikeManager implements IMinecraft {
    private boolean isSmartCritJumpIntent() {
       if (mc.player == null) {
          return false;
-      } else if (mc.options.jumpKey.isPressed()) {
+      } else if (mc.options.keyJump.isDown()) {
          return true;
       } else {
          LivingEntityAccessor accessor = (LivingEntityAccessor)mc.player;
          if (accessor.daamky$isJumping()) {
             return true;
          } else {
-            return accessor.daamky$getJumpingCooldown() > 0 && !mc.player.isOnGround() ? true : !mc.player.isOnGround() && mc.player.getVelocity().y > 0.08;
+            return accessor.daamky$getJumpingCooldown() > 0 && !mc.player.onGround() ? true : !mc.player.onGround() && mc.player.getDeltaMovement().y > 0.08;
          }
       }
    }
 
    private boolean isAirAttackMode(PlayerSimulation simulated) {
-      return simulated.isFallFlying || simulated.player.getAbilities().flying || mc.player.isGliding();
+      return simulated.isFallFlying || simulated.player.getAbilities().flying || mc.player.isFallFlying();
    }
 
    private boolean shouldHoldCriticalOnStartup(PlayerSimulation simulated, boolean smartCritJumpRequired, boolean smartCritJumpIntent) {
@@ -567,7 +567,7 @@ public class StrikeManager implements IMinecraft {
 
    private boolean isElytraTargetFlight() {
       return mc.player != null
-         && mc.player.isGliding()
+         && mc.player.isFallFlying()
          && ElytraTarget.getInstance() != null
          && ElytraTarget.getInstance().isEnabled();
    }
@@ -577,9 +577,9 @@ public class StrikeManager implements IMinecraft {
          return false;
       }
 
-      Vec3d eye = mc.player.getEyePos();
-      Box box = config.getTarget().getBoundingBox();
-      Vec3d closest = new Vec3d(
+      Vec3 eye = mc.player.getEyePosition();
+      AABB box = config.getTarget().getBoundingBox();
+      Vec3 closest = new Vec3(
          Math.max(box.minX, Math.min(eye.x, box.maxX)),
          Math.max(box.minY, Math.min(eye.y, box.maxY)),
          Math.max(box.minZ, Math.min(eye.z, box.maxZ))
@@ -596,36 +596,36 @@ public class StrikeManager implements IMinecraft {
 
    private boolean checkElytraMode(StrikerConstructor.AttackPerpetratorConfigurable config) {
       return AuraModule.target != null
-         && AuraModule.target.isGliding()
-         && mc.player.isGliding()
+         && AuraModule.target.isFallFlying()
+         && mc.player.isFallFlying()
          && ElytraTarget.getInstance() != null
          && ElytraTarget.getInstance().isEnabled();
    }
 
    private boolean checkElytraRaycast(StrikerConstructor.AttackPerpetratorConfigurable config) {
-      Vec3d targetVelocity = config.getTarget().getVelocity();
+      Vec3 targetVelocity = config.getTarget().getDeltaMovement();
       float leadTicks = 0.0F;
       ElytraTarget elytraTarget = ElytraTarget.getInstance();
       if (ElytraTarget.shouldElytraTarget && elytraTarget != null) {
          leadTicks = elytraTarget.getForward();
       }
 
-      Vec3d predictedPos = config.getTarget().getEntityPos().add(targetVelocity.multiply((double)leadTicks));
-      Box predictedBox = new Box(
-         predictedPos.x - (double)(config.getTarget().getWidth() / 2.0F),
+      Vec3 predictedPos = config.getTarget().position().add(targetVelocity.scale((double)leadTicks));
+      AABB predictedBox = new AABB(
+         predictedPos.x - (double)(config.getTarget().getBbWidth() / 2.0F),
          predictedPos.y,
-         predictedPos.z - (double)(config.getTarget().getWidth() / 2.0F),
-         predictedPos.x + (double)(config.getTarget().getWidth() / 2.0F),
-         predictedPos.y + (double)config.getTarget().getHeight(),
-         predictedPos.z + (double)(config.getTarget().getWidth() / 2.0F)
+         predictedPos.z - (double)(config.getTarget().getBbWidth() / 2.0F),
+         predictedPos.x + (double)(config.getTarget().getBbWidth() / 2.0F),
+         predictedPos.y + (double)config.getTarget().getBbHeight(),
+         predictedPos.z + (double)(config.getTarget().getBbWidth() / 2.0F)
       );
-      Vec3d eyePos = mc.player.getEyePos();
-      Vec3d lookVec = AngleConnection.INSTANCE.getRotation().toVector();
-      return predictedBox.raycast(eyePos, eyePos.add(lookVec.multiply((double)config.getMaximumRange()))).isPresent();
+      Vec3 eyePos = mc.player.getEyePosition();
+      Vec3 lookVec = AngleConnection.INSTANCE.getRotation().toVector();
+      return predictedBox.clip(eyePos, eyePos.add(lookVec.scale((double)config.getMaximumRange()))).isPresent();
    }
 
    private boolean isPlayerInCriticalState(PlayerSimulation simulated, int ticks) {
-      float requiredFall = mc.player.getMainHandStack().getItem() == Items.MACE ? 1.2F : 0.0F;
+      float requiredFall = mc.player.getMainHandItem().getItem() == Items.MACE ? 1.2F : 0.0F;
       AuraModule aura = AuraModule.getInstance();
       if (requiredFall < 1.2F && aura != null) {
          if (aura.isHitMomentLegit()) {
@@ -657,7 +657,7 @@ public class StrikeManager implements IMinecraft {
    }
 
    private boolean isPlayerInCriticalState(PlayerSimulation simulated) {
-      boolean inCobweb = PlayerInteractionHelper.isBoxInBlock(simulated.boundingBox.expand(-0.001), Blocks.COBWEB);
+      boolean inCobweb = PlayerInteractionHelper.isBoxInBlock(simulated.boundingBox.inflate(-0.001), Blocks.COBWEB);
       Criticals criticals = Criticals.getInstance();
       if (criticals != null && criticals.isEnabled() && inCobweb) {
          return !simulated.onGround || inCobweb || simulated.fallDistance > 0.001F;
@@ -677,7 +677,7 @@ public class StrikeManager implements IMinecraft {
    }
 
    private boolean isPvpPressureState(PlayerSimulation simulated) {
-      return mc.player != null && mc.player.hurtTime > 0 || simulated.hasStatusEffect(StatusEffects.SLOWNESS);
+      return mc.player != null && mc.player.hurtTime > 0 || simulated.hasStatusEffect(MobEffects.SLOWNESS);
    }
 
    private float resolveCriticalFallDistance(PlayerSimulation simulated, boolean tightSpace) {

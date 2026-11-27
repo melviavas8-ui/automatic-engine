@@ -4,26 +4,26 @@ import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import com.mojang.blaze3d.vertex.VertexFormatElement;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
 import java.nio.ByteBuffer;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.render.Camera;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.lwjgl.system.MemoryUtil;
 
 public final class Glow3D {
-   private static final MinecraftClient MC = MinecraftClient.getInstance();
+   private static final Minecraft MC = Minecraft.getInstance();
    private static final int UNIFORM_SIZE = 128;
    private static final int MAX_GLOWS = 512;
    private static final int VERTEX_SIZE = 24;
@@ -51,10 +51,10 @@ public final class Glow3D {
             .add("inUV", VertexFormatElement.UV)
             .build();
          pipeline = RenderPipeline.builder(new Snippet[0])
-            .withLocation(Identifier.of("daamky", "pipeline/world/glow3d"))
-            .withVertexShader(Identifier.of("daamky", "world/glow3d/glow3d"))
-            .withFragmentShader(Identifier.of("daamky", "world/glow3d/glow3d"))
-            .withVertexFormat(format, DrawMode.TRIANGLES)
+            .withLocation(Identifier.fromNamespaceAndPath("daamky", "pipeline/world/glow3d"))
+            .withVertexShader(Identifier.fromNamespaceAndPath("daamky", "world/glow3d/glow3d"))
+            .withFragmentShader(Identifier.fromNamespaceAndPath("daamky", "world/glow3d/glow3d"))
+            .withVertexFormat(format, Mode.TRIANGLES)
             .withUniform("Uniforms", UniformType.UNIFORM_BUFFER)
             .withBlend(BlendFunction.TRANSLUCENT)
             .withCull(false)
@@ -69,9 +69,9 @@ public final class Glow3D {
       viewMatrix.set(view);
    }
 
-   public static Vec3d getCameraPos() {
-      Camera camera = MC.gameRenderer.getCamera();
-      return camera.getCameraPos();
+   public static Vec3 getCameraPos() {
+      Camera camera = MC.gameRenderer.getMainCamera();
+      return camera.position();
    }
 
    public static void begin() {
@@ -93,7 +93,7 @@ public final class Glow3D {
 
    public static void glow(double x, double y, double z, float size, int color, float alpha, float intensity) {
       if (glowCount < 512) {
-         Vec3d cam = getCameraPos();
+         Vec3 cam = getCameraPos();
          float rx = (float)(x - cam.x);
          float ry = (float)(y - cam.y);
          float rz = (float)(z - cam.z);
@@ -106,7 +106,7 @@ public final class Glow3D {
 
    public static void core(double x, double y, double z, float size, int color, float alpha) {
       if (glowCount < 512) {
-         Vec3d cam = getCameraPos();
+         Vec3 cam = getCameraPos();
          float rx = (float)(x - cam.x);
          float ry = (float)(y - cam.y);
          float rz = (float)(z - cam.z);
@@ -168,16 +168,16 @@ public final class Glow3D {
             CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
             encoder.writeToBuffer(uniformBuffer.slice(), uniformData);
             encoder.writeToBuffer(vertexBuffer.slice(), vertexData);
-            Framebuffer framebuffer = MC.getFramebuffer();
-            if (framebuffer == null || framebuffer.getColorAttachmentView() == null || framebuffer.getDepthAttachmentView() == null) {
+            RenderTarget framebuffer = MC.getMainRenderTarget();
+            if (framebuffer == null || framebuffer.getColorTextureView() == null || framebuffer.getDepthTextureView() == null) {
                return;
             }
 
             RenderPass pass = encoder.createRenderPass(
                () -> "Glow3D",
-               framebuffer.getColorAttachmentView(),
+               framebuffer.getColorTextureView(),
                OptionalInt.empty(),
-               framebuffer.getDepthAttachmentView(),
+               framebuffer.getDepthTextureView(),
                ignoreDepth ? OptionalDouble.of(1.0) : OptionalDouble.empty()
             );
 

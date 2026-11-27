@@ -1,14 +1,14 @@
 package daamky.ua.api.module.impl.visual.particles;
 
 import java.util.Random;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.Mth;
+import net.minecraft.world.phys.Vec3;
 
 final class ParticleMath {
    private ParticleMath() {
    }
 
-   static Vec3d randomVec(Random random, Vec3d at, float minDistance, float maxDistance) {
+   static Vec3 randomVec(Random random, Vec3 at, float minDistance, float maxDistance) {
       float min = Math.min(minDistance, maxDistance);
       float max = Math.max(minDistance, maxDistance);
       float yaw = randomFloat(random, -180.0F, 180.0F);
@@ -18,7 +18,7 @@ final class ParticleMath {
       return at.add(offset[0], offset[1], offset[2]);
    }
 
-   static float[] vecNeeded(Vec3d to, Vec3d from) {
+   static float[] vecNeeded(Vec3 to, Vec3 from) {
       return vecNeeded(to.x, to.y, to.z, from.x, from.y, from.z);
    }
 
@@ -26,7 +26,7 @@ final class ParticleMath {
       return vecNeeded(toX, toY, toZ, fromX, fromY, fromZ, new float[2]);
    }
 
-   static float[] vecNeeded(Vec3d to, Vec3d from, float[] out) {
+   static float[] vecNeeded(Vec3 to, Vec3 from, float[] out) {
       return vecNeeded(to.x, to.y, to.z, from.x, from.y, from.z, out);
    }
 
@@ -42,9 +42,9 @@ final class ParticleMath {
    }
 
    static float stepRotationSpeed(float rotate, float rotateTo, float speed360) {
-      float diff = MathHelper.wrapDegrees(rotateTo - rotate);
+      float diff = Mth.wrapDegrees(rotateTo - rotate);
       diff = Math.copySign(Math.min(Math.abs(diff), speed360), diff);
-      return MathHelper.wrapDegrees(rotate + diff);
+      return Mth.wrapDegrees(rotate + diff);
    }
 
    static float[] yawPitchFromDelta(double motionX, double motionY, double motionZ) {
@@ -57,12 +57,12 @@ final class ParticleMath {
       double xzLength = Math.sqrt(motionX * motionX + motionZ * motionZ);
       if (xzLength > 1.0E-6) {
          yaw = (float)Math.toDegrees(Math.atan2(motionZ, motionX)) - 90.0F;
-         yaw = MathHelper.wrapDegrees(yaw);
+         yaw = Mth.wrapDegrees(yaw);
       }
 
       if (xzLength > 1.0E-6 || Math.abs(motionY) > 1.0E-6) {
          pitch = (float)Math.toDegrees(-Math.atan2(motionY, xzLength));
-         pitch = MathHelper.clamp(pitch, -90.0F, 90.0F);
+         pitch = Mth.clamp(pitch, -90.0F, 90.0F);
       }
 
       float[] result = out != null && out.length >= 2 ? out : new float[2];

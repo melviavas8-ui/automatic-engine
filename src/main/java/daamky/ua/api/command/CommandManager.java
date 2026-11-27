@@ -11,9 +11,9 @@ import java.util.stream.Stream;
 import lightning.sdk.LightningSDK;
 import lightning.sdk.annotation.LgVM;
 import lightning.sdk.annotation.LgVM.Level;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 import daamky.ua.api.command.impl.BindCommand;
 import daamky.ua.api.command.impl.ConfigCommand;
 import daamky.ua.api.command.impl.FriendCommand;
@@ -177,20 +177,20 @@ public final class CommandManager {
       this.sendRaw(
          ChatMessage.brandmessage()
             .copy()
-            .append(Text.literal(" -> ").formatted(Formatting.DARK_GRAY))
-            .append(Text.literal(message).formatted(Formatting.GREEN))
+            .append(Component.literal(" -> ").withStyle(ChatFormatting.DARK_GRAY))
+            .append(Component.literal(message).withStyle(ChatFormatting.GREEN))
       );
    }
 
    public void sendError(String message) {
       this.sendRaw(
-         ChatMessage.brandmessage().copy().append(Text.literal(" -> ").formatted(Formatting.DARK_GRAY)).append(Text.literal(message).formatted(Formatting.RED))
+         ChatMessage.brandmessage().copy().append(Component.literal(" -> ").withStyle(ChatFormatting.DARK_GRAY)).append(Component.literal(message).withStyle(ChatFormatting.RED))
       );
    }
 
-   public void sendRaw(Text text) {
-      if (MinecraftClient.getInstance().player != null) {
-         MinecraftClient.getInstance().player.sendMessage(text, false);
+   public void sendRaw(Component text) {
+      if (Minecraft.getInstance().player != null) {
+         Minecraft.getInstance().player.displayClientMessage(text, false);
       }
    }
 }

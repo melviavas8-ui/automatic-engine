@@ -1,11 +1,11 @@
 package daamky.ua.utils.inventory.swap;
 
-import net.minecraft.client.MinecraftClient;
 import daamky.ua.utils.inventory.lookup.InventoryUtils;
 import daamky.ua.utils.inventory.movement.MovementController;
+import net.minecraft.client.Minecraft;
 
 public class SwapExecutor {
-   private static final MinecraftClient mc = MinecraftClient.getInstance();
+   private static final Minecraft mc = Minecraft.getInstance();
    private SwapExecutor.Phase phase = SwapExecutor.Phase.IDLE;
    private final MovementController movement = new MovementController();
    private SwapSettings settings = SwapSettings.defaults();

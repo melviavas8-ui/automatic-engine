@@ -1,15 +1,15 @@
 package daamky.ua.api.module.impl.combat.autoswaputil;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.Text;
 import daamky.ua.api.module.impl.combat.AutoSwap;
 import daamky.ua.utils.render.item.RenderItem;
 import daamky.ua.utils.render.ui.Render2D;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 
 public class AutoSwapItemSelectScreen extends Screen {
    private static final int ROWS = 4;
@@ -23,12 +23,12 @@ public class AutoSwapItemSelectScreen extends Screen {
    private final AutoSwapItemSelectScreen.SlotRect[] slotRects = new AutoSwapItemSelectScreen.SlotRect[36];
 
    public AutoSwapItemSelectScreen(AutoSwap autoSwap, int wheelSlotIndex) {
-      super(Text.empty());
+      super(Component.empty());
       this.autoSwap = autoSwap;
       this.wheelSlotIndex = wheelSlotIndex;
    }
 
-   public boolean shouldPause() {
+   public boolean isPauseScreen() {
       return false;
    }
 
@@ -36,14 +36,14 @@ public class AutoSwapItemSelectScreen extends Screen {
       return true;
    }
 
-   public void close() {
-      MinecraftClient mc = MinecraftClient.getInstance();
+   public void onClose() {
+      Minecraft mc = Minecraft.getInstance();
       mc.setScreen(new AutoSwapWheelScreen(this.autoSwap));
    }
 
-   public void render(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
+   public void render(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
       super.render(context, mouseX, mouseY, deltaTicks);
-      MinecraftClient mc = MinecraftClient.getInstance();
+      Minecraft mc = Minecraft.getInstance();
       if (mc.player != null) {
          Render2D.beginFrame(context);
          RenderItem.beginFrame(context);
@@ -85,7 +85,7 @@ public class AutoSwapItemSelectScreen extends Screen {
                   1.0F,
                   0.0F
                );
-               ItemStack stack = mc.player.getInventory().getStack(index);
+               ItemStack stack = mc.player.getInventory().getItem(index);
                if (!stack.isEmpty()) {
                   RenderItem.item(stack, slotX + 1.0F, slotY + 1.0F, 16.0F);
                }
@@ -97,31 +97,31 @@ public class AutoSwapItemSelectScreen extends Screen {
       }
    }
 
-   public boolean keyPressed(KeyInput input) {
+   public boolean keyPressed(KeyEvent input) {
       if (input.key() == 256) {
-         this.close();
+         this.onClose();
          return true;
       } else {
          return super.keyPressed(input);
       }
    }
 
-   public boolean mouseClicked(Click click, boolean doubled) {
+   public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
       if (click.button() != 0) {
          return super.mouseClicked(click, doubled);
       } else {
-         MinecraftClient mc = MinecraftClient.getInstance();
+         Minecraft mc = Minecraft.getInstance();
          if (mc.player == null) {
             return super.mouseClicked(click, doubled);
          } else {
             for (AutoSwapItemSelectScreen.SlotRect rect : this.slotRects) {
                if (rect != null && rect.contains(click.x(), click.y())) {
-                  ItemStack stack = mc.player.getInventory().getStack(rect.index());
+                  ItemStack stack = mc.player.getInventory().getItem(rect.index());
                   if (!stack.isEmpty()) {
-                     this.autoSwap.setWheelSlotItem(this.wheelSlotIndex, stack.getItem(), stack.getName().getString());
+                     this.autoSwap.setWheelSlotItem(this.wheelSlotIndex, stack.getItem(), stack.getHoverName().getString());
                   }
 
-                  this.close();
+                  this.onClose();
                   return true;
                }
             }

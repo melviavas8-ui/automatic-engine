@@ -5,12 +5,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Stream;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.text.Text;
-import net.minecraft.text.ClickEvent.RunCommand;
-import net.minecraft.text.HoverEvent.ShowText;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.network.chat.ClickEvent.RunCommand;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent.ShowText;
 import daamky.ua.api.command.Command;
 import daamky.ua.api.command.CommandManager;
 import daamky.ua.api.command.helpers.Paginator;
@@ -29,38 +29,38 @@ public final class FriendCommand extends Command {
       switch (action) {
          case "add":
             if (args.length < 2) {
-               this.logDirect("Usage: friend add <name>", Formatting.RED);
+               this.logDirect("Usage: friend add <name>", ChatFormatting.RED);
                return;
             }
 
             if (FriendUtils.isFriend(args[1])) {
-               this.logDirect(args[1] + " is already friend.", Formatting.RED);
+               this.logDirect(args[1] + " is already friend.", ChatFormatting.RED);
                return;
             }
 
             FriendUtils.addFriendAndSave(args[1]);
-            this.logDirect(args[1] + " added to friends.", Formatting.GREEN);
+            this.logDirect(args[1] + " added to friends.", ChatFormatting.GREEN);
             break;
          case "remove":
          case "del":
          case "delete":
             if (args.length < 2) {
-               this.logDirect("Usage: friend remove <name>", Formatting.RED);
+               this.logDirect("Usage: friend remove <name>", ChatFormatting.RED);
                return;
             }
 
             FriendUtils.removeFriendAndSave(args[1]);
-            this.logDirect(args[1] + " removed from friends.", Formatting.GREEN);
+            this.logDirect(args[1] + " removed from friends.", ChatFormatting.GREEN);
             break;
          case "clear":
             int count = FriendUtils.size();
             FriendUtils.clearAndSave();
-            this.logDirect("Friend list cleared. Removed: " + count, Formatting.GREEN);
+            this.logDirect("Friend list cleared. Removed: " + count, ChatFormatting.GREEN);
             break;
          case "list":
             List<String> friends = FriendUtils.getFriendNames();
             if (friends.isEmpty()) {
-               this.logDirect("Friend list is empty.", Formatting.RED);
+               this.logDirect("Friend list is empty.", ChatFormatting.RED);
                return;
             }
 
@@ -69,12 +69,12 @@ public final class FriendCommand extends Command {
             paginator.setPage(page);
             paginator.display(
                () -> {
-                  this.logDirectRaw(Text.literal(HelpCommand.getLine()));
+                  this.logDirectRaw(Component.literal(HelpCommand.getLine()));
                   this.logDirect("Friends (" + friends.size() + ")");
                },
-               friend -> Text.literal("  §a● §f" + friend)
-                     .styled(
-                        style -> style.withHoverEvent(new ShowText(Text.literal("Click to remove " + friend)))
+               friend -> Component.literal("  §a● §f" + friend)
+                     .withStyle(
+                        style -> style.withHoverEvent(new ShowText(Component.literal("Click to remove " + friend)))
                               .withClickEvent(new RunCommand(manager.getPrefix() + "friend remove " + friend))
                      ),
                manager.getPrefix() + label + " list"
@@ -120,9 +120,9 @@ public final class FriendCommand extends Command {
 
    private List<String> getOnlinePlayers() {
       List<String> players = new ArrayList<>();
-      MinecraftClient mc = MinecraftClient.getInstance();
-      if (mc.getNetworkHandler() != null) {
-         for (PlayerListEntry info : mc.getNetworkHandler().getPlayerList()) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.getConnection() != null) {
+         for (PlayerInfo info : mc.getConnection().getOnlinePlayers()) {
             String name = info.getProfile().name();
             if (!FriendUtils.isFriend(name)) {
                players.add(name);

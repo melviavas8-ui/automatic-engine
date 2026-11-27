@@ -4,13 +4,13 @@ import com.mojang.brigadier.ParseResults;
 import com.mojang.brigadier.suggestion.Suggestions;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import net.minecraft.client.gui.screen.ChatInputSuggestor;
-import net.minecraft.text.OrderedText;
+import net.minecraft.client.gui.components.CommandSuggestions;
+import net.minecraft.util.FormattedCharSequence;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
-@Mixin({ChatInputSuggestor.class})
+@Mixin({CommandSuggestions.class})
 public interface CommandSuggestionsAccessor {
    @Accessor("pendingSuggestions")
    CompletableFuture<Suggestions> getPendingSuggestions();
@@ -18,10 +18,10 @@ public interface CommandSuggestionsAccessor {
    @Accessor("pendingSuggestions")
    void setPendingSuggestions(CompletableFuture<Suggestions> var1);
 
-   @Accessor("parse")
+   @Accessor("currentParse")
    ParseResults<?> getCurrentParse();
 
-   @Accessor("parse")
+   @Accessor("currentParse")
    void setCurrentParse(ParseResults<?> var1);
 
    @Accessor("currentParseIsCommand")
@@ -30,8 +30,8 @@ public interface CommandSuggestionsAccessor {
    @Accessor("currentParseIsMessage")
    void setCurrentParseIsMessage(boolean var1);
 
-   @Accessor("messages")
-   List<OrderedText> getCommandUsage();
+   @Accessor("commandUsage")
+   List<FormattedCharSequence> getCommandUsage();
 
    @Invoker("updateUsageInfo")
    void invokeUpdateUsageInfo(ParseResults<?> var1, Suggestions var2);

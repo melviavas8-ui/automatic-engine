@@ -3,7 +3,7 @@ package daamky.ua.api.drag.impl;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import lightning.sdk.LightningSDK;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.Mth;
 import daamky.ua.IMinecraft;
 import daamky.ua.api.drag.core.ElementComponent;
 import daamky.ua.api.drag.core.ElementManager;
@@ -45,9 +45,9 @@ public final class Watermark implements HudElement {
    private Watermark.WatermarkState logics() {
       int ping = 0;
       if (IMinecraft.mc.player != null
-         && IMinecraft.mc.getNetworkHandler() != null
-         && IMinecraft.mc.getNetworkHandler().getPlayerListEntry(IMinecraft.mc.player.getUuid()) != null) {
-         ping = Math.max(0, IMinecraft.mc.getNetworkHandler().getPlayerListEntry(IMinecraft.mc.player.getUuid()).getLatency());
+         && IMinecraft.mc.getConnection() != null
+         && IMinecraft.mc.getConnection().getPlayerInfo(IMinecraft.mc.player.getUUID()) != null) {
+         ping = Math.max(0, IMinecraft.mc.getConnection().getPlayerInfo(IMinecraft.mc.player.getUUID()).getLatency());
       }
 
       String username = LightningSDK.get("Username");
@@ -56,17 +56,17 @@ public final class Watermark implements HudElement {
       }
 
       String serverText = "mc.reallyworld.ru";
-      if (IMinecraft.mc.getCurrentServerEntry() != null
-         && IMinecraft.mc.getCurrentServerEntry().address != null
-         && !IMinecraft.mc.getCurrentServerEntry().address.isBlank()) {
-         serverText = IMinecraft.mc.getCurrentServerEntry().address;
+      if (IMinecraft.mc.getCurrentServer() != null
+         && IMinecraft.mc.getCurrentServer().ip != null
+         && !IMinecraft.mc.getCurrentServer().ip.isBlank()) {
+         serverText = IMinecraft.mc.getCurrentServer().ip;
       }
 
       String pingText = "Ping " + ping;
-      float targetTps = MathHelper.clamp(Math.max(Network.getTPS(), 0.1F), 0.0F, 20.0F);
-      this.displayedTps = MathHelper.lerp(0.12F, this.displayedTps, targetTps);
+      float targetTps = Mth.clamp(Math.max(Network.getTPS(), 0.1F), 0.0F, 20.0F);
+      this.displayedTps = Mth.lerp(0.12F, this.displayedTps, targetTps);
       String tpsText = "Tps " + Math.round(this.displayedTps);
-      String fpsText = "Fps " + IMinecraft.mc.getCurrentFps();
+      String fpsText = "Fps " + IMinecraft.mc.getFps();
       String timeText = LocalTime.now().format(TIME_FORMATTER);
       this.tpsAnimation.update(tpsText);
       this.timeAnimation.update(timeText);
@@ -213,7 +213,7 @@ public final class Watermark implements HudElement {
                this.animationStartedAt = 0L;
                return 1.0F;
             } else {
-               return MathHelper.clamp(progress, 0.0F, 1.0F);
+               return Mth.clamp(progress, 0.0F, 1.0F);
             }
          } else {
             return 1.0F;

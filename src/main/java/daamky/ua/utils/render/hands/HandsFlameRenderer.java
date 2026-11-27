@@ -3,32 +3,32 @@ package daamky.ua.utils.render.hands;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.textures.TextureFormat;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.nio.ByteBuffer;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.resources.Identifier;
 import org.lwjgl.system.MemoryUtil;
 import daamky.ua.utils.render.RenderSampler;
 import daamky.ua.utils.render.color.ColorUtil;
 
 public final class HandsFlameRenderer {
-   private static final Identifier TRAIL_PIPELINE_ID = Identifier.of("daamky", "pipeline/effects/hands_flame_trail");
-   private static final Identifier COMPOSITE_PIPELINE_ID = Identifier.of("daamky", "pipeline/effects/hands_flame_composite");
-   private static final Identifier FULLSCREEN_VERTEX_SHADER = Identifier.of("daamky", "effects/hands_flame/fullscreen");
-   private static final Identifier TRAIL_FRAGMENT_SHADER = Identifier.of("daamky", "effects/hands_flame/trail");
-   private static final Identifier COMPOSITE_FRAGMENT_SHADER = Identifier.of("daamky", "effects/hands_flame/composite");
+   private static final Identifier TRAIL_PIPELINE_ID = Identifier.fromNamespaceAndPath("daamky", "pipeline/effects/hands_flame_trail");
+   private static final Identifier COMPOSITE_PIPELINE_ID = Identifier.fromNamespaceAndPath("daamky", "pipeline/effects/hands_flame_composite");
+   private static final Identifier FULLSCREEN_VERTEX_SHADER = Identifier.fromNamespaceAndPath("daamky", "effects/hands_flame/fullscreen");
+   private static final Identifier TRAIL_FRAGMENT_SHADER = Identifier.fromNamespaceAndPath("daamky", "effects/hands_flame/trail");
+   private static final Identifier COMPOSITE_FRAGMENT_SHADER = Identifier.fromNamespaceAndPath("daamky", "effects/hands_flame/composite");
    private static final int UNIFORM_BYTES = 64;
    private static boolean flameEnabled;
    private static float flameStrength = 0.85F;
@@ -64,13 +64,13 @@ public final class HandsFlameRenderer {
    public static void captureBeforeHandRender() {
       capturedBeforeHands = false;
       if (shouldRenderFlame()) {
-         Framebuffer target = MinecraftClient.getInstance().getFramebuffer();
+         RenderTarget target = Minecraft.getInstance().getMainRenderTarget();
          if (isUsable(target)) {
-            if (ensureReady(target.textureWidth, target.textureHeight)) {
+            if (ensureReady(target.width, target.height)) {
                try {
                   RenderSystem.getDevice()
                      .createCommandEncoder()
-                     .copyTextureToTexture(target.getColorAttachment(), beforeTexture, 0, 0, 0, 0, 0, target.textureWidth, target.textureHeight);
+                     .copyTextureToTexture(target.getColorTexture(), beforeTexture, 0, 0, 0, 0, 0, target.width, target.height);
                   capturedBeforeHands = true;
                } catch (Throwable var2) {
                   disableAfterError(var2);
@@ -84,15 +84,15 @@ public final class HandsFlameRenderer {
       if (capturedBeforeHands) {
          capturedBeforeHands = false;
          if (shouldRenderFlame()) {
-            Framebuffer target = MinecraftClient.getInstance().getFramebuffer();
-            if (isUsable(target) && ensureReady(target.textureWidth, target.textureHeight)) {
+            RenderTarget target = Minecraft.getInstance().getMainRenderTarget();
+            if (isUsable(target) && ensureReady(target.width, target.height)) {
                try {
-                  writeUniforms(target.textureWidth, target.textureHeight);
+                  writeUniforms(target.width, target.height);
                   CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
                   encoder.writeToBuffer(uniformBuffer.slice(0L, (long)dataBuffer.remaining()), dataBuffer);
                   renderTrail(encoder, target);
                   swapTrailHistory();
-                  encoder.copyTextureToTexture(target.getColorAttachment(), sceneTexture, 0, 0, 0, 0, 0, target.textureWidth, target.textureHeight);
+                  encoder.copyTextureToTexture(target.getColorTexture(), sceneTexture, 0, 0, 0, 0, 0, target.width, target.height);
                   renderComposite(encoder, target);
                } catch (Throwable var2) {
                   disableAfterError(var2);
@@ -161,9 +161,9 @@ public final class HandsFlameRenderer {
 
    public static boolean shouldRenderFlame() {
       if (flameEnabled && !disabledAfterError) {
-         MinecraftClient minecraft = MinecraftClient.getInstance();
-         return minecraft != null && minecraft.player != null && minecraft.world != null
-            ? !flameItemsOnly || !minecraft.player.getMainHandStack().isEmpty() || !minecraft.player.getOffHandStack().isEmpty()
+         Minecraft minecraft = Minecraft.getInstance();
+         return minecraft != null && minecraft.player != null && minecraft.level != null
+            ? !flameItemsOnly || !minecraft.player.getMainHandItem().isEmpty() || !minecraft.player.getOffhandItem().isEmpty()
             : false;
       } else {
          return false;
@@ -197,7 +197,7 @@ public final class HandsFlameRenderer {
             .withLocation(TRAIL_PIPELINE_ID)
             .withVertexShader(FULLSCREEN_VERTEX_SHADER)
             .withFragmentShader(TRAIL_FRAGMENT_SHADER)
-            .withVertexFormat(VertexFormats.EMPTY, DrawMode.TRIANGLES)
+            .withVertexFormat(DefaultVertexFormat.EMPTY, Mode.TRIANGLES)
             .withUniform("HandsFlameData", UniformType.UNIFORM_BUFFER)
             .withSampler("BeforeSampler")
             .withSampler("AfterSampler")
@@ -211,7 +211,7 @@ public final class HandsFlameRenderer {
             .withLocation(COMPOSITE_PIPELINE_ID)
             .withVertexShader(FULLSCREEN_VERTEX_SHADER)
             .withFragmentShader(COMPOSITE_FRAGMENT_SHADER)
-            .withVertexFormat(VertexFormats.EMPTY, DrawMode.TRIANGLES)
+            .withVertexFormat(DefaultVertexFormat.EMPTY, Mode.TRIANGLES)
             .withUniform("HandsFlameData", UniformType.UNIFORM_BUFFER)
             .withSampler("SceneSampler")
             .withSampler("BeforeSampler")
@@ -280,16 +280,16 @@ public final class HandsFlameRenderer {
       dataBuffer.flip();
    }
 
-   private static void renderTrail(CommandEncoder encoder, Framebuffer target) {
+   private static void renderTrail(CommandEncoder encoder, RenderTarget target) {
       RenderPass renderPass = encoder.createRenderPass(() -> "daamky:hands_flame_trail", nextTrailView(), OptionalInt.empty(), null, OptionalDouble.empty());
 
       try {
          renderPass.setPipeline(trailPipeline);
          renderPass.setVertexBuffer(0, dummyVertexBuffer);
          renderPass.bindTexture("BeforeSampler", beforeTextureView, RenderSampler.linear());
-         renderPass.bindTexture("AfterSampler", target.getColorAttachmentView(), RenderSampler.linear());
+         renderPass.bindTexture("AfterSampler", target.getColorTextureView(), RenderSampler.linear());
          renderPass.bindTexture("PrevTrailSampler", historyTrailView(), RenderSampler.linear());
-         renderPass.bindTexture("DepthSampler", target.getDepthAttachmentView(), RenderSampler.nearest());
+         renderPass.bindTexture("DepthSampler", target.getDepthTextureView(), RenderSampler.nearest());
          renderPass.setUniform("HandsFlameData", uniformBuffer.slice());
          renderPass.draw(0, 6);
       } catch (Throwable var6) {
@@ -309,9 +309,9 @@ public final class HandsFlameRenderer {
       }
    }
 
-   private static void renderComposite(CommandEncoder encoder, Framebuffer target) {
+   private static void renderComposite(CommandEncoder encoder, RenderTarget target) {
       RenderPass renderPass = encoder.createRenderPass(
-         () -> "daamky:hands_flame_composite", target.getColorAttachmentView(), OptionalInt.empty(), null, OptionalDouble.empty()
+         () -> "daamky:hands_flame_composite", target.getColorTextureView(), OptionalInt.empty(), null, OptionalDouble.empty()
       );
 
       try {
@@ -320,7 +320,7 @@ public final class HandsFlameRenderer {
          renderPass.bindTexture("SceneSampler", sceneTextureView, RenderSampler.linear());
          renderPass.bindTexture("BeforeSampler", beforeTextureView, RenderSampler.linear());
          renderPass.bindTexture("TrailSampler", historyTrailView(), RenderSampler.linear());
-         renderPass.bindTexture("DepthSampler", target.getDepthAttachmentView(), RenderSampler.nearest());
+         renderPass.bindTexture("DepthSampler", target.getDepthTextureView(), RenderSampler.nearest());
          renderPass.setUniform("HandsFlameData", uniformBuffer.slice());
          renderPass.draw(0, 6);
       } catch (Throwable var6) {
@@ -352,13 +352,13 @@ public final class HandsFlameRenderer {
       useTrailAAsHistory = !useTrailAAsHistory;
    }
 
-   private static boolean isUsable(Framebuffer target) {
+   private static boolean isUsable(RenderTarget target) {
       return target != null
-         && target.getColorAttachment() != null
-         && target.getColorAttachmentView() != null
-         && target.getDepthAttachmentView() != null
-         && target.textureWidth > 0
-         && target.textureHeight > 0;
+         && target.getColorTexture() != null
+         && target.getColorTextureView() != null
+         && target.getDepthTextureView() != null
+         && target.width > 0
+         && target.height > 0;
    }
 
    private static float flameTime() {

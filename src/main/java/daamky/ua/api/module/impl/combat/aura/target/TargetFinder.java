@@ -9,14 +9,14 @@ import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.decoration.ArmorStandEntity;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.passive.AnimalEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.IMinecraft;
 import daamky.ua.api.module.impl.combat.AntiBot;
 import daamky.ua.api.module.impl.combat.aura.AngleConnection;
@@ -70,9 +70,9 @@ public class TargetFinder implements IMinecraft {
    }
 
    private double getFov(LivingEntity entity, float maxDistance, boolean ignoreWalls) {
-      Vec3d attackVector = (Vec3d)this.pointFinder
+      Vec3 attackVector = (Vec3)this.pointFinder
          .computeVector(entity, maxDistance, AngleConnection.INSTANCE.getRotation(), new LinearConstructor().randomValue(), ignoreWalls)
-         .getLeft();
+         .getA();
       return AngleConnection.computeRotationDifference(MathAngle.cameraAngle(), MathAngle.calculateAngle(attackVector));
    }
 
@@ -113,7 +113,7 @@ public class TargetFinder implements IMinecraft {
       }
 
       private boolean isLocalPlayer(LivingEntity entity) {
-         return entity == MinecraftClient.getInstance().player;
+         return entity == Minecraft.getInstance().player;
       }
 
       private boolean isInvalidHealth(LivingEntity entity) {
@@ -121,7 +121,7 @@ public class TargetFinder implements IMinecraft {
       }
 
       private boolean isBotPlayer(LivingEntity entity) {
-         if (entity instanceof PlayerEntity player && AntiBot.shouldIgnore(player)) {
+         if (entity instanceof Player player && AntiBot.shouldIgnore(player)) {
             return true;
          }
 
@@ -129,9 +129,9 @@ public class TargetFinder implements IMinecraft {
       }
 
       private boolean isNakedPlayer(LivingEntity entity) {
-         if (entity instanceof PlayerEntity player) {
+         if (entity instanceof Player player) {
             for (int i = 36; i < 40; i++) {
-               if (!player.getInventory().getStack(i).isEmpty()) {
+               if (!player.getInventory().getItem(i).isEmpty()) {
                   return false;
                }
             }
@@ -146,12 +146,12 @@ public class TargetFinder implements IMinecraft {
          Objects.requireNonNull(entity);
 
          return switch (entity) {
-            case PlayerEntity player -> FriendUtils.isFriend(player)
+            case Player player -> FriendUtils.isFriend(player)
             ? this.targetSettings.contains("Friends")
             : (this.isNakedPlayer(player) ? this.targetSettings.contains("Naked Players") : this.targetSettings.contains("Players"));
-            case AnimalEntity animal -> this.targetSettings.contains("Animals");
-            case MobEntity mob -> this.targetSettings.contains("Mobs");
-            case ArmorStandEntity stand -> this.targetSettings.contains("Armor Stand");
+            case Animal animal -> this.targetSettings.contains("Animals");
+            case Mob mob -> this.targetSettings.contains("Mobs");
+            case ArmorStand stand -> this.targetSettings.contains("Armor Stand");
             default -> false;
          };
       }

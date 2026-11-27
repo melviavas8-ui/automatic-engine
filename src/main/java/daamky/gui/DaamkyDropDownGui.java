@@ -22,13 +22,6 @@ import daamky.render.SdfRect;
 import daamky.render.Txt;
 import daamky.ua.api.config.ConfigManager;
 import daamky.ua.api.settings.bind.KeyBind;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.ScreenRect;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.input.CharInput;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.text.Text;
 import org.joml.Matrix3x2f;
 
 import java.io.Reader;
@@ -44,6 +37,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.Component;
 
 /**
  * "DropDown" ClickGUI style: one draggable column per category, modules expand in place.
@@ -116,19 +116,19 @@ public class DaamkyDropDownGui extends Screen {
 
     private float S = 1f, dw, dh, mlx, mly, curDy;
     private Matrix3x2f m = new Matrix3x2f();
-    private DrawContext ctx;
+    private GuiGraphics ctx;
     private long lastNs;
     private float dt, time, openT, alpha = 1f, ga = 1f;
     private boolean closing, covered;
 
     public DaamkyDropDownGui() {
-        super(Text.literal("Daamky"));
+        super(Component.literal("Daamky"));
         loadStates();
         for (Cat c : CATS) panels.add(new Panel(c, STATES.computeIfAbsent(c.id(), k -> new PanelState())));
         ConfigsBridge.refresh();
     }
 
-    @Override public boolean shouldPause() { return false; }
+    @Override public boolean isPauseScreen() { return false; }
 
     // =========================================================== persistence
 
@@ -305,7 +305,7 @@ public class DaamkyDropDownGui extends Screen {
     private void scissor(float x1, float y1, float x2, float y2) {
         int l = (int) Math.floor(x1 * S), tp = (int) Math.floor((y1 + curDy) * S);
         int r = (int) Math.ceil(x2 * S), bt = (int) Math.ceil((y2 + curDy) * S);
-        daamky.render.Gfx.scissor = new ScreenRect(l, tp, Math.max(0, r - l), Math.max(0, bt - tp));
+        daamky.render.Gfx.scissor = new ScreenRectangle(l, tp, Math.max(0, r - l), Math.max(0, bt - tp));
     }
 
     private void endScissor() { daamky.render.Gfx.scissor = null; }
@@ -426,7 +426,7 @@ public class DaamkyDropDownGui extends Screen {
     // =========================================================== screen lifecycle
 
     @Override
-    public void close() {
+    public void onClose() {
         saveStates();
         closing = true;
         dragPanel = null;
@@ -437,18 +437,18 @@ public class DaamkyDropDownGui extends Screen {
     public void tick() {
         super.tick();
         if (closing) {
-            if (openT <= 0f) super.close();
+            if (openT <= 0f) super.onClose();
         } else if (!GuiStyle.isDropDown()) {
             // The Type setting was switched to another style.
             saveStates();
-            if (client != null) client.setScreen(GuiStyle.create());
+            if (minecraft != null) minecraft.setScreen(GuiStyle.create());
         }
     }
 
     // =========================================================== render
 
     @Override
-    public void render(DrawContext c, int mx, int my, float delta) {
+    public void render(GuiGraphics c, int mx, int my, float delta) {
         ctx = c;
         Modules.refreshFromTarget();
         daamky.render.Gfx.ctx = c;
@@ -480,7 +480,7 @@ public class DaamkyDropDownGui extends Screen {
         int n = vis.size();
         float totalW = n * PW + Math.max(0, n - 1) * GAP;
 
-        float guiScale = (float) client.getWindow().getScaleFactor();
+        float guiScale = (float) minecraft.getWindow().getGuiScale();
         S = Math.max(0.3f, Math.min(REF_GUI_SCALE / guiScale, (width - 16f) / Math.max(totalW, PW)));
         dw = width / S;
         dh = height / S;
@@ -509,7 +509,7 @@ public class DaamkyDropDownGui extends Screen {
             p.scroll = Math.max(0f, Math.min(p.maxScroll, lerpTo(p.scroll, p.scrollT, 18f)));
         }
 
-        var ms = c.getMatrices();
+        var ms = c.pose();
         ms.pushMatrix();
         ms.scale(S, S);
         Matrix3x2f base = new Matrix3x2f(ms);
@@ -938,7 +938,7 @@ public class DaamkyDropDownGui extends Screen {
     // =========================================================== input
 
     @Override
-    public boolean mouseClicked(Click click, boolean dbl) {
+    public boolean mouseClicked(MouseButtonEvent click, boolean dbl) {
         int button = click.button();
         if (closing) return true;
         if (bindingSetting != null) {
@@ -970,7 +970,7 @@ public class DaamkyDropDownGui extends Screen {
     }
 
     @Override
-    public boolean mouseDragged(Click click, double dx, double dy) {
+    public boolean mouseDragged(MouseButtonEvent click, double dx, double dy) {
         if (dragSlider != null) {
             float lx = (float) (click.x() / S);
             dragSlider.set(dragSlider.min + clamp01((lx - dragSliderX) / dragSliderW) * (dragSlider.max - dragSlider.min));
@@ -985,7 +985,7 @@ public class DaamkyDropDownGui extends Screen {
     }
 
     @Override
-    public boolean mouseReleased(Click click) {
+    public boolean mouseReleased(MouseButtonEvent click) {
         if (dragPanel != null) saveStates();
         dragPanel = null;
         dragSlider = null;
@@ -1006,8 +1006,8 @@ public class DaamkyDropDownGui extends Screen {
     }
 
     @Override
-    public boolean charTyped(CharInput input) {
-        String chr = input.asString();
+    public boolean charTyped(CharacterEvent input) {
+        String chr = input.codepointAsString();
         boolean printable = !chr.isEmpty() && chr.codePointAt(0) >= 32;
         if ((editingText != null || editingColor != null) && printable) {
             if (editBuffer.length() < 160) editBuffer += chr;
@@ -1027,7 +1027,7 @@ public class DaamkyDropDownGui extends Screen {
     }
 
     @Override
-    public boolean keyPressed(KeyInput input) {
+    public boolean keyPressed(KeyEvent input) {
         int keyCode = input.key();
         if (bindingSetting != null) {
             bindingSetting.set((keyCode == 256 || keyCode == 259 || keyCode == 261) ? KeyBind.NONE : KeyBind.keyboard(keyCode));

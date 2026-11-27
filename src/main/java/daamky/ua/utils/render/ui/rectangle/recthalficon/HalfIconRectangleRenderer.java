@@ -5,21 +5,21 @@ import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import com.mojang.blaze3d.vertex.VertexFormatElement;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.render.TextureSetup;
 import net.minecraft.client.gui.render.state.GuiRenderState;
-import net.minecraft.client.texture.TextureSetup;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 import org.joml.Matrix3x2f;
 import org.lwjgl.system.MemoryStack;
 import daamky.ua.access.GuiRenderStateLayerAccessor;
@@ -45,7 +45,7 @@ public final class HalfIconRectangleRenderer implements AutoCloseable {
       .withLocation(id("pipeline/rect_half_icon"))
       .withVertexShader(id("ui/rect_half_icon/rect_half_icon"))
       .withFragmentShader(id("ui/rect_half_icon/rect_half_icon"))
-      .withVertexFormat(POSITION_TEX_COLOR_LINE_WIDTH, DrawMode.QUADS)
+      .withVertexFormat(POSITION_TEX_COLOR_LINE_WIDTH, Mode.QUADS)
       .withBlend(BlendFunction.TRANSLUCENT)
       .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
       .withCull(false)
@@ -56,7 +56,7 @@ public final class HalfIconRectangleRenderer implements AutoCloseable {
       .build();
    private final List<BuiltHalfIconRectangle> preparedRectangles = new ArrayList<>(32);
    private final Map<HalfIconRectangleRenderer.FrameBatchKey, HalfIconRectangleRenderState> frameBatches = new LinkedHashMap<>(32);
-   private DrawContext activeGraphics;
+   private GuiGraphics activeGraphics;
    private GpuBuffer paramsBuffer;
    private boolean paramsDirty = true;
 
@@ -86,7 +86,7 @@ public final class HalfIconRectangleRenderer implements AutoCloseable {
       }
    }
 
-   public void beginFrame(DrawContext graphics) {
+   public void beginFrame(GuiGraphics graphics) {
       if (this.activeGraphics != graphics) {
          this.frameBatches.clear();
       }
@@ -94,7 +94,7 @@ public final class HalfIconRectangleRenderer implements AutoCloseable {
       this.activeGraphics = graphics;
    }
 
-   public void draw(DrawContext graphics, BuiltHalfIconRectangle rectangle) {
+   public void draw(GuiGraphics graphics, BuiltHalfIconRectangle rectangle) {
       this.beginFrame(graphics);
       this.enqueue(rectangle);
       this.flush();
@@ -171,7 +171,7 @@ public final class HalfIconRectangleRenderer implements AutoCloseable {
       }
    }
 
-   private void submit(DrawContext graphics, BuiltHalfIconRectangle rectangle) {
+   private void submit(GuiGraphics graphics, BuiltHalfIconRectangle rectangle) {
       if (graphics != null && rectangle != null && rectangle.iconsVisible()) {
          try {
             BuiltHalfIconRectangle normalized = this.normalize(rectangle);
@@ -197,7 +197,7 @@ public final class HalfIconRectangleRenderer implements AutoCloseable {
                         state = new HalfIconRectangleRenderState(pose, page.textureSetup());
                         state.add(normalized, quads);
                         this.frameBatches.put(key, state);
-                        guiState.addSimpleElement(state);
+                        guiState.submitGuiElement(state);
                      } else {
                         state.add(normalized, quads);
                      }
@@ -445,7 +445,7 @@ public final class HalfIconRectangleRenderer implements AutoCloseable {
    }
 
    private static Identifier id(String path) {
-      return Identifier.of("daamky", path);
+      return Identifier.fromNamespaceAndPath("daamky", path);
    }
 
    @Override

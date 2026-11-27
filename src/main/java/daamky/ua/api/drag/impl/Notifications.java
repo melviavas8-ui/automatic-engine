@@ -2,7 +2,7 @@ package daamky.ua.api.drag.impl;
 
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.sound.SoundEvent;
+import net.minecraft.sounds.SoundEvent;
 import daamky.ua.api.module.impl.visual.Hud;
 import daamky.ua.utils.render.animation.Easings;
 import daamky.ua.utils.render.animation.SmoothAnimation;

@@ -1,22 +1,22 @@
 package daamky.ua.api.module.impl.combat.aura.back;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.api.module.impl.combat.aura.MathAngle;
 import daamky.ua.api.module.impl.combat.aura.impl.RotateConstructor;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 public class BackAngle extends RotateConstructor {
    private final float speed;
 
    public BackAngle(float speed) {
       super("UseBack");
-      this.speed = MathHelper.clamp(speed, 0.05F, 1.0F);
+      this.speed = Mth.clamp(speed, 0.05F, 1.0F);
    }
 
    @Override
-   public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3d vec3d, Entity entity) {
+   public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3 vec3d, Entity entity) {
       Angle delta = MathAngle.calculateDelta(currentAngle, targetAngle);
       float yawStep = delta.getYaw() * this.speed;
       float pitchStep = delta.getPitch() * this.speed;
@@ -32,7 +32,7 @@ public class BackAngle extends RotateConstructor {
    }
 
    @Override
-   public Vec3d randomValue() {
-      return Vec3d.ZERO;
+   public Vec3 randomValue() {
+      return Vec3.ZERO;
    }
 }

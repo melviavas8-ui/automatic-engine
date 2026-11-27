@@ -4,28 +4,28 @@ import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import com.mojang.blaze3d.vertex.VertexFormatElement;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
 import java.nio.ByteBuffer;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.lwjgl.system.MemoryUtil;
 
 public class BlockOverlayShader3D {
-   private static final MinecraftClient mc = MinecraftClient.getInstance();
+   private static final Minecraft mc = Minecraft.getInstance();
    private static final int UNIFORM_SIZE = 128;
    private static final int WATER_DATA_SIZE = 80;
    private static final int MAX_VERTICES = 16384;
@@ -56,10 +56,10 @@ public class BlockOverlayShader3D {
                .build();
             pipeline = RenderPipelines.register(
                RenderPipeline.builder(new Snippet[0])
-                  .withLocation(Identifier.of("daamky", "pipeline/world/block_overlay"))
-                  .withVertexShader(Identifier.of("mre", "core/block_overlay"))
-                  .withFragmentShader(Identifier.of("mre", "core/block_overlay"))
-                  .withVertexFormat(format, DrawMode.TRIANGLES)
+                  .withLocation(Identifier.fromNamespaceAndPath("daamky", "pipeline/world/block_overlay"))
+                  .withVertexShader(Identifier.fromNamespaceAndPath("mre", "core/block_overlay"))
+                  .withFragmentShader(Identifier.fromNamespaceAndPath("mre", "core/block_overlay"))
+                  .withVertexFormat(format, Mode.TRIANGLES)
                   .withUniform("Uniforms", UniformType.UNIFORM_BUFFER)
                   .withUniform("BlockOverlayData", UniformType.UNIFORM_BUFFER)
                   .withBlend(BlendFunction.TRANSLUCENT)
@@ -92,14 +92,14 @@ public class BlockOverlayShader3D {
       }
    }
 
-   public static void box(Box box) {
+   public static void box(AABB box) {
       float x1 = (float)box.minX;
       float y1 = (float)box.minY;
       float z1 = (float)box.minZ;
       float x2 = (float)box.maxX;
       float y2 = (float)box.maxY;
       float z2 = (float)box.maxZ;
-      Vec3d cam = mc.gameRenderer.getCamera().getCameraPos();
+      Vec3 cam = mc.gameRenderer.getMainCamera().position();
       float rx1 = (float)((double)x1 - cam.x);
       float ry1 = (float)((double)y1 - cam.y);
       float rz1 = (float)((double)z1 - cam.z);
@@ -193,13 +193,13 @@ public class BlockOverlayShader3D {
                         encoder.writeToBuffer(uniformBuffer.slice(), uniformData);
                         encoder.writeToBuffer(waterDataBuffer.slice(), waterData);
                         encoder.writeToBuffer(vertexBuffer.slice(), vertexData);
-                        Framebuffer framebuffer = mc.getFramebuffer();
-                        if (framebuffer != null && framebuffer.getColorAttachmentView() != null && framebuffer.getDepthAttachmentView() != null) {
+                        RenderTarget framebuffer = mc.getMainRenderTarget();
+                        if (framebuffer != null && framebuffer.getColorTextureView() != null && framebuffer.getDepthTextureView() != null) {
                            RenderPass pass = encoder.createRenderPass(
                               () -> "BlockOverlayShader3D",
-                              framebuffer.getColorAttachmentView(),
+                              framebuffer.getColorTextureView(),
                               OptionalInt.empty(),
-                              framebuffer.getDepthAttachmentView(),
+                              framebuffer.getDepthTextureView(),
                               OptionalDouble.empty()
                            );
 

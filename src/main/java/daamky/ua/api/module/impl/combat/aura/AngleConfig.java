@@ -1,9 +1,9 @@
 package daamky.ua.api.module.impl.combat.aura;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.module.impl.combat.aura.impl.LinearConstructor;
 import daamky.ua.api.module.impl.combat.aura.impl.RotateConstructor;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 public class AngleConfig {
    public static final AngleConfig DEFAULT = new AngleConfig(new LinearConstructor(), true, true);
@@ -22,7 +22,7 @@ public class AngleConfig {
       this.freeCorrection = freeCorrection;
    }
 
-   public AngleConstructor createRotationPlan(Angle angle, Vec3d vec, Entity entity, int reset) {
+   public AngleConstructor createRotationPlan(Angle angle, Vec3 vec, Entity entity, int reset) {
       return new AngleConstructor(angle, vec, entity, this.angleSmooth, reset, 1.0F, this.moveCorrection, this.freeCorrection);
    }
 }

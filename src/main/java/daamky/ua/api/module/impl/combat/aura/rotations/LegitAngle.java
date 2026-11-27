@@ -1,13 +1,13 @@
 package daamky.ua.api.module.impl.combat.aura.rotations;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.module.impl.combat.AuraModule;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.api.module.impl.combat.aura.impl.RotateConstructor;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
 
 public final class LegitAngle extends RotateConstructor {
    private long lastFrameNs;
@@ -18,39 +18,39 @@ public final class LegitAngle extends RotateConstructor {
    }
 
    @Override
-   public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3d vec3d, Entity entity) {
-      MinecraftClient client = MinecraftClient.getInstance();
+   public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3 vec3d, Entity entity) {
+      Minecraft client = Minecraft.getInstance();
       if (client != null && client.player != null) {
-         return new Angle(client.player.getYaw(), client.player.getPitch());
+         return new Angle(client.player.getYRot(), client.player.getXRot());
       } else {
          return currentAngle != null ? currentAngle : new Angle(0.0F, 0.0F);
       }
    }
 
    public Angle stepFrame(Entity entity) {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       AuraModule aura = AuraModule.getInstance();
       if (client != null && client.player != null && aura != null && entity instanceof LivingEntity living) {
-         Vec3d direction = living.getEntityPos()
-            .add(0.0, MathHelper.clamp(client.player.getEyeY() - living.getY(), 0.0, 1.0), 0.0)
-            .subtract(client.player.getEyePos());
-         if (direction.lengthSquared() < 1.0E-8) {
-            this.lastOut = new Angle(client.player.getYaw(), client.player.getPitch());
+         Vec3 direction = living.position()
+            .add(0.0, Mth.clamp(client.player.getEyeY() - living.getY(), 0.0, 1.0), 0.0)
+            .subtract(client.player.getEyePosition());
+         if (direction.lengthSqr() < 1.0E-8) {
+            this.lastOut = new Angle(client.player.getYRot(), client.player.getXRot());
             return this.lastOut;
          } else {
             direction = direction.normalize();
             float targetYaw = (float)Math.toDegrees(Math.atan2(-direction.x, direction.z));
-            float currentYaw = client.player.getYaw();
-            float yawDelta = MathHelper.wrapDegrees(targetYaw - currentYaw);
-            float speed = MathHelper.clamp(aura.getLegitSpeed().getFloat(), 0.02F, 0.4F);
-            float frameScale = MathHelper.clamp(this.frameDelta(), 0.25F, 4.0F);
+            float currentYaw = client.player.getYRot();
+            float yawDelta = Mth.wrapDegrees(targetYaw - currentYaw);
+            float speed = Mth.clamp(aura.getLegitSpeed().getFloat(), 0.02F, 0.4F);
+            float frameScale = Mth.clamp(this.frameDelta(), 0.25F, 4.0F);
             float factor = 1.0F - (float)Math.pow((double)(1.0F - speed), (double)frameScale);
-            this.lastOut = new Angle(currentYaw + yawDelta * factor, client.player.getPitch());
+            this.lastOut = new Angle(currentYaw + yawDelta * factor, client.player.getXRot());
             return this.lastOut;
          }
       } else {
-         float yaw = client != null && client.player != null ? client.player.getYaw() : 0.0F;
-         float pitch = client != null && client.player != null ? client.player.getPitch() : 0.0F;
+         float yaw = client != null && client.player != null ? client.player.getYRot() : 0.0F;
+         float pitch = client != null && client.player != null ? client.player.getXRot() : 0.0F;
          this.lastOut = new Angle(yaw, pitch);
          return this.lastOut;
       }
@@ -73,8 +73,8 @@ public final class LegitAngle extends RotateConstructor {
    }
 
    @Override
-   public Vec3d randomValue() {
-      return Vec3d.ZERO;
+   public Vec3 randomValue() {
+      return Vec3.ZERO;
    }
 
    public void reset() {

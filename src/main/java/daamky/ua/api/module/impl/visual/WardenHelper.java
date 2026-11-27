@@ -4,12 +4,12 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.decoration.DisplayEntity.TextDisplayEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.Display.TextDisplay;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.drag.impl.HudRenderCompat;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.DrawEvent;
@@ -51,15 +51,15 @@ public class WardenHelper extends Module {
    }
 
    public static void updateTimers() {
-      MinecraftClient client = MinecraftClient.getInstance();
-      if (client.world != null && client.player != null) {
+      Minecraft client = Minecraft.getInstance();
+      if (client.level != null && client.player != null) {
          long now = System.currentTimeMillis();
 
-         for (Entity entity : client.world.getEntities()) {
+         for (Entity entity : client.level.entitiesForRendering()) {
             String text = timerText(entity);
             if (text.matches("\\d{2}:\\d{2}")) {
-               Vec3d pos = entity.getEntityPos().add(0.0, 0.15, 0.0);
-               timers.put(BlockPos.ofFloored(pos), new WardenHelper.SavedTimer(pos, parseSeconds(text), now));
+               Vec3 pos = entity.position().add(0.0, 0.15, 0.0);
+               timers.put(BlockPos.containing(pos), new WardenHelper.SavedTimer(pos, parseSeconds(text), now));
             }
          }
       }
@@ -67,7 +67,7 @@ public class WardenHelper extends Module {
 
    @SubscribeEvent
    private void onDraw(DrawEvent event) {
-      if (mc.player != null && mc.world != null && mc.gameRenderer != null) {
+      if (mc.player != null && mc.level != null && mc.gameRenderer != null) {
          EspGeometry.ProjectionContext context = EspGeometry.createProjectionContext(mc, event.getPartialTicks());
          if (context != null) {
             long now = System.currentTimeMillis();
@@ -113,7 +113,7 @@ public class WardenHelper extends Module {
    }
 
    private static String timerText(Entity entity) {
-      Text component = entity instanceof TextDisplayEntity textDisplay ? textDisplay.getText() : null;
+      Component component = entity instanceof TextDisplay textDisplay ? textDisplay.getText() : null;
       if (component == null) {
          component = entity.getCustomName();
       }
@@ -130,7 +130,7 @@ public class WardenHelper extends Module {
       return String.format("%02d:%02d", seconds / 60, seconds % 60);
    }
 
-   public static record SavedTimer(Vec3d pos, int seconds, long seenAtMs) {
+   public static record SavedTimer(Vec3 pos, int seconds, long seenAtMs) {
       public int leftSeconds() {
          return Math.max(0, this.seconds - (int)((System.currentTimeMillis() - this.seenAtMs) / 1000L));
       }

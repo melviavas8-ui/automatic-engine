@@ -1,9 +1,5 @@
 package daamky.ua.api.module.impl.visual;
 
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.TickEvent;
 import daamky.ua.api.module.Module;
@@ -11,6 +7,10 @@ import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.settings.impl.ModeSetting;
 import daamky.ua.api.settings.impl.MultiModeSetting;
 import daamky.ua.api.settings.impl.NumberSetting;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 
 public final class Animations extends Module {
    public static final String CHAT = "Chat";
@@ -165,7 +165,7 @@ public final class Animations extends Module {
    }
 
    public static boolean screenEnabled(Screen screen) {
-      if (!(screen instanceof HandledScreen)) {
+      if (!(screen instanceof AbstractContainerScreen)) {
          return false;
       } else {
          return screen instanceof InventoryScreen ? active("Inventory") : active("Containers");
@@ -263,13 +263,13 @@ public final class Animations extends Module {
    @SubscribeEvent
    private void onTick(TickEvent.Post event) {
       if (this.chatClosing && this.chatFinished()) {
-         Screen screen = mc.currentScreen;
+         Screen screen = mc.screen;
          this.resetChat();
          if (screen instanceof ChatScreen) {
             this.chatReleased = true;
 
             try {
-               screen.close();
+               screen.onClose();
             } finally {
                this.chatReleased = false;
             }
@@ -279,11 +279,11 @@ public final class Animations extends Module {
       if (this.screenClosing && this.screenFinished()) {
          Screen screen = this.animatedScreen;
          this.resetScreen();
-         if (screen != null && mc.currentScreen == screen) {
+         if (screen != null && mc.screen == screen) {
             this.screenReleased = true;
 
             try {
-               screen.close();
+               screen.onClose();
             } finally {
                this.screenReleased = false;
             }

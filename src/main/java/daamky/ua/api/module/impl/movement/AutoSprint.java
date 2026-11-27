@@ -1,13 +1,13 @@
 package daamky.ua.api.module.impl.movement;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.client.util.InputUtil.Key;
 import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.blaze3d.platform.InputConstants.Key;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.module.impl.combat.aura.util.StopWatch;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
 
 public final class AutoSprint extends Module {
    StopWatch stopWatch = new StopWatch();
@@ -17,14 +17,14 @@ public final class AutoSprint extends Module {
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
+   public void onTick(Minecraft client) {
       if (client.player != null && client.options != null && client.getWindow() != null) {
-         boolean moving = this.isPressed(client, client.options.forwardKey)
-            || this.isPressed(client, client.options.backKey)
-            || this.isPressed(client, client.options.leftKey)
-            || this.isPressed(client, client.options.rightKey);
-         client.options.sprintKey.setPressed(moving);
-         if (!moving && client.currentScreen != null && client.player.isSprinting()) {
+         boolean moving = this.isPressed(client, client.options.keyUp)
+            || this.isPressed(client, client.options.keyDown)
+            || this.isPressed(client, client.options.keyLeft)
+            || this.isPressed(client, client.options.keyRight);
+         client.options.keySprint.setDown(moving);
+         if (!moving && client.screen != null && client.player.isSprinting()) {
             client.player.setSprinting(false);
             this.stopWatch.every(50.0);
             client.player.setSprinting(true);
@@ -32,13 +32,13 @@ public final class AutoSprint extends Module {
       }
    }
 
-   private boolean isPressed(MinecraftClient client, KeyBinding key) {
-      Key inputKey = InputUtil.fromTranslationKey(key.getBoundKeyTranslationKey());
-      long handle = client.getWindow().getHandle();
+   private boolean isPressed(Minecraft client, KeyMapping key) {
+      Key inputKey = InputConstants.getKey(key.saveString());
+      long handle = client.getWindow().handle();
 
-      return switch (inputKey.getCategory()) {
-         case KEYSYM -> InputUtil.isKeyPressed(client.getWindow(), inputKey.getCode());
-         case MOUSE -> GLFW.glfwGetMouseButton(handle, inputKey.getCode()) == 1;
+      return switch (inputKey.getType()) {
+         case KEYSYM -> InputConstants.isKeyDown(client.getWindow(), inputKey.getValue());
+         case MOUSE -> GLFW.glfwGetMouseButton(handle, inputKey.getValue()) == 1;
          default -> false;
       };
    }

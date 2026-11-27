@@ -1,7 +1,7 @@
 package daamky.ua.mixin;
 
-import net.minecraft.client.gui.screen.world.SelectWorldScreen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -13,7 +13,7 @@ public abstract class SelectWorldScreenThemeMixin {
    private static final int daamky_SEARCH_WIDTH = 140;
    private static final int daamky_SEARCH_HEIGHT = 14;
    @Shadow
-   protected TextFieldWidget searchBox;
+   protected EditBox searchBox;
 
    public SelectWorldScreenThemeMixin() {
    }
@@ -27,7 +27,7 @@ public abstract class SelectWorldScreenThemeMixin {
    }
 
    @Inject(
-      method = {"refreshWidgetPositions"},
+      method = {"repositionElements"},
       at = {@At("TAIL")}
    )
    private void daamky$keepSearchAtBottom(CallbackInfo ci) {
@@ -39,7 +39,7 @@ public abstract class SelectWorldScreenThemeMixin {
          SelectWorldScreen screen = (SelectWorldScreen)(Object)this;
          this.searchBox.setX((screen.width - 140) / 2);
          this.searchBox.setY(screen.height - 78);
-         this.searchBox.setDimensions(140, 14);
+         this.searchBox.setSize(140, 14);
       }
    }
 }

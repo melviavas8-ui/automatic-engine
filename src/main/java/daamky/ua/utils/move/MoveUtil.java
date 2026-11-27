@@ -1,27 +1,27 @@
 package daamky.ua.utils.move;
 
 import java.util.Objects;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.input.Input;
-import net.minecraft.util.PlayerInput;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec2f;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.ClientInput;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.player.Input;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.module.impl.combat.aura.AngleConnection;
 
 public final class MoveUtil {
-   private static final MinecraftClient MC = MinecraftClient.getInstance();
+   private static final Minecraft MC = Minecraft.getInstance();
 
    private MoveUtil() {
    }
 
    public static boolean hasPlayerMovement() {
       if (MC.player != null && MC.player.input != null) {
-         Input input = MC.player.input;
-         if (input.hasForwardMovement()) {
+         ClientInput input = MC.player.input;
+         if (input.hasForwardImpulse()) {
             return true;
          } else {
-            Vec2f movement = input.getMovementInput();
+            Vec2 movement = input.getMoveVector();
             return movement.x != 0.0F || movement.y != 0.0F;
          }
       } else {
@@ -30,9 +30,9 @@ public final class MoveUtil {
    }
 
    public static double getDistanceToGround() {
-      if (MC.player != null && MC.world != null) {
-         for (double y = MC.player.getY(); y > (double)MC.world.getBottomY(); y -= 0.1) {
-            if (!MC.world.getBlockState(MC.player.getBlockPos().down((int)(MC.player.getY() - y + 1.0))).isAir()) {
+      if (MC.player != null && MC.level != null) {
+         for (double y = MC.player.getY(); y > (double)MC.level.getMinY(); y -= 0.1) {
+            if (!MC.level.getBlockState(MC.player.blockPosition().below((int)(MC.player.getY() - y + 1.0))).isAir()) {
                return MC.player.getY() - y;
             }
          }
@@ -43,22 +43,22 @@ public final class MoveUtil {
       }
    }
 
-   public static double getDegreesRelativeToView(Vec3d positionRelativeToPlayer, float yaw) {
+   public static double getDegreesRelativeToView(Vec3 positionRelativeToPlayer, float yaw) {
       float optimalYaw = (float)Math.atan2(-positionRelativeToPlayer.x, positionRelativeToPlayer.z);
-      double currentYaw = Math.toRadians((double)MathHelper.wrapDegrees(yaw));
-      return Math.toDegrees((double)MathHelper.wrapDegrees((float)((double)optimalYaw - currentYaw)));
+      double currentYaw = Math.toRadians((double)Mth.wrapDegrees(yaw));
+      return Math.toDegrees((double)Mth.wrapDegrees((float)((double)optimalYaw - currentYaw)));
    }
 
    public static void setVelocity(double velocity) {
       if (MC.player != null) {
          double[] direction = calculateDirection(velocity);
-         MC.player.setVelocity(direction[0], MC.player.getVelocity().getY(), direction[1]);
+         MC.player.setDeltaMovement(direction[0], MC.player.getDeltaMovement().y(), direction[1]);
       }
    }
 
    public static double[] forward(double distance) {
       if (MC.player != null && MC.player.input != null) {
-         Vec2f movement = MC.player.input.getMovementInput();
+         Vec2 movement = MC.player.input.getMoveVector();
          float forward = movement.y;
          float sideways = movement.x;
          float yaw = AngleConnection.INSTANCE.getRotation().getYaw();
@@ -85,7 +85,7 @@ public final class MoveUtil {
 
    public static double[] calculateDirection(double distance) {
       if (MC.player != null && MC.player.input != null) {
-         Vec2f movement = MC.player.input.getMovementInput();
+         Vec2 movement = MC.player.input.getMoveVector();
          return calculateDirection(movement.y, movement.x, distance);
       } else {
          return new double[]{0.0, 0.0};
@@ -116,10 +116,10 @@ public final class MoveUtil {
       if (MC.options == null) {
          return false;
       } else {
-         boolean w = MC.options.forwardKey.isPressed();
-         boolean a = MC.options.leftKey.isPressed();
-         boolean s = MC.options.backKey.isPressed();
-         boolean d = MC.options.rightKey.isPressed();
+         boolean w = MC.options.keyUp.isDown();
+         boolean a = MC.options.keyLeft.isDown();
+         boolean s = MC.options.keyDown.isDown();
+         boolean d = MC.options.keyRight.isDown();
          return keyNumber == 0 ? w : (keyNumber == 1 ? a : (keyNumber == 2 ? s : keyNumber == 3 && d));
       }
    }
@@ -167,8 +167,8 @@ public final class MoveUtil {
       float motionSquared = (float)(motionX * motionX + motionZ * motionZ);
       float bodyYaw = prevBodyYaw;
       if (motionSquared > 0.0025000002F) {
-         float movementYaw = (float)MathHelper.atan2(motionZ, motionX) * (180.0F / (float)Math.PI) - 90.0F;
-         float yawDiff = MathHelper.abs(MathHelper.wrapDegrees(yaw) - movementYaw);
+         float movementYaw = (float)Mth.atan2(motionZ, motionX) * (180.0F / (float)Math.PI) - 90.0F;
+         float yawDiff = Mth.abs(Mth.wrapDegrees(yaw) - movementYaw);
          if (95.0F < yawDiff && yawDiff < 265.0F) {
             bodyYaw = movementYaw - 180.0F;
          } else {
@@ -176,22 +176,22 @@ public final class MoveUtil {
          }
       }
 
-      if (MC.player != null && MC.player.handSwingProgress - 0.2F > 0.0F) {
+      if (MC.player != null && MC.player.attackAnim - 0.2F > 0.0F) {
          bodyYaw = yaw;
       }
 
-      float deltaYaw = MathHelper.wrapDegrees(bodyYaw - prevBodyYaw);
+      float deltaYaw = Mth.wrapDegrees(bodyYaw - prevBodyYaw);
       bodyYaw = prevBodyYaw + deltaYaw * 0.3F;
-      float yawOffsetDiff = MathHelper.wrapDegrees(yaw - bodyYaw);
+      float yawOffsetDiff = Mth.wrapDegrees(yaw - bodyYaw);
       float maxHeadRotation = 52.0F;
       if (Math.abs(yawOffsetDiff) > maxHeadRotation) {
-         bodyYaw += yawOffsetDiff - (float)MathHelper.sign((double)yawOffsetDiff) * maxHeadRotation;
+         bodyYaw += yawOffsetDiff - (float)Mth.sign((double)yawOffsetDiff) * maxHeadRotation;
       }
 
       return bodyYaw;
    }
 
-   public static PlayerInput getDirectionalInputForDegrees(PlayerInput input, double degrees, float deadAngle) {
+   public static Input getDirectionalInputForDegrees(Input input, double degrees, float deadAngle) {
       Objects.requireNonNull(input, "input");
       boolean forward = input.forward();
       boolean backward = input.backward();
@@ -209,10 +209,10 @@ public final class MoveUtil {
          left = true;
       }
 
-      return new PlayerInput(forward, backward, left, right, input.jump(), input.sneak(), input.sprint());
+      return new Input(forward, backward, left, right, input.jump(), input.shift(), input.sprint());
    }
 
-   public static PlayerInput getDirectionalInputForDegrees(PlayerInput input, double degrees) {
+   public static Input getDirectionalInputForDegrees(Input input, double degrees) {
       return getDirectionalInputForDegrees(input, degrees, 20.0F);
    }
 }

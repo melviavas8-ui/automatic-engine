@@ -5,11 +5,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.entity.effect.StatusEffectCategory;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.core.Holder;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectCategory;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import daamky.ua.api.module.impl.visual.Hud;
 import daamky.ua.utils.render.animation.Easings;
 import daamky.ua.utils.render.animation.SmoothAnimation;
@@ -25,23 +25,23 @@ public final class Potions extends HudPanel {
    private static final float GROUP_GAP = 3.0F;
    private static final float PANEL_ANIM = 0.24F;
    private static final float ROW_ANIM = 0.22F;
-   private static final List<RegistryEntry<StatusEffect>> PREVIEW_POSITIVE_EFFECTS = List.of(StatusEffects.SPEED);
-   private static final List<RegistryEntry<StatusEffect>> PREVIEW_NEGATIVE_EFFECTS = List.of(StatusEffects.POISON);
-   private static final Comparator<StatusEffectInstance> EFFECT_NAME_COMPARATOR = Comparator.comparing(
-      effect -> ((StatusEffect)effect.getEffectType().value()).getName().getString()
+   private static final List<Holder<MobEffect>> PREVIEW_POSITIVE_EFFECTS = List.of(MobEffects.SPEED);
+   private static final List<Holder<MobEffect>> PREVIEW_NEGATIVE_EFFECTS = List.of(MobEffects.POISON);
+   private static final Comparator<MobEffectInstance> EFFECT_NAME_COMPARATOR = Comparator.comparing(
+      effect -> ((MobEffect)effect.getEffect().value()).getDisplayName().getString()
    );
    private static final Comparator<Potions.RowState> ROW_STATE_COMPARATOR = Comparator.comparingDouble(Potions.RowState::offset);
    private final List<Potions.RowEntry> rowEntries = new ArrayList<>();
-   private final List<StatusEffectInstance> effects = new ArrayList<>();
-   private final List<StatusEffectInstance> positiveEffects = new ArrayList<>();
-   private final List<StatusEffectInstance> negativeEffects = new ArrayList<>();
+   private final List<MobEffectInstance> effects = new ArrayList<>();
+   private final List<MobEffectInstance> positiveEffects = new ArrayList<>();
+   private final List<MobEffectInstance> negativeEffects = new ArrayList<>();
    private final List<Potions.RowState> rowStates = new ArrayList<>();
    private final SmoothAnimation panelAnimation = new SmoothAnimation();
    private final SmoothAnimation iconAlphaAnimation = new SmoothAnimation();
    private boolean iconAlphaForward = true;
    private long previewIconSecond = -1L;
-   private RegistryEntry<StatusEffect> previewPositiveEffect = StatusEffects.SPEED;
-   private RegistryEntry<StatusEffect> previewNegativeEffect = StatusEffects.POISON;
+   private Holder<MobEffect> previewPositiveEffect = MobEffects.SPEED;
+   private Holder<MobEffect> previewNegativeEffect = MobEffects.POISON;
 
    public Potions() {
       super("potions", "Potions", 300.0F, 100.0F, 80.0F, 23.0F);
@@ -58,8 +58,8 @@ public final class Potions extends HudPanel {
    private Potions.PotionsState logics() {
       this.effects.clear();
       if (this.mc.player != null) {
-         for (StatusEffectInstance effect : this.mc.player.getStatusEffects()) {
-            if (effect.shouldShowIcon()) {
+         for (MobEffectInstance effect : this.mc.player.getActiveEffects()) {
+            if (effect.showIcon()) {
                this.effects.add(effect);
             }
          }
@@ -72,7 +72,7 @@ public final class Potions extends HudPanel {
       this.positiveEffects.clear();
       this.negativeEffects.clear();
 
-      for (StatusEffectInstance effectx : this.effects) {
+      for (MobEffectInstance effectx : this.effects) {
          if (this.isNegativeEffect(effectx)) {
             this.negativeEffects.add(effectx);
          } else {
@@ -129,8 +129,8 @@ public final class Potions extends HudPanel {
             targetY += 8.0F;
          }
 
-         for (StatusEffectInstance effectxx : this.positiveEffects) {
-            String name = ((StatusEffect)effectxx.getEffectType().value()).getName().getString();
+         for (MobEffectInstance effectxx : this.positiveEffects) {
+            String name = ((MobEffect)effectxx.getEffect().value()).getDisplayName().getString();
             String level = this.level(effectxx);
             String duration = this.formatPotionDurationTicks(effectxx.getDuration());
             Potions.RowEntry entry = this.row(
@@ -140,7 +140,7 @@ public final class Potions extends HudPanel {
                duration,
                6.0F,
                targetY,
-               effectxx.getEffectType(),
+               effectxx.getEffect(),
                effectxx.getDuration(),
                false
             );
@@ -162,8 +162,8 @@ public final class Potions extends HudPanel {
             targetY += 8.0F;
          }
 
-         for (StatusEffectInstance effectxx : this.negativeEffects) {
-            String name = ((StatusEffect)effectxx.getEffectType().value()).getName().getString();
+         for (MobEffectInstance effectxx : this.negativeEffects) {
+            String name = ((MobEffect)effectxx.getEffect().value()).getDisplayName().getString();
             String level = this.level(effectxx);
             String duration = this.formatPotionDurationTicks(effectxx.getDuration());
             Potions.RowEntry entry = this.row(
@@ -173,7 +173,7 @@ public final class Potions extends HudPanel {
                duration,
                6.0F,
                targetY,
-               effectxx.getEffectType(),
+               effectxx.getEffect(),
                effectxx.getDuration(),
                false
             );
@@ -347,7 +347,7 @@ public final class Potions extends HudPanel {
       String value,
       float valueSize,
       float targetY,
-      RegistryEntry<StatusEffect> effect,
+      Holder<MobEffect> effect,
       int remainingTicks,
       boolean section
    ) {
@@ -467,14 +467,14 @@ public final class Potions extends HudPanel {
       return value < 10 ? "0" + value : Integer.toString(value);
    }
 
-   private String level(StatusEffectInstance effect) {
+   private String level(MobEffectInstance effect) {
       int level = effect.getAmplifier() + 1;
       return level <= 1 ? "" : Integer.toString(level);
    }
 
-   private boolean isNegativeEffect(StatusEffectInstance effect) {
-      return StatusEffects.SLOW_FALLING.equals(effect.getEffectType())
-         || ((StatusEffect)effect.getEffectType().value()).getCategory() == StatusEffectCategory.HARMFUL;
+   private boolean isNegativeEffect(MobEffectInstance effect) {
+      return MobEffects.SLOW_FALLING.equals(effect.getEffect())
+         || ((MobEffect)effect.getEffect().value()).getCategory() == MobEffectCategory.HARMFUL;
    }
 
    private static record PotionsState(List<Potions.RowState> rows, float iconAlpha, float alpha, float x, float y, float width, float height) {
@@ -485,7 +485,7 @@ public final class Potions extends HudPanel {
       private final SmoothAnimation alpha = new SmoothAnimation();
       private final SmoothAnimation y = new SmoothAnimation();
       private boolean section;
-      private RegistryEntry<StatusEffect> effect;
+      private Holder<MobEffect> effect;
       private String name;
       private String level;
       private String value;
@@ -494,7 +494,7 @@ public final class Potions extends HudPanel {
       private boolean active;
 
       private RowEntry(
-         String key, boolean section, RegistryEntry<StatusEffect> effect, String name, String level, String value, float valueSize, int remainingTicks
+         String key, boolean section, Holder<MobEffect> effect, String name, String level, String value, float valueSize, int remainingTicks
       ) {
          this.key = key;
          this.section = section;
@@ -509,7 +509,7 @@ public final class Potions extends HudPanel {
 
    private static record RowState(
       boolean section,
-      RegistryEntry<StatusEffect> effect,
+      Holder<MobEffect> effect,
       String name,
       String level,
       String value,

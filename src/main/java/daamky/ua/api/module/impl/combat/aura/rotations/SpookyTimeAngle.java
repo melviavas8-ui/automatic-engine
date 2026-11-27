@@ -1,10 +1,10 @@
 package daamky.ua.api.module.impl.combat.aura.rotations;
 
 import java.security.SecureRandom;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.module.impl.combat.AuraModule;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.api.module.impl.combat.aura.attack.StrikeManager;
@@ -18,14 +18,14 @@ public class SpookyTimeAngle extends RotateConstructor {
     }
 
     @Override
-    public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3d aimPoint, Entity entity) {
+    public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3 aimPoint, Entity entity) {
         AuraModule aura = AuraModule.getInstance();
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (aura == null || targetAngle == null || mc.player == null) {
             return currentAngle.adjustSensitivity();
         }
 
-        float yawDelta   = MathHelper.wrapDegrees(targetAngle.getYaw() - currentAngle.getYaw());
+        float yawDelta   = Mth.wrapDegrees(targetAngle.getYaw() - currentAngle.getYaw());
         float pitchDelta = targetAngle.getPitch() - currentAngle.getPitch();
         float length     = (float) Math.hypot(yawDelta, pitchDelta);
         if (length < 1.0e-4f) return currentAngle.adjustSensitivity();
@@ -38,9 +38,9 @@ public class SpookyTimeAngle extends RotateConstructor {
         float pitchWeight = boosted ? randomLerp(0.6f, 0.8f) : randomLerp(0.3f, 0.4f);
 
         float lerpTo = randomLerp(50.0f, 55.0f);
-        float interp = MathHelper.lerp(RANDOM.nextFloat(), lerpTo, 0.1f);
+        float interp = Mth.lerp(RANDOM.nextFloat(), lerpTo, 0.1f);
 
-        float cooldown = MathHelper.clamp(mc.player.getAttackCooldownProgress(0.0f), 0.0f, 1.0f);
+        float cooldown = Mth.clamp(mc.player.getAttackStrengthScale(0.0f), 0.0f, 1.0f);
         float ease     = bounceInOut(cooldown);
 
         float yawStep   = yawWeight * interp * 0.1f;
@@ -56,7 +56,7 @@ public class SpookyTimeAngle extends RotateConstructor {
         float pitchMove = (pitchDelta + jitterPitch) * pitchStep * scale;
 
         float newYaw   = currentAngle.getYaw() + yawMove;
-        float newPitch = MathHelper.clamp(currentAngle.getPitch() + pitchMove, -89.0f, 90.0f);
+        float newPitch = Mth.clamp(currentAngle.getPitch() + pitchMove, -89.0f, 90.0f);
 
         return new Angle(newYaw, newPitch).adjustSensitivity();
     }
@@ -68,11 +68,11 @@ public class SpookyTimeAngle extends RotateConstructor {
     }
 
     private float randomLerp(float min, float max) {
-        return MathHelper.lerp(RANDOM.nextFloat(), min, max);
+        return Mth.lerp(RANDOM.nextFloat(), min, max);
     }
 
     @Override
-    public Vec3d randomValue() {
-        return Vec3d.ZERO;
+    public Vec3 randomValue() {
+        return Vec3.ZERO;
     }
 }

@@ -5,33 +5,33 @@ import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.textures.TextureFormat;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.nio.ByteBuffer;
 import java.util.OptionalInt;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
 import org.lwjgl.system.MemoryUtil;
 import daamky.ua.utils.render.RenderSampler;
 
 public class Saturation2D {
-   private static final Identifier PIPELINE_ID = Identifier.of("daamky", "pipeline/post/saturation");
-   private static final Identifier VERTEX_SHADER = Identifier.of("daamky", "post/saturation/saturation");
-   private static final Identifier FRAGMENT_SHADER = Identifier.of("daamky", "post/saturation/saturation");
+   private static final Identifier PIPELINE_ID = Identifier.fromNamespaceAndPath("daamky", "pipeline/post/saturation");
+   private static final Identifier VERTEX_SHADER = Identifier.fromNamespaceAndPath("daamky", "post/saturation/saturation");
+   private static final Identifier FRAGMENT_SHADER = Identifier.fromNamespaceAndPath("daamky", "post/saturation/saturation");
    private static final RenderPipeline PIPELINE = RenderPipelines.register(
-      RenderPipeline.builder(new Snippet[]{RenderPipelines.TRANSFORMS_AND_PROJECTION_SNIPPET})
+      RenderPipeline.builder(new Snippet[]{RenderPipelines.MATRICES_PROJECTION_SNIPPET})
          .withLocation(PIPELINE_ID)
          .withVertexShader(VERTEX_SHADER)
          .withFragmentShader(FRAGMENT_SHADER)
-         .withVertexFormat(VertexFormats.EMPTY, DrawMode.TRIANGLES)
+         .withVertexFormat(DefaultVertexFormat.EMPTY, Mode.TRIANGLES)
          .withUniform("SaturationData", UniformType.UNIFORM_BUFFER)
          .withSampler("Sampler0")
          .withBlend(BlendFunction.TRANSLUCENT)
@@ -71,20 +71,20 @@ public class Saturation2D {
 
    public static void applyWithCopy(float saturation) {
       if (!disabledAfterError) {
-         MinecraftClient client = MinecraftClient.getInstance();
-         if (client.getFramebuffer() != null) {
+         Minecraft client = Minecraft.getInstance();
+         if (client.getMainRenderTarget() != null) {
             if (Float.isFinite(saturation)) {
                float clampedSaturation = Math.clamp(saturation, 0.0F, 2.0F);
                if (!(Math.abs(clampedSaturation - 1.0F) <= 5.0E-4F)) {
-                  int width = client.getFramebuffer().textureWidth;
-                  int height = client.getFramebuffer().textureHeight;
+                  int width = client.getMainRenderTarget().width;
+                  int height = client.getMainRenderTarget().height;
                   if (width > 0 && height > 0) {
                      ensureTextures(width, height);
 
                      try {
                         CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
-                        encoder.copyTextureToTexture(client.getFramebuffer().getColorAttachment(), tempTexture, 0, 0, 0, 0, 0, width, height);
-                        apply(client.getFramebuffer().getColorAttachmentView(), tempTextureView, clampedSaturation);
+                        encoder.copyTextureToTexture(client.getMainRenderTarget().getColorTexture(), tempTexture, 0, 0, 0, 0, 0, width, height);
+                        apply(client.getMainRenderTarget().getColorTextureView(), tempTextureView, clampedSaturation);
                      } catch (Throwable var6) {
                         disabledAfterError = true;
                      }

@@ -3,13 +3,13 @@ package daamky.ua.utils.render.world.targetesp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider.Immediate;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.util.math.MatrixStack.Entry;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.phys.Vec3;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.PoseStack.Pose;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import daamky.ua.utils.render.WorldVertex;
 import daamky.ua.utils.render.color.ColorUtil;
 import daamky.ua.utils.render.pipeline.ClientPipelines;
@@ -23,7 +23,7 @@ public final class LightningTargetEspRenderer {
    private static final long HIT_FLASH_DURATION_MS = 350L;
    private static final float CORE_WIDTH = 1.35F;
    private static final float AURA_WIDTH = 3.6F;
-   private static final Identifier GLOW_TEXTURE = Identifier.of("daamky", "textures/particles/glow.png");
+   private static final Identifier GLOW_TEXTURE = Identifier.fromNamespaceAndPath("daamky", "textures/particles/glow.png");
    private static final int WHITE = ColorUtil.rgba(255, 255, 255, 255);
    private static final int RED = ColorUtil.rgba(255, 59, 48, 255);
    private static final Random RANDOM = new Random();
@@ -37,7 +37,7 @@ public final class LightningTargetEspRenderer {
    private LightningTargetEspRenderer() {
    }
 
-   public static void render(MatrixStack stack, Immediate provider, TargetEspRenderContext context, boolean redOnHit) {
+   public static void render(PoseStack stack, BufferSource provider, TargetEspRenderContext context, boolean redOnHit) {
       if (context.target() != null && !(context.alpha() <= 0.01F)) {
          if (context.target().getId() != lastTargetId) {
             reset();
@@ -96,7 +96,7 @@ public final class LightningTargetEspRenderer {
          }
 
          if (renderableCount > 0) {
-            RenderLayer glowType = ClientPipelines.WORLD_PARTICLES_GLOW.apply(GLOW_TEXTURE);
+            RenderType glowType = ClientPipelines.WORLD_PARTICLES_GLOW.apply(GLOW_TEXTURE);
             VertexConsumer glowConsumer = provider.getBuffer(glowType);
 
             for (int ix = 0; ix < renderableCount; ix++) {
@@ -104,7 +104,7 @@ public final class LightningTargetEspRenderer {
                renderGlowBlobs(stack, glowConsumer, context, renderable.bolt, renderable.glowColor, now);
             }
 
-            provider.draw(glowType);
+            provider.endBatch(glowType);
             VertexConsumer lineConsumer = provider.getBuffer(ClientPipelines.WORLD_PARTICLES_LINES);
 
             for (int ix = 0; ix < renderableCount; ix++) {
@@ -113,7 +113,7 @@ public final class LightningTargetEspRenderer {
                renderPath(stack, lineConsumer, renderable.bolt, renderable.coreColor, 1.35F, now);
             }
 
-            provider.draw(ClientPipelines.WORLD_PARTICLES_LINES);
+            provider.endBatch(ClientPipelines.WORLD_PARTICLES_LINES);
          }
       } else {
          reset();
@@ -133,19 +133,19 @@ public final class LightningTargetEspRenderer {
    }
 
    private static LightningTargetEspRenderer.Bolt spawnBolt(TargetEspRenderContext context) {
-      double width = (double)context.target().getWidth();
-      double height = (double)context.target().getHeight();
+      double width = (double)context.target().getBbWidth();
+      double height = (double)context.target().getBbHeight();
       double surfaceRadius = width * 0.5 + 0.05;
       double angle = RANDOM.nextDouble() * Math.PI * 2.0;
       double y = height * (0.12 + RANDOM.nextDouble() * 0.76);
-      Vec3d start = new Vec3d(Math.cos(angle) * surfaceRadius, y, Math.sin(angle) * surfaceRadius);
+      Vec3 start = new Vec3(Math.cos(angle) * surfaceRadius, y, Math.sin(angle) * surfaceRadius);
       double length = 0.32 + RANDOM.nextDouble() * 0.38;
       double direction = RANDOM.nextBoolean() ? 1.0 : -1.0;
-      Vec3d tangent = new Vec3d(-Math.sin(angle) * direction, 0.0, Math.cos(angle) * direction);
-      Vec3d radial = new Vec3d(Math.cos(angle), 0.0, Math.sin(angle));
+      Vec3 tangent = new Vec3(-Math.sin(angle) * direction, 0.0, Math.cos(angle) * direction);
+      Vec3 radial = new Vec3(Math.cos(angle), 0.0, Math.sin(angle));
       double radialLean = (RANDOM.nextDouble() - 0.5) * 0.22;
       double verticalLean = (RANDOM.nextDouble() - 0.5) * 0.055;
-      Vec3d end = start.add(tangent.multiply(length)).add(radial.multiply(length * radialLean)).add(0.0, verticalLean, 0.0);
+      Vec3 end = start.add(tangent.scale(length)).add(radial.scale(length * radialLean)).add(0.0, verticalLean, 0.0);
       LightningTargetEspRenderer.Bolt bolt = new LightningTargetEspRenderer.Bolt();
       bolt.points = generateLightningPath(start, end, 4, length * 0.24);
       bolt.spawnTimeMs = context.frameTimeMs();
@@ -159,62 +159,62 @@ public final class LightningTargetEspRenderer {
       return bolt;
    }
 
-   private static List<Vec3d> generateLightningPath(Vec3d start, Vec3d end, int depth, double maxOffset) {
+   private static List<Vec3> generateLightningPath(Vec3 start, Vec3 end, int depth, double maxOffset) {
       if (depth <= 0) {
-         List<Vec3d> result = new ArrayList<>(2);
+         List<Vec3> result = new ArrayList<>(2);
          result.add(start);
          result.add(end);
          return result;
       } else {
-         Vec3d dir = end.subtract(start);
-         Vec3d mid = start.add(dir.multiply(0.5));
-         Vec3d horizontalDir = new Vec3d(dir.x, 0.0, dir.z);
-         Vec3d perp = horizontalDir.lengthSquared() < 1.0E-6 ? new Vec3d(1.0, 0.0, 0.0) : new Vec3d(-horizontalDir.z, 0.0, horizontalDir.x).normalize();
+         Vec3 dir = end.subtract(start);
+         Vec3 mid = start.add(dir.scale(0.5));
+         Vec3 horizontalDir = new Vec3(dir.x, 0.0, dir.z);
+         Vec3 perp = horizontalDir.lengthSqr() < 1.0E-6 ? new Vec3(1.0, 0.0, 0.0) : new Vec3(-horizontalDir.z, 0.0, horizontalDir.x).normalize();
          double horizontalOffset = (RANDOM.nextDouble() - 0.5) * 2.0 * maxOffset;
          double verticalOffset = (RANDOM.nextDouble() - 0.5) * maxOffset * 0.22;
-         Vec3d displacedMid = mid.add(perp.multiply(horizontalOffset)).add(0.0, verticalOffset, 0.0);
-         List<Vec3d> left = generateLightningPath(start, displacedMid, depth - 1, maxOffset * 0.5);
-         List<Vec3d> right = generateLightningPath(displacedMid, end, depth - 1, maxOffset * 0.5);
+         Vec3 displacedMid = mid.add(perp.scale(horizontalOffset)).add(0.0, verticalOffset, 0.0);
+         List<Vec3> left = generateLightningPath(start, displacedMid, depth - 1, maxOffset * 0.5);
+         List<Vec3> right = generateLightningPath(displacedMid, end, depth - 1, maxOffset * 0.5);
          left.remove(left.size() - 1);
          left.addAll(right);
          return left;
       }
    }
 
-   private static void renderPath(MatrixStack stack, VertexConsumer consumer, LightningTargetEspRenderer.Bolt bolt, int color, float width, long now) {
-      Entry pose = stack.peek();
+   private static void renderPath(PoseStack stack, VertexConsumer consumer, LightningTargetEspRenderer.Bolt bolt, int color, float width, long now) {
+      Pose pose = stack.last();
 
       for (int i = 0; i < bolt.points.size() - 1; i++) {
-         Vec3d start = animatedPoint(bolt, bolt.points.get(i), i, now);
-         Vec3d end = animatedPoint(bolt, bolt.points.get(i + 1), i + 1, now);
-         consumer.vertex(pose, (float)start.x, (float)start.y, (float)start.z).color(color).lineWidth(width);
-         consumer.vertex(pose, (float)end.x, (float)end.y, (float)end.z).color(color).lineWidth(width);
+         Vec3 start = animatedPoint(bolt, bolt.points.get(i), i, now);
+         Vec3 end = animatedPoint(bolt, bolt.points.get(i + 1), i + 1, now);
+         consumer.addVertex(pose, (float)start.x, (float)start.y, (float)start.z).setColor(color).setLineWidth(width);
+         consumer.addVertex(pose, (float)end.x, (float)end.y, (float)end.z).setColor(color).setLineWidth(width);
       }
    }
 
    private static void renderGlowBlobs(
-      MatrixStack stack, VertexConsumer consumer, TargetEspRenderContext context, LightningTargetEspRenderer.Bolt bolt, int color, long now
+      PoseStack stack, VertexConsumer consumer, TargetEspRenderContext context, LightningTargetEspRenderer.Bolt bolt, int color, long now
    ) {
       float pulse = 1.0F + (float)Math.sin((double)now * 0.012 + bolt.pulsePhase) * 0.12F;
 
       for (int i = 0; i < bolt.points.size(); i++) {
-         Vec3d point = animatedPoint(bolt, bolt.points.get(i), i, now);
+         Vec3 point = animatedPoint(bolt, bolt.points.get(i), i, now);
          float pointVariation = 0.9F + 0.1F * (float)Math.sin((double)i * 1.83 + bolt.pulsePhase);
          float size = bolt.glowSize * pulse * pointVariation;
-         stack.push();
+         stack.pushPose();
          stack.translate(point.x, point.y, point.z);
-         stack.multiply(context.cameraRotation());
-         Entry pose = stack.peek();
+         stack.mulPose(context.cameraRotation());
+         Pose pose = stack.last();
          float half = size * 0.5F;
          WorldVertex.textured(consumer, pose, -half, -half, 0.0F, 0.0F, 0.0F, color);
          WorldVertex.textured(consumer, pose, half, -half, 0.0F, 1.0F, 0.0F, color);
          WorldVertex.textured(consumer, pose, half, half, 0.0F, 1.0F, 1.0F, color);
          WorldVertex.textured(consumer, pose, -half, half, 0.0F, 0.0F, 1.0F, color);
-         stack.pop();
+         stack.popPose();
       }
    }
 
-   private static Vec3d animatedPoint(LightningTargetEspRenderer.Bolt bolt, Vec3d point, int pointIndex, long now) {
+   private static Vec3 animatedPoint(LightningTargetEspRenderer.Bolt bolt, Vec3 point, int pointIndex, long now) {
       double elapsedSeconds = (double)(now - bolt.spawnTimeMs) / 1000.0;
       double flowPhase = elapsedSeconds * bolt.flowSpeed + bolt.pulsePhase + (double)pointIndex * 0.48;
       double flowingWave = Math.sin(flowPhase);
@@ -226,7 +226,7 @@ public final class LightningTargetEspRenderer {
       double x = (point.x * cos - point.z * sin) * radiusPulse;
       double z = (point.x * sin + point.z * cos) * radiusPulse;
       double crawlingWave = Math.cos(flowPhase * 0.72) * bolt.bobAmount;
-      return new Vec3d(x, point.y + crawlingWave, z);
+      return new Vec3(x, point.y + crawlingWave, z);
    }
 
    private static float smoothstep(float edge0, float edge1, float value) {
@@ -235,7 +235,7 @@ public final class LightningTargetEspRenderer {
    }
 
    private static final class Bolt {
-      private List<Vec3d> points;
+      private List<Vec3> points;
       private long spawnTimeMs;
       private long lifetimeMs;
       private double orbitSpeed;

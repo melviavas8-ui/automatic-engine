@@ -1,9 +1,9 @@
 package daamky.ua.api.module.impl.combat.aura.rotations;
 
 import java.security.SecureRandom;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.module.impl.combat.AuraModule;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.api.module.impl.combat.aura.MathAngle;
@@ -17,9 +17,9 @@ public class LegitSnapAngle extends RotateConstructor {
    }
 
    @Override
-   public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3d vec3d, Entity entity) {
+   public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3 vec3d, Entity entity) {
       if (entity != null && AuraModule.getInstance().mode.isSelected("Snap")) {
-         Vec3d aimPoint = Vector.hitbox(entity, 1.0F, 1.0F, 1.0F, 2.0F);
+         Vec3 aimPoint = Vector.hitbox(entity, 1.0F, 1.0F, 1.0F, 2.0F);
          targetAngle = MathAngle.calculateAngle(aimPoint);
       }
 
@@ -42,17 +42,17 @@ public class LegitSnapAngle extends RotateConstructor {
       float moveYaw = Math.clamp(yawDelta, -lineYaw, lineYaw);
       float movePitch = Math.clamp(pitchDelta, -linePitch, linePitch);
       Angle moveAngle = new Angle(currentAngle.getYaw(), currentAngle.getPitch());
-      moveAngle.setYaw(MathHelper.lerp(speed, currentAngle.getYaw(), currentAngle.getYaw() + moveYaw));
-      moveAngle.setPitch(MathHelper.lerp(speed, currentAngle.getPitch(), currentAngle.getPitch() + movePitch));
+      moveAngle.setYaw(Mth.lerp(speed, currentAngle.getYaw(), currentAngle.getYaw() + moveYaw));
+      moveAngle.setPitch(Mth.lerp(speed, currentAngle.getPitch(), currentAngle.getPitch() + movePitch));
       return new Angle(moveAngle.getYaw(), moveAngle.getPitch());
    }
 
    private float randomLerp(float min, float max) {
-      return MathHelper.lerp(new SecureRandom().nextFloat(), min, max);
+      return Mth.lerp(new SecureRandom().nextFloat(), min, max);
    }
 
    @Override
-   public Vec3d randomValue() {
-      return new Vec3d(0.0, 0.0, 0.0);
+   public Vec3 randomValue() {
+      return new Vec3(0.0, 0.0, 0.0);
    }
 }

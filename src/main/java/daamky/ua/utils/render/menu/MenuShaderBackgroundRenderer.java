@@ -3,25 +3,25 @@ package daamky.ua.utils.render.menu;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.nio.ByteBuffer;
 import java.util.OptionalInt;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
 import org.lwjgl.system.MemoryStack;
 
 public final class MenuShaderBackgroundRenderer {
    private static final int UNIFORM_SIZE = 32;
-   private static final Identifier PIPELINE_ID = Identifier.of("daamky", "pipeline/menu/background");
-   private static final Identifier VERTEX_SHADER = Identifier.of("daamky", "menu/menu_background");
-   private static final Identifier FRAGMENT_SHADER = Identifier.of("daamky", "menu/menu_background");
+   private static final Identifier PIPELINE_ID = Identifier.fromNamespaceAndPath("daamky", "pipeline/menu/background");
+   private static final Identifier VERTEX_SHADER = Identifier.fromNamespaceAndPath("daamky", "menu/menu_background");
+   private static final Identifier FRAGMENT_SHADER = Identifier.fromNamespaceAndPath("daamky", "menu/menu_background");
    private static RenderPipeline pipeline;
    private static GpuBuffer uniformBuffer;
    private static boolean disabledAfterError;
@@ -33,15 +33,15 @@ public final class MenuShaderBackgroundRenderer {
       return disabledAfterError;
    }
 
-   public static void render(Framebuffer target, int color, float intensity) {
-      if (!disabledAfterError && target != null && target.getColorAttachmentView() != null) {
-         if (target.textureWidth > 0 && target.textureHeight > 0) {
+   public static void render(RenderTarget target, int color, float intensity) {
+      if (!disabledAfterError && target != null && target.getColorTextureView() != null) {
+         if (target.width > 0 && target.height > 0) {
             init();
             if (pipeline != null && uniformBuffer != null) {
                try {
                   CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
-                  writeUniforms(encoder, target.textureWidth, target.textureHeight, color, intensity);
-                  RenderPass pass = encoder.createRenderPass(() -> "daamky:menu_background", target.getColorAttachmentView(), OptionalInt.empty());
+                  writeUniforms(encoder, target.width, target.height, color, intensity);
+                  RenderPass pass = encoder.createRenderPass(() -> "daamky:menu_background", target.getColorTextureView(), OptionalInt.empty());
 
                   try {
                      pass.setPipeline(pipeline);
@@ -81,7 +81,7 @@ public final class MenuShaderBackgroundRenderer {
                      .withLocation(PIPELINE_ID)
                      .withVertexShader(VERTEX_SHADER)
                      .withFragmentShader(FRAGMENT_SHADER)
-                     .withVertexFormat(VertexFormats.EMPTY, DrawMode.TRIANGLES)
+                     .withVertexFormat(DefaultVertexFormat.EMPTY, Mode.TRIANGLES)
                      .withUniform("MenuData", UniformType.UNIFORM_BUFFER)
                      .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
                      .withDepthWrite(false)

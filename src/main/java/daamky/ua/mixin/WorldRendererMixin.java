@@ -1,24 +1,13 @@
 package daamky.ua.mixin;
 
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.blaze3d.framegraph.FrameGraphBuilder;
+import com.mojang.blaze3d.framegraph.FramePass;
 import com.mojang.blaze3d.opengl.GlStateManager;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.render.BufferBuilderStorage;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.DefaultFramebufferSet;
-import net.minecraft.client.render.FrameGraphBuilder;
-import net.minecraft.client.render.FramePass;
-import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.client.render.WorldRenderer;
-import net.minecraft.client.render.state.WorldRenderState;
-import net.minecraft.client.util.Handle;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.util.memory.ObjectAllocator;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.util.profiler.Profiler;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.resource.GraphicsResourceAllocator;
+import com.mojang.blaze3d.resource.ResourceHandle;
+import com.mojang.blaze3d.vertex.PoseStack;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector4f;
@@ -49,26 +38,37 @@ import daamky.ua.utils.render.ui.blur.BlurFramebuffer;
 import daamky.ua.utils.render.world.blockblur.BlockBlur3D;
 import daamky.ua.utils.render.world.blockoverlay.BlockOverlayShader3D;
 import daamky.ua.utils.render.world.starsparkle.StarSparkle3D;
+import net.minecraft.client.Camera;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.LevelTargetBundle;
+import net.minecraft.client.renderer.RenderBuffers;
+import net.minecraft.client.renderer.state.LevelRenderState;
+import net.minecraft.util.profiling.ProfilerFiller;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.LivingEntity;
 
-@Mixin({WorldRenderer.class})
+@Mixin({LevelRenderer.class})
 public class WorldRendererMixin implements IMinecraft {
    @Shadow
    @Final
-   private MinecraftClient client;
+   private Minecraft minecraft;
    @Shadow
    @Final
-   private BufferBuilderStorage bufferBuilders;
+   private RenderBuffers renderBuffers;
    @Shadow
    @Final
-   private DefaultFramebufferSet framebufferSet;
+   private LevelTargetBundle targets;
    @Shadow
-   private ClientWorld world;
+   private ClientLevel level;
 
    public WorldRendererMixin() {
    }
 
    @Inject(
-      method = {"renderSky"},
+      method = {"addSkyPass"},
       at = {@At("HEAD")},
       cancellable = true
    )
@@ -76,13 +76,13 @@ public class WorldRendererMixin implements IMinecraft {
       Ambience ambience = Ambience.getInstance();
       if (ambience != null && ambience.shouldHideVanillaSky()) {
          ci.cancel();
-      } else if (ambience != null && ambience.hasCustomSky() && this.framebufferSet != null && this.framebufferSet.mainFramebuffer != null) {
-         FramePass pass = frameGraphBuilder.createPass("daamky_ambience_sky");
-         Handle<Framebuffer> mainTarget = pass.transfer(this.framebufferSet.mainFramebuffer);
-         this.framebufferSet.mainFramebuffer = mainTarget;
-         pass.setRenderer(
+      } else if (ambience != null && ambience.hasCustomSky() && this.targets != null && this.targets.main != null) {
+         FramePass pass = frameGraphBuilder.addPass("daamky_ambience_sky");
+         ResourceHandle<RenderTarget> mainTarget = pass.readsAndWrites(this.targets.main);
+         this.targets.main = mainTarget;
+         pass.executes(
             () -> CustomSkyRenderer.renderCustomSky(
-                  (Framebuffer)mainTarget.get(),
+                  (RenderTarget)mainTarget.get(),
                   ambience.getCustomSkyColor(),
                   ambience.getCustomSkySpeed(),
                   ambience.getCustomSkyIntensity(),
@@ -92,19 +92,19 @@ public class WorldRendererMixin implements IMinecraft {
          ci.cancel();
       } else {
          NoRender noRender = NoRender.getInstance();
-         if (noRender != null && noRender.shouldHideSkyBackground() && this.world != null) {
+         if (noRender != null && noRender.shouldHideSkyBackground() && this.level != null) {
             ci.cancel();
          }
       }
    }
 
    @Inject(
-      method = {"render"},
+      method = {"renderLevel"},
       at = {@At("HEAD")}
    )
    private void onRenderHead(
-      ObjectAllocator allocator,
-      RenderTickCounter tickCounter,
+      GraphicsResourceAllocator allocator,
+      DeltaTracker tickCounter,
       boolean renderBlockOutline,
       Camera camera,
       Matrix4f positionMatrix,
@@ -116,15 +116,15 @@ public class WorldRendererMixin implements IMinecraft {
       CallbackInfo ci
    ) {
       Ambience ambience = Ambience.getInstance();
-      MatrixStack captureStack = new MatrixStack();
-      captureStack.multiplyPositionMatrix(new Matrix4f(positionMatrix));
+      PoseStack captureStack = new PoseStack();
+      captureStack.mulPose(new Matrix4f(positionMatrix));
       Render3D.lastProjMat.set(projectionMatrix);
       Render3D.lastModMat.set(positionMatrix);
-      Render3D.lastWorldSpaceMatrix.set(captureStack.peek().getPositionMatrix());
-      Render3D.setLastWorldSpaceEntry(captureStack.peek());
-      Render3D.setLastTickDelta(tickCounter.getTickProgress(true));
-      Render3D.setLastCameraPos(camera.getCameraPos());
-      Render3D.setLastCameraRotation(new Quaternionf(camera.getRotation()));
+      Render3D.lastWorldSpaceMatrix.set(captureStack.last().pose());
+      Render3D.setLastWorldSpaceEntry(captureStack.last());
+      Render3D.setLastTickDelta(tickCounter.getGameTimeDeltaPartialTick(true));
+      Render3D.setLastCameraPos(camera.position());
+      Render3D.setLastCameraRotation(new Quaternionf(camera.rotation()));
       CustomSkyRenderer.setMatrices(projectionMatrix, positionMatrix);
       BlockBlur3D.setMatrices(projectionMatrix, positionMatrix);
       BlockOverlayShader3D.setMatrices(projectionMatrix, positionMatrix);
@@ -152,16 +152,16 @@ public class WorldRendererMixin implements IMinecraft {
    }
 
    @Inject(
-      method = {"hasBlindnessOrDarkness"},
+      method = {"doesMobEffectBlockSky"},
       at = {@At("HEAD")},
       cancellable = true
    )
    private void onHasBlindnessOrDarkness(Camera camera, CallbackInfoReturnable<Boolean> cir) {
       NoRender noRender = NoRender.getInstance();
       if (noRender != null && noRender.isEnabled()) {
-         if (camera.getFocusedEntity() instanceof LivingEntity livingEntity) {
-            boolean hasBlindness = livingEntity.hasStatusEffect(StatusEffects.BLINDNESS);
-            boolean hasDarkness = livingEntity.hasStatusEffect(StatusEffects.DARKNESS);
+         if (camera.entity() instanceof LivingEntity livingEntity) {
+            boolean hasBlindness = livingEntity.hasEffect(MobEffects.BLINDNESS);
+            boolean hasDarkness = livingEntity.hasEffect(MobEffects.DARKNESS);
             if (NoRender.isActive("Bad Effects") && hasBlindness && !hasDarkness) {
                cir.setReturnValue(false);
             }
@@ -178,12 +178,12 @@ public class WorldRendererMixin implements IMinecraft {
    }
 
    @Inject(
-      method = {"render"},
+      method = {"renderLevel"},
       at = {@At("RETURN")}
    )
    private void onRenderWorld(
-      ObjectAllocator allocator,
-      RenderTickCounter tickCounter,
+      GraphicsResourceAllocator allocator,
+      DeltaTracker tickCounter,
       boolean renderBlockOutline,
       Camera camera,
       Matrix4f positionMatrix,
@@ -194,10 +194,10 @@ public class WorldRendererMixin implements IMinecraft {
       boolean renderSky,
       CallbackInfo ci
    ) {
-      if (mc.world != null && mc.player != null) {
+      if (mc.level != null && mc.player != null) {
          RenderCompatibility.primeFromCurrentContext();
-         MatrixStack stack = new MatrixStack();
-         stack.multiplyPositionMatrix(new Matrix4f(positionMatrix));
+         PoseStack stack = new PoseStack();
+         stack.mulPose(new Matrix4f(positionMatrix));
          boolean prevDepthTest = GL11.glIsEnabled(2929);
          boolean prevBlend = GL11.glIsEnabled(3042);
          boolean prevCull = GL11.glIsEnabled(2884);
@@ -212,12 +212,12 @@ public class WorldRendererMixin implements IMinecraft {
          GL11.glGetIntegerv(3088, prevScissorBox);
 
          try {
-            WorldRenderEvent event = new WorldRenderEvent(stack, tickCounter.getTickProgress(true));
+            WorldRenderEvent event = new WorldRenderEvent(stack, tickCounter.getGameTimeDeltaPartialTick(true));
             Manager.postEvent(event);
             Render3D.onWorldRender(event);
             JumpCircles jumpCircles = JumpCircles.getInstance();
             if (jumpCircles != null && jumpCircles.isEnabled()) {
-               jumpCircles.onAfterWorldRender(this.client.getFramebuffer(), projectionMatrix, positionMatrix, camera.getCameraPos());
+               jumpCircles.onAfterWorldRender(this.minecraft.getMainRenderTarget(), projectionMatrix, positionMatrix, camera.position());
             }
          } finally {
             this.restoreRenderState(
@@ -241,7 +241,7 @@ public class WorldRendererMixin implements IMinecraft {
       method = {"method_62214"},
       at = {@At(
          value = "INVOKE",
-         target = "Lnet/minecraft/client/render/SectionRenderState;renderSection(Lnet/minecraft/client/render/BlockRenderLayerGroup;Lnet/minecraft/client/gl/GpuSampler;)V",
+         target = "Lnet/minecraft/client/renderer/chunk/ChunkSectionsToRender;renderGroup(Lnet/minecraft/client/renderer/chunk/ChunkSectionLayerGroup;Lcom/mojang/blaze3d/textures/GpuSampler;)V",
          ordinal = 1,
          shift = Shift.AFTER
       )},
@@ -249,18 +249,18 @@ public class WorldRendererMixin implements IMinecraft {
    )
    private void daamky$fragEffectAfterTranslucent(
       GpuBufferSlice fog,
-      WorldRenderState levelRenderState,
-      Profiler profiler,
+      LevelRenderState levelRenderState,
+      ProfilerFiller profiler,
       Matrix4f positionMatrix,
-      Handle<Framebuffer> mainTarget,
-      Handle<Framebuffer> translucentTarget,
+      ResourceHandle<RenderTarget> mainTarget,
+      ResourceHandle<RenderTarget> translucentTarget,
       boolean renderBlockOutline,
-      Handle<Framebuffer> itemEntityTarget,
-      Handle<Framebuffer> entityOutlineTarget,
+      ResourceHandle<RenderTarget> itemEntityTarget,
+      ResourceHandle<RenderTarget> entityOutlineTarget,
       CallbackInfo ci
    ) {
-      if (mc.world != null && mc.player != null) {
-         Framebuffer target = mainTarget != null ? (Framebuffer)mainTarget.get() : this.client.getFramebuffer();
+      if (mc.level != null && mc.player != null) {
+         RenderTarget target = mainTarget != null ? (RenderTarget)mainTarget.get() : this.minecraft.getMainRenderTarget();
          FogBlur fogBlur = FogBlur.getInstance();
          if (fogBlur != null && fogBlur.isEnabled()) {
             fogBlur.onAfterTranslucent(target);

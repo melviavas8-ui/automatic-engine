@@ -1,30 +1,30 @@
 package daamky.ua.utils.render.ui.rectangle.rectdefault;
 
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import net.minecraft.client.gui.ScreenRect;
-import net.minecraft.client.gui.render.state.SimpleGuiElementRenderState;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.texture.TextureSetup;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.gui.render.TextureSetup;
+import net.minecraft.client.gui.render.state.GuiElementRenderState;
 import org.joml.Matrix3x2f;
 
-final class DefaultRectangleRenderState implements SimpleGuiElementRenderState {
+final class DefaultRectangleRenderState implements GuiElementRenderState {
    private final BuiltRectangle rectangle;
    private final Matrix3x2f pose;
-   private final ScreenRect scissorArea;
-   private final ScreenRect bounds;
+   private final ScreenRectangle scissorArea;
+   private final ScreenRectangle bounds;
 
-   DefaultRectangleRenderState(Matrix3x2f pose, BuiltRectangle rectangle, ScreenRect scissorArea) {
+   DefaultRectangleRenderState(Matrix3x2f pose, BuiltRectangle rectangle, ScreenRectangle scissorArea) {
       this.rectangle = rectangle;
       this.pose = pose;
       this.scissorArea = scissorArea;
-      ScreenRect transformedBounds = new ScreenRect(
+      ScreenRectangle transformedBounds = new ScreenRectangle(
             Math.round(rectangle.x()), Math.round(rectangle.y()), Math.round(rectangle.width()), Math.round(rectangle.height())
          )
-         .transformEachVertex(this.pose);
+         .transformMaxBounds(this.pose);
       this.bounds = scissorArea == null ? transformedBounds : scissorArea.intersection(transformedBounds);
    }
 
-   public void setupVertices(VertexConsumer vertices) {
+   public void buildVertices(VertexConsumer vertices) {
       if (DefaultRectangleRenderer.getInstance().reserve(this.rectangle)) {
          float x0 = this.rectangle.x();
          float y0 = this.rectangle.y();
@@ -38,7 +38,7 @@ final class DefaultRectangleRenderState implements SimpleGuiElementRenderState {
    }
 
    private void vertex(VertexConsumer consumer, float x, float y) {
-      consumer.vertex(this.pose, x, y);
+      consumer.addVertexWith2DPose(this.pose, x, y);
    }
 
    public RenderPipeline pipeline() {
@@ -46,14 +46,14 @@ final class DefaultRectangleRenderState implements SimpleGuiElementRenderState {
    }
 
    public TextureSetup textureSetup() {
-      return TextureSetup.empty();
+      return TextureSetup.noTexture();
    }
 
-   public ScreenRect scissorArea() {
+   public ScreenRectangle scissorArea() {
       return this.scissorArea;
    }
 
-   public ScreenRect bounds() {
+   public ScreenRectangle bounds() {
       return this.bounds;
    }
 }

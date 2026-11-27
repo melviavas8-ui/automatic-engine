@@ -1,10 +1,10 @@
 package daamky.ua.utils.math;
 
 import java.util.concurrent.ThreadLocalRandom;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.settings.bind.KeyBind;
 import daamky.ua.utils.render.animation.modernfx.Decelerate;
 import daamky.ua.utils.render.animation.modernfx.Direction;
@@ -60,9 +60,9 @@ public final class MathUtils {
    }
 
    public static double computeGcd() {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (client != null && client.options != null) {
-         double factor = (Double)client.options.getMouseSensitivity().getValue() * 0.6 + 0.2;
+         double factor = (Double)client.options.sensitivity().get() * 0.6 + 0.2;
          return factor * factor * factor * 1.2;
       } else {
          return 0.0;
@@ -107,27 +107,27 @@ public final class MathUtils {
    }
 
    public static float interpolate(float prev, float to) {
-      return MathHelper.lerp(tickDelta(), prev, to);
+      return Mth.lerp(tickDelta(), prev, to);
    }
 
    public static double interpolate(double prev, double to) {
-      return MathHelper.lerp((double)tickDelta(), prev, to);
+      return Mth.lerp((double)tickDelta(), prev, to);
    }
 
-   public static Vec3d interpolate(Vec3d previous, Vec3d current) {
+   public static Vec3 interpolate(Vec3 previous, Vec3 current) {
       return previous != null && current != null
-         ? new Vec3d(interpolate(previous.x, current.x), interpolate(previous.y, current.y), interpolate(previous.z, current.z))
-         : Vec3d.ZERO;
+         ? new Vec3(interpolate(previous.x, current.x), interpolate(previous.y, current.y), interpolate(previous.z, current.z))
+         : Vec3.ZERO;
    }
 
-   public static Vec3d interpolate(Entity entity) {
+   public static Vec3 interpolate(Entity entity) {
       return entity == null
-         ? Vec3d.ZERO
-         : new Vec3d(interpolate(entity.lastX, entity.getX()), interpolate(entity.lastY, entity.getY()), interpolate(entity.lastZ, entity.getZ()));
+         ? Vec3.ZERO
+         : new Vec3(interpolate(entity.xo, entity.getX()), interpolate(entity.yo, entity.getY()), interpolate(entity.zo, entity.getZ()));
    }
 
    private static float tickDelta() {
-      MinecraftClient client = MinecraftClient.getInstance();
-      return client != null && client.getRenderTickCounter() != null ? client.getRenderTickCounter().getTickProgress(false) : 1.0F;
+      Minecraft client = Minecraft.getInstance();
+      return client != null && client.getDeltaTracker() != null ? client.getDeltaTracker().getGameTimeDeltaPartialTick(false) : 1.0F;
    }
 }

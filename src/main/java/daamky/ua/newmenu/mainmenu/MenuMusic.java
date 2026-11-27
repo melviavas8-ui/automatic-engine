@@ -5,7 +5,7 @@ import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.openal.AL10;
 import org.lwjgl.stb.STBVorbis;
@@ -56,8 +56,8 @@ public final class MenuMusic {
             hooked = true;
             ClientTickEvents.END_CLIENT_TICK.register((ClientTickEvents.EndTick) MenuMusic::onClientTick);
         }
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client != null && client.world == null && !playing) tryOpen();
+        Minecraft client = Minecraft.getInstance();
+        if (client != null && client.level == null && !playing) tryOpen();
     }
 
     /** Fades the music out and stops it. */
@@ -73,9 +73,9 @@ public final class MenuMusic {
         }
     }
 
-    private static void onClientTick(MinecraftClient client) {
+    private static void onClientTick(Minecraft client) {
         if (!wanted && !playing) return;
-        if (client.world != null || client.player != null) {
+        if (client.level != null || client.player != null) {
             // a game was joined: the menu is gone
             wanted = false;
             beginStop();

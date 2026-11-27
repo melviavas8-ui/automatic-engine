@@ -5,10 +5,10 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.handler.proxy.Socks4ProxyHandler;
 import io.netty.handler.proxy.Socks5ProxyHandler;
 import java.net.InetSocketAddress;
-import net.minecraft.network.ClientConnection;
-import net.minecraft.network.NetworkSide;
-import net.minecraft.network.handler.PacketSizeLogger;
-import net.minecraft.network.packet.Packet;
+import net.minecraft.network.BandwidthDebugMonitor;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.PacketFlow;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -18,13 +18,13 @@ import daamky.ua.common.proxy.Proxy;
 import daamky.ua.common.proxy.ProxyServer;
 import daamky.ua.manager.Manager;
 
-@Mixin({ClientConnection.class})
+@Mixin({Connection.class})
 public abstract class ConnectionMixin {
    public ConnectionMixin() {
    }
 
    @Inject(
-      method = {"sendImmediately"},
+      method = {"sendPacket"},
       at = {@At("HEAD")},
       cancellable = true
    )
@@ -36,14 +36,14 @@ public abstract class ConnectionMixin {
    }
 
    @Inject(
-      method = {"addHandlers"},
+      method = {"configureSerialization"},
       at = {@At("RETURN")}
    )
    private static void daamky$addProxyHandler(
-      ChannelPipeline pipeline, NetworkSide flow, boolean local, PacketSizeLogger bandwidthDebugMonitor, CallbackInfo ci
+      ChannelPipeline pipeline, PacketFlow flow, boolean local, BandwidthDebugMonitor bandwidthDebugMonitor, CallbackInfo ci
    ) {
       Proxy proxy = ProxyServer.proxy;
-      if (!local && flow == NetworkSide.CLIENTBOUND && ProxyServer.proxyEnabled && proxy != null && proxy.hasAddress()) {
+      if (!local && flow == PacketFlow.CLIENTBOUND && ProxyServer.proxyEnabled && proxy != null && proxy.hasAddress()) {
          if (pipeline.get("daamky_proxy") == null) {
             InetSocketAddress address = new InetSocketAddress(proxy.getIp(), proxy.getPort());
             if (proxy.type == Proxy.ProxyType.SOCKS4 && proxy.password.isEmpty()) {

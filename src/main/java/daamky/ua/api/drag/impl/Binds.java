@@ -2,8 +2,8 @@ package daamky.ua.api.drag.impl;
 
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import daamky.ua.api.drag.core.ElementScreen;
 import daamky.ua.api.module.ModuleManager;
 import daamky.ua.api.module.impl.misc.ServerHelper;
@@ -23,7 +23,7 @@ public final class Binds extends HudPanel {
    private static final float CARD_GAP = 3.0F;
    private static final float ITEM_SIZE = 8.0F;
    private static final ItemStack[] PREVIEW_STACKS = new ItemStack[]{
-      Items.ENDER_EYE.getDefaultStack(), Items.SUGAR.getDefaultStack(), Items.DRIED_KELP.getDefaultStack()
+      Items.ENDER_EYE.getDefaultInstance(), Items.SUGAR.getDefaultInstance(), Items.DRIED_KELP.getDefaultInstance()
    };
    private static final String[] PREVIEW_KEYS = new String[]{"A", "B", "C"};
    private final SmoothAnimation panelAnimation = new SmoothAnimation();

@@ -1,18 +1,5 @@
 package daamky.ua.api.module.impl.combat;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.decoration.EndCrystalEntity;
-import net.minecraft.item.Items;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.TickEvent;
 import daamky.ua.api.module.Module;
@@ -20,6 +7,19 @@ import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.settings.impl.BooleanSetting;
 import daamky.ua.api.settings.impl.NumberSetting;
 import daamky.ua.utils.inventory.lookup.InventoryUtils;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
 
 public class AutoCrystal extends Module {
    private final BooleanSetting autoAddCrystal = this.register(new BooleanSetting("Auto Place", "Automatically places end crystals.", true));
@@ -43,8 +43,8 @@ public class AutoCrystal extends Module {
 
    @SubscribeEvent
    private void onPreTick(TickEvent.Pre event) {
-      MinecraftClient client = event.getClient();
-      if (client.player != null && client.world != null && client.interactionManager != null) {
+      Minecraft client = event.getClient();
+      if (client.player != null && client.level != null && client.gameMode != null) {
          boolean restoring = this.tickRestoreInventory() | this.tickRestoreSlot(client);
          if (!restoring && this.autoAddCrystal.getValue()) {
             this.addCrystal(client);
@@ -61,10 +61,10 @@ public class AutoCrystal extends Module {
       this.resetCooldowns();
    }
 
-   private void addCrystal(MinecraftClient client) {
-      if (client.crosshairTarget instanceof BlockHitResult obsidianTarget) {
+   private void addCrystal(Minecraft client) {
+      if (client.hitResult instanceof BlockHitResult obsidianTarget) {
          BlockPos var8 = obsidianTarget.getBlockPos();
-         BlockState state = client.world.getBlockState(var8);
+         BlockState state = client.level.getBlockState(var8);
          if (state.getBlock() != Blocks.OBSIDIAN && state.getBlock() != Blocks.BEDROCK) {
             this.cancelPendingInventorySwap();
          } else if ((double)this.addCrystalCooldown < this.addCooldown.getValue()) {
@@ -86,9 +86,9 @@ public class AutoCrystal extends Module {
                   this.previousCrystalSlot = selectedSlot;
                   InventoryUtils.syncSelectedHotbarSlot(crystalSlot);
                } else {
-                  ActionResult result = client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, obsidianTarget);
-                  if (result.isAccepted()) {
-                     client.player.swingHand(Hand.MAIN_HAND);
+                  InteractionResult result = client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND, obsidianTarget);
+                  if (result.consumesAction()) {
+                     client.player.swing(InteractionHand.MAIN_HAND);
                      this.scheduleRestoreSlot();
                      this.scheduleRestoreInventory();
                   }
@@ -102,36 +102,36 @@ public class AutoCrystal extends Module {
       }
    }
 
-   private void attackCrystal(MinecraftClient client) {
+   private void attackCrystal(Minecraft client) {
       if ((double)this.attackCrystalCooldown < this.attackCooldown.getValue()) {
          this.attackCrystalCooldown++;
       } else {
-         EndCrystalEntity crystal = this.findCrystalInHitbox(client);
+         EndCrystal crystal = this.findCrystalInHitbox(client);
          if (crystal != null) {
-            client.interactionManager.attackEntity(client.player, crystal);
-            client.player.swingHand(Hand.MAIN_HAND);
+            client.gameMode.attack(client.player, crystal);
+            client.player.swing(InteractionHand.MAIN_HAND);
             this.attackCrystalCooldown = 0;
          }
       }
    }
 
-   private EndCrystalEntity findCrystalInHitbox(MinecraftClient client) {
+   private EndCrystal findCrystalInHitbox(Minecraft client) {
       double range = this.attackRange.getValue();
       double rangeSq = range * range;
-      if (client.crosshairTarget instanceof EntityHitResult hit) {
-         if (!(hit.getEntity() instanceof EndCrystalEntity crystal) || !crystal.isAlive()) {
+      if (client.hitResult instanceof EntityHitResult hit) {
+         if (!(hit.getEntity() instanceof EndCrystal crystal) || !crystal.isAlive()) {
             return null;
          }
 
-         return client.player.squaredDistanceTo(crystal) > rangeSq ? null : crystal;
+         return client.player.distanceToSqr(crystal) > rangeSq ? null : crystal;
       } else {
          return null;
       }
    }
 
-   private boolean hasCrystalOn(MinecraftClient client, BlockPos basePos) {
-      BlockPos crystalPos = basePos.up();
-      Box searchBox = new Box(
+   private boolean hasCrystalOn(Minecraft client, BlockPos basePos) {
+      BlockPos crystalPos = basePos.above();
+      AABB searchBox = new AABB(
             (double)crystalPos.getX(),
             (double)crystalPos.getY(),
             (double)crystalPos.getZ(),
@@ -139,9 +139,9 @@ public class AutoCrystal extends Module {
             (double)crystalPos.getY() + 2.0,
             (double)crystalPos.getZ() + 1.0
          )
-         .expand(0.1);
+         .inflate(0.1);
 
-      for (Entity entity : client.world.getOtherEntities(client.player, searchBox, entityx -> entityx instanceof EndCrystalEntity)) {
+      for (Entity entity : client.level.getEntities(client.player, searchBox, entityx -> entityx instanceof EndCrystal)) {
          if (entity.isAlive()) {
             return true;
          }
@@ -171,7 +171,7 @@ public class AutoCrystal extends Module {
       }
    }
 
-   private boolean tickRestoreSlot(MinecraftClient client) {
+   private boolean tickRestoreSlot(Minecraft client) {
       if (this.restoreSlot == -1) {
          return false;
       } else if (this.restoreDelay > 0) {
@@ -188,13 +188,13 @@ public class AutoCrystal extends Module {
       }
    }
 
-   private void swapCrystalFromInventory(MinecraftClient client, int inventorySlot) {
+   private void swapCrystalFromInventory(Minecraft client, int inventorySlot) {
       if (this.pendingInventorySlot == -1 && this.restoreInventorySlot == -1) {
          int selectedSlot = client.player.getInventory().getSelectedSlot();
          int wrappedSlot = InventoryUtils.wrapSlot(inventorySlot);
          this.pendingInventorySlot = wrappedSlot;
          this.pendingHotbarSlot = selectedSlot;
-         InventoryUtils.click(wrappedSlot, selectedSlot, SlotActionType.SWAP);
+         InventoryUtils.click(wrappedSlot, selectedSlot, ClickType.SWAP);
       }
    }
 
@@ -229,7 +229,7 @@ public class AutoCrystal extends Module {
          int hotbarSlot = this.restoreHotbarSlot;
          this.restoreInventorySlot = -1;
          this.restoreHotbarSlot = -1;
-         InventoryUtils.click(inventorySlot, hotbarSlot, SlotActionType.SWAP);
+         InventoryUtils.click(inventorySlot, hotbarSlot, ClickType.SWAP);
          return true;
       }
    }

@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
-import net.minecraft.client.gui.Click;
+import net.minecraft.client.input.MouseButtonEvent;
 import org.lwjgl.glfw.GLFW;
 import daamky.ua.api.module.impl.visual.Hud;
 import daamky.ua.utils.render.ScissorUtil;
@@ -51,7 +51,7 @@ public final class MediaPlayer extends HudPanel {
    }
 
    @Override
-   public boolean mouseClicked(Click event, boolean doubled) {
+   public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
       if (event != null && event.button() == 0 && this.drag.visible() && this.session != null) {
          float x = this.drag.x();
          float y = this.drag.y();
@@ -241,7 +241,7 @@ public final class MediaPlayer extends HudPanel {
       if (this.mc.getWindow() == null) {
          return false;
       } else {
-         long handle = this.mc.getWindow().getHandle();
+         long handle = this.mc.getWindow().handle();
          if (handle == 0L) {
             return false;
          } else {
@@ -343,7 +343,7 @@ public final class MediaPlayer extends HudPanel {
       }
    }
 
-   private boolean hit(Click event, float centerX, float centerY, float half) {
+   private boolean hit(MouseButtonEvent event, float centerX, float centerY, float half) {
       return event.x() >= (double)(centerX - half)
          && event.x() <= (double)(centerX + half)
          && event.y() >= (double)(centerY - half)

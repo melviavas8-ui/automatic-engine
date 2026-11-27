@@ -1,11 +1,11 @@
 package daamky.ua.utils.render.ui.arc;
 
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
 
 public record BuiltArcOutline(
    float x, float y, float size, float arcThickness, float degree, float rotation, float outlineThickness, int fillColor, int outlineColor
 ) {
-   public void render(DrawContext graphics) {
+   public void render(GuiGraphics graphics) {
       ArcOutlineRenderer.getInstance().draw(graphics, this);
    }
 

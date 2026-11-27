@@ -3,14 +3,13 @@ package daamky.gui;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import daamky.ua.api.config.ConfigManager;
-import net.minecraft.client.gui.screen.Screen;
-
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import net.minecraft.client.gui.screens.Screen;
 
 /**
  * Selected ClickGUI style. Like the client theme it lives in its own file (system/gui.daamky),

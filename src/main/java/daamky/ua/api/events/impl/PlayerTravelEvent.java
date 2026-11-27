@@ -1,22 +1,22 @@
 package daamky.ua.api.events.impl;
 
-import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.events.CancellableEvent;
+import net.minecraft.world.phys.Vec3;
 
 public final class PlayerTravelEvent extends CancellableEvent {
-   private Vec3d motion;
+   private Vec3 motion;
    private final boolean pre;
 
-   public PlayerTravelEvent(Vec3d motion, boolean pre) {
+   public PlayerTravelEvent(Vec3 motion, boolean pre) {
       this.motion = motion;
       this.pre = pre;
    }
 
-   public Vec3d getMotion() {
+   public Vec3 getMotion() {
       return this.motion;
    }
 
-   public void setMotion(Vec3d motion) {
+   public void setMotion(Vec3 motion) {
       this.motion = motion;
    }
 

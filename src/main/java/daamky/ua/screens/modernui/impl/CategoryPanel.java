@@ -1,7 +1,7 @@
 package daamky.ua.screens.modernui.impl;
 
 import java.awt.Color;
-import net.minecraft.client.gui.Click;
+import net.minecraft.client.input.MouseButtonEvent;
 import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.module.impl.misc.ClientSounds;
 import daamky.ua.api.theme.ClientTheme;
@@ -38,7 +38,7 @@ public final class CategoryPanel {
       }
    }
 
-   public boolean mouseClicked(Click event, float x, float y) {
+   public boolean mouseClicked(MouseButtonEvent event, float x, float y) {
       if (event.button() != 0) {
          return false;
       } else {

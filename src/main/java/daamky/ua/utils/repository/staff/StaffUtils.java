@@ -5,8 +5,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 import daamky.ua.utils.repository.RepositoryStorage;
 
 public final class StaffUtils {
@@ -46,7 +46,7 @@ public final class StaffUtils {
    }
 
    public static boolean isStaff(Entity entity) {
-      if (entity instanceof PlayerEntity player && isStaff(player.getName().getString())) {
+      if (entity instanceof Player player && isStaff(player.getName().getString())) {
          return true;
       }
 

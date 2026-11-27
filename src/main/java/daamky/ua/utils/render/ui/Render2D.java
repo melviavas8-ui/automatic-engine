@@ -4,11 +4,11 @@ import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.List;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.core.Holder;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
 import org.joml.Matrix4f;
 import daamky.ua.utils.render.ScissorUtil;
 import daamky.ua.utils.render.color.ColorUtil;
@@ -59,16 +59,16 @@ public final class Render2D {
    }
 
    public static int getFixedScaledWidth() {
-      MinecraftClient minecraft = MinecraftClient.getInstance();
+      Minecraft minecraft = Minecraft.getInstance();
       return minecraft != null && minecraft.getWindow() != null
-         ? Math.max(1, (int)Math.ceil((double)((float)minecraft.getWindow().getFramebufferWidth() / Render2DCoordinateSpace.designGuiScale())))
+         ? Math.max(1, (int)Math.ceil((double)((float)minecraft.getWindow().getWidth() / Render2DCoordinateSpace.designGuiScale())))
          : 1;
    }
 
    public static int getFixedScaledHeight() {
-      MinecraftClient minecraft = MinecraftClient.getInstance();
+      Minecraft minecraft = Minecraft.getInstance();
       return minecraft != null && minecraft.getWindow() != null
-         ? Math.max(1, (int)Math.ceil((double)((float)minecraft.getWindow().getFramebufferHeight() / Render2DCoordinateSpace.designGuiScale())))
+         ? Math.max(1, (int)Math.ceil((double)((float)minecraft.getWindow().getHeight() / Render2DCoordinateSpace.designGuiScale())))
          : 1;
    }
 
@@ -130,7 +130,7 @@ public final class Render2D {
       }
    }
 
-   public static void beginFrame(DrawContext graphics) {
+   public static void beginFrame(GuiGraphics graphics) {
       blur().beginFrame(graphics);
       glass().beginFrame(graphics);
       glassOutline().beginFrame(graphics);
@@ -199,7 +199,7 @@ public final class Render2D {
          .enqueue(new BuiltBlur(x, y, width, height, radius, smoothness, blurRadius).withColors(colorTopLeft, colorTopRight, colorBottomRight, colorBottomLeft));
    }
 
-   public static void blur(DrawContext graphics, float x, float y, float width, float height, float radius, float blurRadius) {
+   public static void blur(GuiGraphics graphics, float x, float y, float width, float height, float radius, float blurRadius) {
       beginFrame(graphics);
       blur(x, y, width, height, radius, blurRadius);
       flush();
@@ -580,7 +580,7 @@ public final class Render2D {
          );
    }
 
-   public static void rect(DrawContext graphics, float x, float y, float width, float height, float radius, int color) {
+   public static void rect(GuiGraphics graphics, float x, float y, float width, float height, float radius, int color) {
       beginFrame(graphics);
       rect(x, y, width, height, radius, color);
       flush();
@@ -900,7 +900,7 @@ public final class Render2D {
          );
    }
 
-   public static void outline(DrawContext graphics, float x, float y, float width, float height, float radius, float thickness, int color) {
+   public static void outline(GuiGraphics graphics, float x, float y, float width, float height, float radius, float thickness, int color) {
       beginFrame(graphics);
       outline(x, y, width, height, radius, thickness, color);
       flush();
@@ -1333,13 +1333,13 @@ public final class Render2D {
       }
    }
 
-   public static void text(DrawContext graphics, String nameFont, String text, float x, float y, float size, int color) {
+   public static void text(GuiGraphics graphics, String nameFont, String text, float x, float y, float size, int color) {
       beginFrame(graphics);
       text(nameFont, text, x, y, size, color);
       flush();
    }
 
-   public static void text(DrawContext graphics, FontType font, String text, float x, float y, float size, int color) {
+   public static void text(GuiGraphics graphics, FontType font, String text, float x, float y, float size, int color) {
       beginFrame(graphics);
       text(font, text, x, y, size, color);
       flush();
@@ -1399,22 +1399,22 @@ public final class Render2D {
       image().enqueue(new BuiltImage(texture, x, y, size, radius).withColors(colors).withRotation(rotationDegrees, originX, originY));
    }
 
-   public static void effectIcon(RegistryEntry<StatusEffect> effect, float x, float y, float size) {
+   public static void effectIcon(Holder<MobEffect> effect, float x, float y, float size) {
       effectIcon().enqueue(new BuiltEffectIcon(effect, x, y, size));
    }
 
-   public static void effectIcon(RegistryEntry<StatusEffect> effect, float x, float y, float size, int color) {
+   public static void effectIcon(Holder<MobEffect> effect, float x, float y, float size, int color) {
       effectIcon().enqueue(new BuiltEffectIcon(effect, x, y, size, color));
    }
 
-   public static void effectIcon(StatusEffectInstance effect, float x, float y, float size) {
-      if (effect != null && effect.shouldShowIcon()) {
+   public static void effectIcon(MobEffectInstance effect, float x, float y, float size) {
+      if (effect != null && effect.showIcon()) {
          effectIcon().enqueue(new BuiltEffectIcon(effect, x, y, size));
       }
    }
 
-   public static void effectIcon(StatusEffectInstance effect, float x, float y, float size, int color) {
-      if (effect != null && effect.shouldShowIcon()) {
+   public static void effectIcon(MobEffectInstance effect, float x, float y, float size, int color) {
+      if (effect != null && effect.showIcon()) {
          effectIcon().enqueue(new BuiltEffectIcon(effect, x, y, size, color));
       }
    }
@@ -1458,7 +1458,7 @@ public final class Render2D {
       }
    }
 
-   public static void pushScissor(DrawContext graphics, float x, float y, float width, float height) {
+   public static void pushScissor(GuiGraphics graphics, float x, float y, float width, float height) {
       if (graphics != null) {
          float scissorX = x;
          float scissorY = y;
@@ -1485,7 +1485,7 @@ public final class Render2D {
       }
    }
 
-   public static void popScissor(DrawContext graphics) {
+   public static void popScissor(GuiGraphics graphics) {
       if (graphics != null) {
          graphics.disableScissor();
          ScissorUtil.pop();

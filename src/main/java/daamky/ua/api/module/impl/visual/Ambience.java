@@ -1,14 +1,14 @@
 package daamky.ua.api.module.impl.visual;
 
 import java.awt.Color;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.client.world.ClientWorld.Properties;
-import net.minecraft.network.packet.s2c.play.GameStateChangeS2CPacket;
-import net.minecraft.network.packet.s2c.play.WorldTimeUpdateS2CPacket;
-import net.minecraft.network.packet.s2c.play.GameStateChangeS2CPacket.Reason;
-import net.minecraft.world.biome.Biome.Precipitation;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.multiplayer.ClientLevel.ClientLevelData;
+import net.minecraft.network.protocol.game.ClientboundGameEventPacket;
+import net.minecraft.network.protocol.game.ClientboundGameEventPacket.Type;
+import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
+import net.minecraft.world.level.biome.Biome.Precipitation;
 import org.joml.Matrix4fc;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.PacketEvent;
 import daamky.ua.api.module.Module;
@@ -68,7 +68,7 @@ public class Ambience extends Module {
    private boolean cachedServerRaining;
    private float cachedServerRainLevel;
    private float cachedServerThunderLevel;
-   private ClientWorld weatherSnapshotLevel;
+   private ClientLevel weatherSnapshotLevel;
 
    public Ambience() {
       super("Ambience", "Changes time, weather and world atmosphere.", ModuleCategory.VISUAL);
@@ -133,7 +133,7 @@ public class Ambience extends Module {
       return this.hasBlackHoleSky() && this.blackHoleOpacity.getFloat() >= 0.999F;
    }
 
-   public void renderBlackHole(Framebuffer target, Matrix4fc projectionMatrix, Matrix4fc viewMatrix) {
+   public void renderBlackHole(RenderTarget target, Matrix4fc projectionMatrix, Matrix4fc viewMatrix) {
       if (this.hasBlackHoleSky() && target != null && !(this.blackHoleOpacity.getFloat() <= 0.0F)) {
          BlackHoleSkyRenderer.render(target, projectionMatrix, viewMatrix, this.buildBlackHoleSettings());
       }
@@ -192,7 +192,7 @@ public class Ambience extends Module {
       }
    }
 
-   public void syncWeather(ClientWorld level, Properties levelData) {
+   public void syncWeather(ClientLevel level, ClientLevelData levelData) {
       if (level != null && levelData != null) {
          if (this.weatherSnapshotLevel != level) {
             this.clearWeatherSnapshot();
@@ -200,16 +200,16 @@ public class Ambience extends Module {
 
          if (!this.weatherOverrideActive) {
             this.cachedServerRaining = levelData.isRaining();
-            this.cachedServerRainLevel = level.getRainGradient(1.0F);
-            this.cachedServerThunderLevel = level.getThunderGradient(1.0F);
+            this.cachedServerRainLevel = level.getRainLevel(1.0F);
+            this.cachedServerThunderLevel = level.getThunderLevel(1.0F);
             this.weatherOverrideActive = true;
             this.weatherSnapshotLevel = level;
          }
 
          boolean raining = this.shouldForcePrecipitation();
          levelData.setRaining(raining);
-         level.setRainGradient(raining ? 1.0F : 0.0F);
-         level.setThunderGradient(this.weather.is("Thunder") ? 1.0F : 0.0F);
+         level.setRainLevel(raining ? 1.0F : 0.0F);
+         level.setThunderLevel(this.weather.is("Thunder") ? 1.0F : 0.0F);
       } else {
          this.clearWeatherSnapshot();
       }
@@ -233,9 +233,9 @@ public class Ambience extends Module {
    protected void onDisable() {
       BlackHoleSkyRenderer.clear();
       HeavenlyWrathWorldRenderer.clear();
-      ClientWorld var2 = mc.world;
-      if (var2 instanceof ClientWorld) {
-         this.restoreWeather(var2, var2.getLevelProperties());
+      ClientLevel var2 = mc.level;
+      if (var2 instanceof ClientLevel) {
+         this.restoreWeather(var2, var2.getLevelData());
       } else {
          this.clearWeatherSnapshot();
       }
@@ -244,10 +244,10 @@ public class Ambience extends Module {
    @SubscribeEvent
    private void onPacket(PacketEvent event) {
       if (event.isReceive()) {
-         if (event.getPacket() instanceof WorldTimeUpdateS2CPacket && this.isEnabled()) {
+         if (event.getPacket() instanceof ClientboundSetTimePacket && this.isEnabled()) {
             event.cancel();
-         } else if (event.getPacket() instanceof GameStateChangeS2CPacket packet) {
-            Reason type = packet.getReason();
+         } else if (event.getPacket() instanceof ClientboundGameEventPacket packet) {
+            Type type = packet.getEvent();
             if (isWeatherPacket(type)) {
                this.updateCachedWeather(packet);
                if (this.isEnabled()) {
@@ -314,11 +314,11 @@ public class Ambience extends Module {
       );
    }
 
-   private void restoreWeather(ClientWorld level, Properties levelData) {
+   private void restoreWeather(ClientLevel level, ClientLevelData levelData) {
       if (this.weatherOverrideActive) {
          levelData.setRaining(this.cachedServerRaining);
-         level.setRainGradient(this.cachedServerRainLevel);
-         level.setThunderGradient(this.cachedServerThunderLevel);
+         level.setRainLevel(this.cachedServerRainLevel);
+         level.setThunderLevel(this.cachedServerThunderLevel);
          this.clearWeatherSnapshot();
       }
    }
@@ -328,29 +328,29 @@ public class Ambience extends Module {
       this.weatherSnapshotLevel = null;
    }
 
-   private void updateCachedWeather(GameStateChangeS2CPacket packet) {
-      Reason type = packet.getReason();
-      if (type == GameStateChangeS2CPacket.RAIN_STARTED) {
+   private void updateCachedWeather(ClientboundGameEventPacket packet) {
+      Type type = packet.getEvent();
+      if (type == ClientboundGameEventPacket.START_RAINING) {
          this.cachedServerRaining = true;
          this.cachedServerRainLevel = Math.max(this.cachedServerRainLevel, 1.0F);
-      } else if (type == GameStateChangeS2CPacket.RAIN_STOPPED) {
+      } else if (type == ClientboundGameEventPacket.STOP_RAINING) {
          this.cachedServerRaining = false;
          this.cachedServerRainLevel = 0.0F;
          this.cachedServerThunderLevel = 0.0F;
-      } else if (type == GameStateChangeS2CPacket.RAIN_GRADIENT_CHANGED) {
-         this.cachedServerRainLevel = Math.clamp(packet.getValue(), 0.0F, 1.0F);
+      } else if (type == ClientboundGameEventPacket.RAIN_LEVEL_CHANGE) {
+         this.cachedServerRainLevel = Math.clamp(packet.getParam(), 0.0F, 1.0F);
          this.cachedServerRaining = this.cachedServerRainLevel > 1.0E-4F;
       } else {
-         if (type == GameStateChangeS2CPacket.THUNDER_GRADIENT_CHANGED) {
-            this.cachedServerThunderLevel = Math.clamp(packet.getValue(), 0.0F, 1.0F);
+         if (type == ClientboundGameEventPacket.THUNDER_LEVEL_CHANGE) {
+            this.cachedServerThunderLevel = Math.clamp(packet.getParam(), 0.0F, 1.0F);
          }
       }
    }
 
-   private static boolean isWeatherPacket(Reason type) {
-      return type == GameStateChangeS2CPacket.RAIN_STARTED
-         || type == GameStateChangeS2CPacket.RAIN_STOPPED
-         || type == GameStateChangeS2CPacket.RAIN_GRADIENT_CHANGED
-         || type == GameStateChangeS2CPacket.THUNDER_GRADIENT_CHANGED;
+   private static boolean isWeatherPacket(Type type) {
+      return type == ClientboundGameEventPacket.START_RAINING
+         || type == ClientboundGameEventPacket.STOP_RAINING
+         || type == ClientboundGameEventPacket.RAIN_LEVEL_CHANGE
+         || type == ClientboundGameEventPacket.THUNDER_LEVEL_CHANGE;
    }
 }

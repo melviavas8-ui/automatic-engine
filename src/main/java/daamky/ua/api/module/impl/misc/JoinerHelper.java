@@ -3,22 +3,22 @@ package daamky.ua.api.module.impl.misc;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import net.minecraft.client.gui.screen.ingame.GenericContainerScreen;
-import net.minecraft.entity.Entity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
-import net.minecraft.network.packet.s2c.common.DisconnectS2CPacket;
-import net.minecraft.scoreboard.Scoreboard;
-import net.minecraft.scoreboard.ScoreboardDisplaySlot;
-import net.minecraft.scoreboard.ScoreboardEntry;
-import net.minecraft.scoreboard.ScoreboardObjective;
-import net.minecraft.scoreboard.Team;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.Hand;
+import net.minecraft.client.gui.screens.inventory.ContainerScreen;
+import net.minecraft.network.protocol.common.ClientboundDisconnectPacket;
+import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.scores.DisplaySlot;
+import net.minecraft.world.scores.Objective;
+import net.minecraft.world.scores.PlayerScoreEntry;
+import net.minecraft.world.scores.PlayerTeam;
+import net.minecraft.world.scores.Scoreboard;
 import org.lwjgl.glfw.GLFW;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.PacketEvent;
@@ -66,8 +66,8 @@ public final class JoinerHelper extends Module {
 
    @SubscribeEvent
    private void onTick(TickEvent event) {
-      if (mc.player != null && mc.interactionManager != null && mc.getNetworkHandler() != null) {
-         if (GLFW.glfwGetKey(mc.getWindow().getHandle(), 260) == 1) {
+      if (mc.player != null && mc.gameMode != null && mc.getConnection() != null) {
+         if (GLFW.glfwGetKey(mc.getWindow().handle(), 260) == 1) {
             this.setEnabled(false);
          } else if (this.isCurrentServerSupported()) {
             this.updateScreenSignature();
@@ -86,8 +86,8 @@ public final class JoinerHelper extends Module {
                if (this.serverSelection.is("SpookyTime Duels")) {
                   this.setEnabled(false);
                }
-            } else if (mc.currentScreen != null) {
-               if (mc.currentScreen instanceof GenericContainerScreen container && this.screenSettled()) {
+            } else if (mc.screen != null) {
+               if (mc.screen instanceof ContainerScreen container && this.screenSettled()) {
                   if (this.serverSelection.is("ReallyWorld")) {
                      this.handleReallyWorld(container);
                   } else if (this.serverSelection.is("SpookyTime Duels")) {
@@ -109,7 +109,7 @@ public final class JoinerHelper extends Module {
 
    @SubscribeEvent
    private void onPacket(PacketEvent event) {
-      if (event.isReceive() && event.getPacket() instanceof DisconnectS2CPacket packet) {
+      if (event.isReceive() && event.getPacket() instanceof ClientboundDisconnectPacket packet) {
          String message = clean(packet.reason() == null ? "" : packet.reason().getString());
          if (containsAny(
             message,
@@ -131,9 +131,9 @@ public final class JoinerHelper extends Module {
       }
    }
 
-   private void handleReallyWorld(GenericContainerScreen container) {
+   private void handleReallyWorld(ContainerScreen container) {
       String title = clean(container.getTitle().getString());
-      ScreenHandler menu = container.getScreenHandler();
+      AbstractContainerMenu menu = container.getMenu();
       int targetGrief = this.targetGrief();
       if (title.contains("выбор мира грифа")) {
          int currentPage = this.parseCurrentPage(title);
@@ -142,32 +142,32 @@ public final class JoinerHelper extends Module {
             if (currentPage < targetPage) {
                int nextPageSlot = this.findSlotByName(menu, "следующая страница");
                if (nextPageSlot != -1 && this.canAct(this.pageDelayMs())) {
-                  this.clickContainerSlot(menu.syncId, nextPageSlot);
+                  this.clickContainerSlot(menu.containerId, nextPageSlot);
                }
             } else {
                int previousPageSlot = this.findSlotByName(menu, "предыдущая страница");
                if (previousPageSlot != -1 && this.canAct(this.pageDelayMs())) {
-                  this.clickContainerSlot(menu.syncId, previousPageSlot);
+                  this.clickContainerSlot(menu.containerId, previousPageSlot);
                }
             }
          } else {
             int griefSlot = this.findSlotByName(menu, "гриф #" + targetGrief);
             if (griefSlot != -1 && this.canAct(this.targetDelayMs())) {
-               this.clickContainerSlot(menu.syncId, griefSlot);
+               this.clickContainerSlot(menu.containerId, griefSlot);
                this.lastJoinAttemptTime = System.currentTimeMillis();
             }
          }
       } else {
          int survivalSlot = this.findSlotByName(menu, "гриферское выживание");
          if (survivalSlot != -1 && this.canAct(this.menuDelayMs())) {
-            this.clickContainerSlot(menu.syncId, survivalSlot);
+            this.clickContainerSlot(menu.containerId, survivalSlot);
          }
       }
    }
 
-   private void handleSpookyTime(GenericContainerScreen container) {
+   private void handleSpookyTime(ContainerScreen container) {
       String title = clean(container.getTitle().getString());
-      ScreenHandler menu = container.getScreenHandler();
+      AbstractContainerMenu menu = container.getMenu();
       if (title.contains("выберите режим")) {
          int duelsModeSlot = this.findSlotByName(menu, "дуэли 1.16.5");
          if (duelsModeSlot == -1) {
@@ -183,7 +183,7 @@ public final class JoinerHelper extends Module {
          }
 
          if (duelsModeSlot != -1 && this.canAct(this.menuDelayMs())) {
-            this.clickContainerSlot(menu.syncId, duelsModeSlot);
+            this.clickContainerSlot(menu.containerId, duelsModeSlot);
          }
       } else {
          int duelServerSlot = this.findSlotByName(menu, "1duels");
@@ -196,12 +196,12 @@ public final class JoinerHelper extends Module {
          }
 
          if (duelServerSlot != -1 && this.canAct(this.targetDelayMs())) {
-            this.clickContainerSlot(menu.syncId, duelServerSlot);
+            this.clickContainerSlot(menu.containerId, duelServerSlot);
             this.lastJoinAttemptTime = System.currentTimeMillis();
          } else {
             int duelsSlot = this.findSlotByName(menu, "дуэли");
             if (duelsSlot != -1 && this.canAct(this.menuDelayMs())) {
-               this.clickContainerSlot(menu.syncId, duelsSlot);
+               this.clickContainerSlot(menu.containerId, duelsSlot);
             }
          }
       }
@@ -212,19 +212,19 @@ public final class JoinerHelper extends Module {
    }
 
    private boolean isOnSelectedReallyWorldGrief() {
-      if (mc.world == null) {
+      if (mc.level == null) {
          return false;
       } else {
          String targetName = "гриф #" + this.targetGrief();
-         Scoreboard scoreboard = mc.world.getScoreboard();
-         ScoreboardObjective objective = scoreboard.getObjectiveForSlot(ScoreboardDisplaySlot.SIDEBAR);
+         Scoreboard scoreboard = mc.level.getScoreboard();
+         Objective objective = scoreboard.getDisplayObjective(DisplaySlot.SIDEBAR);
          if (objective == null) {
             return false;
          } else if (clean(objective.getDisplayName().getString()).contains(targetName)) {
             return true;
          } else {
-            for (ScoreboardEntry entry : scoreboard.getScoreboardEntries(objective)) {
-               String row = clean(Team.decorateName(scoreboard.getScoreHolderTeam(entry.owner()), entry.name()).getString());
+            for (PlayerScoreEntry entry : scoreboard.listPlayerScores(objective)) {
+               String row = clean(PlayerTeam.formatNameForTeam(scoreboard.getPlayersTeam(entry.owner()), entry.ownerName()).getString());
                if (row.contains(targetName)) {
                   return true;
                }
@@ -236,7 +236,7 @@ public final class JoinerHelper extends Module {
    }
 
    private boolean isOnSpookyDuels() {
-      if (mc.world == null) {
+      if (mc.level == null) {
          return false;
       } else if (this.hasSpookySidebarWithDuelsMarker()) {
          return true;
@@ -246,8 +246,8 @@ public final class JoinerHelper extends Module {
    }
 
    private boolean hasSpookySidebarWithDuelsMarker() {
-      Scoreboard scoreboard = mc.world.getScoreboard();
-      ScoreboardObjective objective = scoreboard.getObjectiveForSlot(ScoreboardDisplaySlot.SIDEBAR);
+      Scoreboard scoreboard = mc.level.getScoreboard();
+      Objective objective = scoreboard.getDisplayObjective(DisplaySlot.SIDEBAR);
       if (objective == null) {
          return false;
       } else {
@@ -255,8 +255,8 @@ public final class JoinerHelper extends Module {
          if (!header.contains("spookytime.net")) {
             return false;
          } else {
-            for (ScoreboardEntry entry : scoreboard.getScoreboardEntries(objective)) {
-               String row = clean(Team.decorateName(scoreboard.getScoreHolderTeam(entry.owner()), entry.name()).getString());
+            for (PlayerScoreEntry entry : scoreboard.listPlayerScores(objective)) {
+               String row = clean(PlayerTeam.formatNameForTeam(scoreboard.getPlayersTeam(entry.owner()), entry.ownerName()).getString());
                if (row.contains("дуэл") || row.contains("duels") || row.contains("1duels")) {
                   return true;
                }
@@ -268,8 +268,8 @@ public final class JoinerHelper extends Module {
    }
 
    private boolean hasSpookySidebarLoaded() {
-      Scoreboard scoreboard = mc.world.getScoreboard();
-      ScoreboardObjective objective = scoreboard.getObjectiveForSlot(ScoreboardDisplaySlot.SIDEBAR);
+      Scoreboard scoreboard = mc.level.getScoreboard();
+      Objective objective = scoreboard.getDisplayObjective(DisplaySlot.SIDEBAR);
       if (objective == null) {
          return false;
       } else {
@@ -282,8 +282,8 @@ public final class JoinerHelper extends Module {
             }
          }
 
-         for (ScoreboardEntry entry : scoreboard.getScoreboardEntries(objective)) {
-            String row = clean(Team.decorateName(scoreboard.getScoreHolderTeam(entry.owner()), entry.name()).getString());
+         for (PlayerScoreEntry entry : scoreboard.listPlayerScores(objective)) {
+            String row = clean(PlayerTeam.formatNameForTeam(scoreboard.getPlayersTeam(entry.owner()), entry.ownerName()).getString());
             if (!row.isEmpty()) {
                nonEmptyRows++;
                if (row.contains("spooky") || row.contains("донат") || row.contains("donate") || row.contains("онлайн") || row.contains("online")) {
@@ -297,9 +297,9 @@ public final class JoinerHelper extends Module {
    }
 
    private boolean hasSpookyJoinHologram() {
-      if (mc.player != null && mc.world != null) {
-         for (Entity entity : mc.world.getEntities()) {
-            if (entity.hasCustomName() && !(mc.player.squaredDistanceTo(entity) > 4096.0)) {
+      if (mc.player != null && mc.level != null) {
+         for (Entity entity : mc.level.entitiesForRendering()) {
+            if (entity.hasCustomName() && !(mc.player.distanceToSqr(entity) > 4096.0)) {
                String name = clean(entity.getDisplayName().getString());
                if (name.contains("донат сервера") || name.contains("донат") && name.contains("сервер") || name.contains("donate server")) {
                   return true;
@@ -317,11 +317,11 @@ public final class JoinerHelper extends Module {
       int selectorSlot = this.findSelectorSlot();
       if (selectorSlot != -1) {
          if (mc.player.getInventory().getSelectedSlot() != selectorSlot) {
-            mc.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(selectorSlot));
+            mc.getConnection().send(new ServerboundSetCarriedItemPacket(selectorSlot));
             mc.player.getInventory().setSelectedSlot(selectorSlot);
          }
 
-         InventoryUtils.use(Hand.MAIN_HAND);
+         InventoryUtils.use(InteractionHand.MAIN_HAND);
          this.lastActionTime = System.currentTimeMillis();
          this.lastScreenChangeTime = this.lastActionTime;
          this.successNotified = false;
@@ -336,10 +336,10 @@ public final class JoinerHelper extends Module {
       } else if (Network.isSpookyTime()) {
          return true;
       } else {
-         String address = mc.getNetworkHandler().getServerInfo() != null && mc.getNetworkHandler().getServerInfo().address != null
-            ? clean(mc.getNetworkHandler().getServerInfo().address)
+         String address = mc.getConnection().getServerData() != null && mc.getConnection().getServerData().ip != null
+            ? clean(mc.getConnection().getServerData().ip)
             : "";
-         return address.contains("spooky") || clean(mc.getNetworkHandler().getBrand()).contains("spooky");
+         return address.contains("spooky") || clean(mc.getConnection().serverBrand()).contains("spooky");
       }
    }
 
@@ -353,8 +353,8 @@ public final class JoinerHelper extends Module {
             return compassSlot;
          } else {
             for (int i = 0; i < 9; i++) {
-               ItemStack stack = mc.player.getInventory().getStack(i);
-               String name = clean(stack.getName().getString());
+               ItemStack stack = mc.player.getInventory().getItem(i);
+               String name = clean(stack.getHoverName().getString());
                if (name.contains("компас") || name.contains("меню")) {
                   return i;
                }
@@ -368,13 +368,13 @@ public final class JoinerHelper extends Module {
    private int findPreferredCompassSlot(int... hotbarSlots) {
       for (int hotbarSlot : hotbarSlots) {
          if (hotbarSlot >= 0 && hotbarSlot <= 8) {
-            ItemStack stack = mc.player.getInventory().getStack(hotbarSlot);
+            ItemStack stack = mc.player.getInventory().getItem(hotbarSlot);
             if (!stack.isEmpty()) {
                if (stack.getItem() == Items.COMPASS) {
                   return hotbarSlot;
                }
 
-               String name = clean(stack.getName().getString());
+               String name = clean(stack.getHoverName().getString());
                if (name.contains("компас") || name.contains("меню")) {
                   return hotbarSlot;
                }
@@ -385,14 +385,14 @@ public final class JoinerHelper extends Module {
       return -1;
    }
 
-   private int findSlotByName(ScreenHandler menu, String target) {
+   private int findSlotByName(AbstractContainerMenu menu, String target) {
       String cleanTarget = clean(target);
 
       for (Slot slot : menu.slots) {
-         if (slot != null && !slot.getStack().isEmpty()) {
-            String name = clean(slot.getStack().getName().getString());
+         if (slot != null && !slot.getItem().isEmpty()) {
+            String name = clean(slot.getItem().getHoverName().getString());
             if (name.contains(cleanTarget)) {
-               return slot.id;
+               return slot.index;
             }
          }
       }
@@ -400,20 +400,20 @@ public final class JoinerHelper extends Module {
       return -1;
    }
 
-   private int findSlotByItem(ScreenHandler menu, Item item) {
+   private int findSlotByItem(AbstractContainerMenu menu, Item item) {
       for (Slot slot : menu.slots) {
-         if (slot != null && !slot.getStack().isEmpty() && slot.getStack().getItem() == item) {
-            return slot.id;
+         if (slot != null && !slot.getItem().isEmpty() && slot.getItem().getItem() == item) {
+            return slot.index;
          }
       }
 
       return -1;
    }
 
-   private int findNonEmptySlot(ScreenHandler menu, int slotId) {
+   private int findNonEmptySlot(AbstractContainerMenu menu, int slotId) {
       for (Slot slot : menu.slots) {
-         if (slot != null && slot.id == slotId && !slot.getStack().isEmpty()) {
-            return slot.id;
+         if (slot != null && slot.index == slotId && !slot.getItem().isEmpty()) {
+            return slot.index;
          }
       }
 
@@ -421,7 +421,7 @@ public final class JoinerHelper extends Module {
    }
 
    private void clickContainerSlot(int syncId, int slotId) {
-      mc.interactionManager.clickSlot(syncId, slotId, 0, SlotActionType.PICKUP, mc.player);
+      mc.gameMode.handleInventoryMouseClick(syncId, slotId, 0, ClickType.PICKUP, mc.player);
       this.lastActionTime = System.currentTimeMillis();
    }
 
@@ -444,10 +444,10 @@ public final class JoinerHelper extends Module {
 
    private void updateScreenSignature() {
       String currentSignature;
-      if (mc.currentScreen instanceof GenericContainerScreen container) {
+      if (mc.screen instanceof ContainerScreen container) {
          currentSignature = container.getClass().getName() + "|" + clean(container.getTitle().getString());
-      } else if (mc.currentScreen != null) {
-         currentSignature = mc.currentScreen.getClass().getName();
+      } else if (mc.screen != null) {
+         currentSignature = mc.screen.getClass().getName();
       } else {
          currentSignature = "";
       }

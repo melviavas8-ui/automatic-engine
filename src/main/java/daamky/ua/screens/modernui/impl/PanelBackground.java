@@ -2,10 +2,10 @@ package daamky.ua.screens.modernui.impl;
 
 import java.awt.Color;
 import java.util.List;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.input.CharInput;
-import net.minecraft.client.input.KeyInput;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.theme.ClientTheme;
@@ -25,7 +25,7 @@ public final class PanelBackground {
    }
 
    public void render(
-      DrawContext graphics,
+      GuiGraphics graphics,
       float x,
       float y,
       float panelWidth,
@@ -42,15 +42,15 @@ public final class PanelBackground {
       }
    }
 
-   public boolean mouseClicked(Click event, boolean doubled) {
+   public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
       return this.settings.mouseClicked(event, doubled);
    }
 
-   public boolean mouseReleased(Click event) {
+   public boolean mouseReleased(MouseButtonEvent event) {
       return this.settings.mouseReleased(event);
    }
 
-   public boolean mouseDragged(Click event, double dragX, double dragY) {
+   public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
       return this.settings.mouseDragged(event, dragX, dragY);
    }
 
@@ -62,11 +62,11 @@ public final class PanelBackground {
       this.settings.focusModule(module);
    }
 
-   public boolean keyPressed(KeyInput event) {
+   public boolean keyPressed(KeyEvent event) {
       return this.settings.keyPressed(event);
    }
 
-   public boolean charTyped(CharInput event) {
+   public boolean charTyped(CharacterEvent event) {
       return this.settings.charTyped(event);
    }
 

@@ -1,9 +1,5 @@
 package daamky.ua.api.module.impl.combat.aura.rotations;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.module.impl.combat.AuraModule;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.api.module.impl.combat.aura.MathAngle;
@@ -12,9 +8,13 @@ import daamky.ua.api.module.impl.combat.aura.impl.RotateConstructor;
 import daamky.ua.api.module.impl.combat.aura.rotations.funtime.FTMathUtil;
 import daamky.ua.api.module.impl.combat.aura.util.MathUtils;
 import daamky.ua.api.module.impl.combat.aura.utils.Animator;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 public final class FunTimeSnapAngle extends RotateConstructor {
-   private final MinecraftClient mc = MinecraftClient.getInstance();
+   private final Minecraft mc = Minecraft.getInstance();
    private long smoothbackShakeStartMs = -1L;
 
    public FunTimeSnapAngle() {
@@ -22,7 +22,7 @@ public final class FunTimeSnapAngle extends RotateConstructor {
    }
 
    @Override
-   public Angle limitAngleChange(Angle current, Angle target, Vec3d aimPoint, Entity entity) {
+   public Angle limitAngleChange(Angle current, Angle target, Vec3 aimPoint, Entity entity) {
       AuraModule aura = AuraModule.getInstance();
       if (aura != null && this.mc.player != null) {
          StrikeManager attackHandler = aura.getAttackHandlerRaw();
@@ -35,13 +35,13 @@ public final class FunTimeSnapAngle extends RotateConstructor {
             float rotationDifference = this.safeRotationDifference(yawDelta, pitchDelta);
             float straightLineYaw = Math.abs(yawDelta / rotationDifference) * 110.0F;
             float straightLinePitch = Math.abs(pitchDelta / rotationDifference) * 110.0F;
-            float desiredYaw = MathHelper.lerp(0.55F, current.getYaw(), current.getYaw() + MathHelper.clamp(yawDelta, -straightLineYaw, straightLineYaw));
-            float desiredPitch = MathHelper.lerp(
-               0.55F, current.getPitch(), current.getPitch() + MathHelper.clamp(pitchDelta, -straightLinePitch, straightLinePitch)
+            float desiredYaw = Mth.lerp(0.55F, current.getYaw(), current.getYaw() + Mth.clamp(yawDelta, -straightLineYaw, straightLineYaw));
+            float desiredPitch = Mth.lerp(
+               0.55F, current.getPitch(), current.getPitch() + Mth.clamp(pitchDelta, -straightLinePitch, straightLinePitch)
             );
             return this.animate(current, desiredYaw, desiredPitch);
          } else {
-            Angle playerView = new Angle(this.mc.player.getYaw(), this.mc.player.getPitch());
+            Angle playerView = new Angle(this.mc.player.getYRot(), this.mc.player.getXRot());
             Angle delta = MathAngle.calculateDelta(current, playerView);
             float yawDelta = delta.getYaw();
             float pitchDelta = delta.getPitch();
@@ -56,7 +56,7 @@ public final class FunTimeSnapAngle extends RotateConstructor {
                   this.smoothbackShakeStartMs = now;
                }
 
-               float shakeFade = 1.0F - MathHelper.clamp((float)(now - this.smoothbackShakeStartMs) / 1000.0F, 0.0F, 1.0F);
+               float shakeFade = 1.0F - Mth.clamp((float)(now - this.smoothbackShakeStartMs) / 1000.0F, 0.0F, 1.0F);
                yawShake *= shakeFade;
                pitchShake *= shakeFade;
             }
@@ -65,11 +65,11 @@ public final class FunTimeSnapAngle extends RotateConstructor {
             float speed = attackCooldownFinished ? 45.0F : 0.0F;
             float straightLineYaw = Math.abs(yawDelta / rotationDifference) * speed;
             float straightLinePitch = Math.abs(pitchDelta / rotationDifference) * speed;
-            float desiredYaw = MathHelper.lerp(
-               0.85F, current.getYaw(), current.getYaw() + MathHelper.clamp(yawDelta, -straightLineYaw, straightLineYaw) + yawShake
+            float desiredYaw = Mth.lerp(
+               0.85F, current.getYaw(), current.getYaw() + Mth.clamp(yawDelta, -straightLineYaw, straightLineYaw) + yawShake
             );
-            float desiredPitch = MathHelper.lerp(
-               0.85F, current.getPitch(), current.getPitch() + MathHelper.clamp(pitchDelta, -straightLinePitch, straightLinePitch) + pitchShake
+            float desiredPitch = Mth.lerp(
+               0.85F, current.getPitch(), current.getPitch() + Mth.clamp(pitchDelta, -straightLinePitch, straightLinePitch) + pitchShake
             );
             return this.animate(current, desiredYaw, desiredPitch);
          }
@@ -79,11 +79,11 @@ public final class FunTimeSnapAngle extends RotateConstructor {
    }
 
    private Angle animate(Angle current, float targetYaw, float targetPitch) {
-      return Animator.back(MathUtils.getRandom(6.0F, 7.0F), FunTimeSnapAngle.class).apply(current, targetYaw, MathHelper.clamp(targetPitch, -90.0F, 90.0F));
+      return Animator.back(MathUtils.getRandom(6.0F, 7.0F), FunTimeSnapAngle.class).apply(current, targetYaw, Mth.clamp(targetPitch, -90.0F, 90.0F));
    }
 
    @Override
-   public Vec3d randomValue() {
-      return Vec3d.ZERO;
+   public Vec3 randomValue() {
+      return Vec3.ZERO;
    }
 }

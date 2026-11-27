@@ -6,7 +6,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Stream;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
 import daamky.ua.api.command.Command;
 import daamky.ua.api.config.ConfigManager;
 import daamky.ua.api.config.exception.ConfigException;
@@ -27,10 +27,10 @@ public final class ConfigCommand extends Command {
             if (configManagerxx != null) {
                if (args.length > 1) {
                   configManagerxx.save(args[1]);
-                  this.logDirect("Config saved: " + args[1], Formatting.GREEN);
+                  this.logDirect("Config saved: " + args[1], ChatFormatting.GREEN);
                } else {
                   configManagerxx.saveAll();
-                  this.logDirect("Config saved.", Formatting.GREEN);
+                  this.logDirect("Config saved.", ChatFormatting.GREEN);
                }
             }
             break;
@@ -41,15 +41,15 @@ public final class ConfigCommand extends Command {
             }
 
             if (args.length < 2) {
-               this.logDirect("Usage: config load <name>", Formatting.RED);
+               this.logDirect("Usage: config load <name>", ChatFormatting.RED);
                return;
             }
 
             try {
                configManagerx.load(args[1]);
-               this.logDirect("Config loaded: " + args[1], Formatting.GREEN);
+               this.logDirect("Config loaded: " + args[1], ChatFormatting.GREEN);
             } catch (ConfigException var10) {
-               this.logDirect("Failed to load config: " + var10.getMessage(), Formatting.RED);
+               this.logDirect("Failed to load config: " + var10.getMessage(), ChatFormatting.RED);
             }
             break;
          case "list":
@@ -60,7 +60,7 @@ public final class ConfigCommand extends Command {
 
             List<String> configs = configManager.listUserConfigs();
             if (configs.isEmpty()) {
-               this.logDirect("Config list is empty.", Formatting.RED);
+               this.logDirect("Config list is empty.", ChatFormatting.RED);
                return;
             }
 
@@ -69,17 +69,17 @@ public final class ConfigCommand extends Command {
          case "dir":
             try {
                this.openDirectory(ConfigManager.userConfigDirectory());
-               this.logDirect("Config folder opened.", Formatting.GREEN);
+               this.logDirect("Config folder opened.", ChatFormatting.GREEN);
             } catch (IOException var9) {
-               this.logDirect("Failed to open config folder: " + var9.getMessage(), Formatting.RED);
+               this.logDirect("Failed to open config folder: " + var9.getMessage(), ChatFormatting.RED);
             }
             break;
          case "system":
             try {
                this.openDirectory(RepositoryStorage.root());
-               this.logDirect("System folder opened.", Formatting.GREEN);
+               this.logDirect("System folder opened.", ChatFormatting.GREEN);
             } catch (IOException var8) {
-               this.logDirect("Failed to open system folder: " + var8.getMessage(), Formatting.RED);
+               this.logDirect("Failed to open system folder: " + var8.getMessage(), ChatFormatting.RED);
             }
             break;
          default:
@@ -119,7 +119,7 @@ public final class ConfigCommand extends Command {
       if (Manager.getInstance() != null && Manager.getInstance().getConfigManager() != null) {
          return Manager.getInstance().getConfigManager();
       } else {
-         this.logDirect("Config manager is unavailable.", Formatting.RED);
+         this.logDirect("Config manager is unavailable.", ChatFormatting.RED);
          return null;
       }
    }

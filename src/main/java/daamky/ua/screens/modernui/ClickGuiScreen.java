@@ -5,12 +5,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.input.CharInput;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.Component;
 import daamky.ua.api.drag.impl.ClientLanguage;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
@@ -44,7 +44,7 @@ public final class ClickGuiScreen extends Screen {
    private boolean openedSoundPlayed;
 
    public ClickGuiScreen() {
-      super(Text.literal("ClickGui"));
+      super(Component.literal("ClickGui"));
    }
 
    protected void init() {
@@ -56,18 +56,18 @@ public final class ClickGuiScreen extends Screen {
       this.playOpenSound();
    }
 
-   public void render(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
+   public void render(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
       super.render(context, mouseX, mouseY, deltaTicks);
       float progress = this.openProgress();
       Render2D.beginFrame(context);
       this.renderBackgroundDim(progress, (float)this.width, (float)this.height);
       Render2D.flush();
-      context.createNewRootLayer();
+      context.nextStratum();
       this.renderScaledContent(context, mouseX, mouseY, progress);
       this.finishClosingIfDone();
    }
 
-   private void renderScaledContent(DrawContext graphics, int mouseX, int mouseY, float progress) {
+   private void renderScaledContent(GuiGraphics graphics, int mouseX, int mouseY, float progress) {
       float panelWidth = 580.0F;
       float panelHeight = 300.0F;
       float panelX = ((float)this.width - panelWidth) * 0.5F;
@@ -78,25 +78,25 @@ public final class ClickGuiScreen extends Screen {
       float offsetY = this.visualOffsetY(progress);
       int transformedMouseX = this.transformMouse(mouseX, centerX, scale, 0.0F);
       int transformedMouseY = this.transformMouse(mouseY, centerY, scale, offsetY);
-      graphics.getMatrices().pushMatrix();
-      graphics.getMatrices().translate(0.0F, offsetY);
-      graphics.getMatrices().translate(centerX, centerY);
-      graphics.getMatrices().scale(scale);
-      graphics.getMatrices().translate(-centerX, -centerY);
+      graphics.pose().pushMatrix();
+      graphics.pose().translate(0.0F, offsetY);
+      graphics.pose().translate(centerX, centerY);
+      graphics.pose().scale(scale);
+      graphics.pose().translate(-centerX, -centerY);
       Render2D.beginFrame(graphics);
       this.renderContent(graphics, transformedMouseX, transformedMouseY);
       Render2D.flush();
-      graphics.getMatrices().popMatrix();
+      graphics.pose().popMatrix();
    }
 
-   public void renderDetachedBackground(DrawContext graphics, float progress, float screenWidth, float screenHeight) {
+   public void renderDetachedBackground(GuiGraphics graphics, float progress, float screenWidth, float screenHeight) {
       Render2D.beginFrame(graphics);
       this.renderBackgroundDim(progress, screenWidth, screenHeight);
       Render2D.flush();
    }
 
-   public void renderDetached(DrawContext graphics, float partialTick) {
-      graphics.createNewRootLayer();
+   public void renderDetached(GuiGraphics graphics, float partialTick) {
+      graphics.nextStratum();
       Render2D.beginFrame(graphics);
       this.renderContent(graphics, Integer.MIN_VALUE, Integer.MIN_VALUE);
       Render2D.flush();
@@ -109,7 +109,7 @@ public final class ClickGuiScreen extends Screen {
       }
    }
 
-   private void renderContent(DrawContext graphics, int mouseX, int mouseY) {
+   private void renderContent(GuiGraphics graphics, int mouseX, int mouseY) {
       float panelWidth = 580.0F;
       float panelHeight = 300.0F;
       float x = ((float)this.width - panelWidth) * 0.5F;
@@ -139,7 +139,7 @@ public final class ClickGuiScreen extends Screen {
 
       this.categoryPanel.render(x, y, mouseX, mouseY);
       Render2D.flush();
-      graphics.createNewRootLayer();
+      graphics.nextStratum();
       Render2D.beginFrame(graphics);
       if (!this.isAutoBuyPanelActive()) {
          this.header
@@ -159,7 +159,7 @@ public final class ClickGuiScreen extends Screen {
       }
    }
 
-   public boolean keyPressed(KeyInput input) {
+   public boolean keyPressed(KeyEvent input) {
       if (this.closing) {
          return false;
       } else if (this.isAutoBuyPanelActive() && this.autoBuyPanel.keyPressed(input.key(), input.scancode(), input.modifiers())) {
@@ -171,12 +171,12 @@ public final class ClickGuiScreen extends Screen {
       } else if (input.key() != 345 && input.key() != 256) {
          return super.keyPressed(input);
       } else {
-         this.close();
+         this.onClose();
          return true;
       }
    }
 
-   public boolean charTyped(CharInput input) {
+   public boolean charTyped(CharacterEvent input) {
       if (this.closing) {
          return false;
       } else if (this.isAutoBuyPanelActive() && this.autoBuyPanel.charTyped((char)input.codepoint(), input.modifiers())) {
@@ -188,7 +188,7 @@ public final class ClickGuiScreen extends Screen {
       }
    }
 
-   public boolean mouseClicked(Click click, boolean doubled) {
+   public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
       if (this.closing) {
          return false;
       } else {
@@ -246,7 +246,7 @@ public final class ClickGuiScreen extends Screen {
       }
    }
 
-   public boolean mouseReleased(Click click) {
+   public boolean mouseReleased(MouseButtonEvent click) {
       if (this.closing) {
          return false;
       } else {
@@ -258,7 +258,7 @@ public final class ClickGuiScreen extends Screen {
       }
    }
 
-   public boolean mouseDragged(Click click, double offsetX, double offsetY) {
+   public boolean mouseDragged(MouseButtonEvent click, double offsetX, double offsetY) {
       if (this.closing) {
          return false;
       } else if (this.isAutoBuyPanelActive() && this.autoBuyPanel.mouseDragged(click.x(), click.y())) {
@@ -298,11 +298,11 @@ public final class ClickGuiScreen extends Screen {
       }
    }
 
-   public boolean shouldPause() {
+   public boolean isPauseScreen() {
       return false;
    }
 
-   public void close() {
+   public void onClose() {
       if (!this.closing) {
          this.autoBuyPanel.onGuiClosed();
          this.closing = true;
@@ -324,7 +324,7 @@ public final class ClickGuiScreen extends Screen {
 
    private void finishClosingIfDone() {
       if (this.closing && this.openAnimation.isFinished(Direction.BACKWARDS)) {
-         this.client.setScreen(null);
+         this.minecraft.setScreen(null);
       }
    }
 

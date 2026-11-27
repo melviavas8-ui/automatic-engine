@@ -3,14 +3,14 @@ package daamky.ua.api.module.impl.visual;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider.Immediate;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.util.math.MatrixStack.Entry;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Camera;
+import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Quaternionf;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.PoseStack.Pose;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.TickEvent;
 import daamky.ua.api.events.impl.WorldRenderEvent;
@@ -26,7 +26,7 @@ import daamky.ua.utils.render.pipeline.ClientPipelines;
 public final class World extends Module {
    private static final int MAX_PARTICLES = 200;
    private static final long FADE_MS = 1000L;
-   private static final Identifier BLOOM_TEX = Identifier.of("cataclysm", "textures/world/dashbloom.png");
+   private static final Identifier BLOOM_TEX = Identifier.fromNamespaceAndPath("cataclysm", "textures/world/dashbloom.png");
    private final ColorSetting color = this.register(new ColorSetting("Color", "Particle color.", new Color(255, 101, 57)));
    private final NumberSetting density = this.register(new NumberSetting("Density", "Maximum particles.", 100.0, 10.0, 200.0, 1.0));
    private final NumberSetting radius = this.register(new NumberSetting("Radius", "Particle spawn radius.", 20.0, 5.0, 40.0, 1.0));
@@ -43,7 +43,7 @@ public final class World extends Module {
 
    @SubscribeEvent
    public void onTick(TickEvent e) {
-      if (mc.player != null && mc.world != null) {
+      if (mc.player != null && mc.level != null) {
          this.particles.removeIf(p -> p.timer.elapsed() >= p.liveMs + 1000L);
 
          for (World.Particle p : this.particles) {
@@ -53,16 +53,16 @@ public final class World extends Module {
          int max = Math.min(this.density.getValue().intValue(), 200);
          int toSpawn = Math.min(4, max - this.particles.size());
          float r = this.radius.getValue().floatValue();
-         Vec3d playerPos = mc.player.getEntityPos();
+         Vec3 playerPos = mc.player.position();
 
          for (int i = 0; i < toSpawn; i++) {
             this.particles
                .add(
                   new World.Particle(
                      playerPos.add((double)MathUtils.getRandom(-r, r), (double)MathUtils.getRandom(0.0F, 5.0F), (double)MathUtils.getRandom(-r, r)),
-                     Vec3d.ZERO,
-                     new Vec3d((double)MathUtils.getRandom(-1.0F, 1.0F), (double)MathUtils.getRandom(0.0F, 2.0F), (double)MathUtils.getRandom(-1.0F, 1.0F)),
-                     new Vec3d((double)MathUtils.getRandom(-1.0F, 1.0F), (double)MathUtils.getRandom(-1.0F, 1.0F), (double)MathUtils.getRandom(-1.0F, 1.0F)),
+                     Vec3.ZERO,
+                     new Vec3((double)MathUtils.getRandom(-1.0F, 1.0F), (double)MathUtils.getRandom(0.0F, 2.0F), (double)MathUtils.getRandom(-1.0F, 1.0F)),
+                     new Vec3((double)MathUtils.getRandom(-1.0F, 1.0F), (double)MathUtils.getRandom(-1.0F, 1.0F), (double)MathUtils.getRandom(-1.0F, 1.0F)),
                      (long)MathUtils.getRandom(1500.0F, 4500.0F),
                      MathUtils.getRandom(0.1F, 0.3F)
                   )
@@ -74,63 +74,63 @@ public final class World extends Module {
    @SubscribeEvent
    public void onWorldRender(WorldRenderEvent e) {
       if (!this.particles.isEmpty()) {
-         if (mc.player != null && mc.world != null) {
-            MatrixStack ms = e.getStack();
-            Camera camera = mc.gameRenderer.getCamera();
-            Vec3d cameraPos = Render3D.lastCameraPos;
+         if (mc.player != null && mc.level != null) {
+            PoseStack ms = e.getStack();
+            Camera camera = mc.gameRenderer.getMainCamera();
+            Vec3 cameraPos = Render3D.lastCameraPos;
             int baseColor = this.color.getValue().getRGB();
-            Immediate immediate = mc.getBufferBuilders().getEntityVertexConsumers();
+            BufferSource immediate = mc.renderBuffers().bufferSource();
             VertexConsumer bloom = immediate.getBuffer(ClientPipelines.BLOOM_ESP.apply(BLOOM_TEX));
 
             for (World.Particle particle : this.particles) {
                float a = particle.computeAlpha();
                if (!(a <= 0.0F)) {
-                  Vec3d pos = daamky.ua.utils.math.MathUtils.interpolate(particle.prev, particle.pos);
+                  Vec3 pos = daamky.ua.utils.math.MathUtils.interpolate(particle.prev, particle.pos);
                   float bigSize = 4.0F * particle.size;
                   int alphaI = clampByte(Math.round(255.0F * a * 0.4F));
                   if (alphaI != 0) {
                      int col = ColorUtil.withAlpha(baseColor, alphaI);
-                     ms.push();
+                     ms.pushPose();
                      ms.translate((float)(pos.x - cameraPos.x), (float)(pos.y - cameraPos.y), (float)(pos.z - cameraPos.z));
-                     ms.multiply(camera.getRotation());
-                     Entry pose = ms.peek();
+                     ms.mulPose(camera.rotation());
+                     Pose pose = ms.last();
                      float h = bigSize / 2.0F;
-                     bloom.vertex(pose, -h, -h, 0.0F).texture(0.0F, 0.0F).color(col);
-                     bloom.vertex(pose, h, -h, 0.0F).texture(1.0F, 0.0F).color(col);
-                     bloom.vertex(pose, h, h, 0.0F).texture(1.0F, 1.0F).color(col);
-                     bloom.vertex(pose, -h, h, 0.0F).texture(0.0F, 1.0F).color(col);
-                     ms.pop();
+                     bloom.addVertex(pose, -h, -h, 0.0F).setUv(0.0F, 0.0F).setColor(col);
+                     bloom.addVertex(pose, h, -h, 0.0F).setUv(1.0F, 0.0F).setColor(col);
+                     bloom.addVertex(pose, h, h, 0.0F).setUv(1.0F, 1.0F).setColor(col);
+                     bloom.addVertex(pose, -h, h, 0.0F).setUv(0.0F, 1.0F).setColor(col);
+                     ms.popPose();
                   }
                }
             }
 
-            immediate.draw(ClientPipelines.BLOOM_ESP.apply(BLOOM_TEX));
+            immediate.endBatch(ClientPipelines.BLOOM_ESP.apply(BLOOM_TEX));
             VertexConsumer lines = immediate.getBuffer(ClientPipelines.WORLD_PARTICLES_LINES);
 
             for (World.Particle particlex : this.particles) {
                float a = particlex.computeAlpha();
                if (!(a <= 0.0F)) {
-                  Vec3d pos = daamky.ua.utils.math.MathUtils.interpolate(particlex.prev, particlex.pos);
-                  Vec3d rot = daamky.ua.utils.math.MathUtils.interpolate(particlex.prevRot, particlex.rotate);
+                  Vec3 pos = daamky.ua.utils.math.MathUtils.interpolate(particlex.prev, particlex.pos);
+                  Vec3 rot = daamky.ua.utils.math.MathUtils.interpolate(particlex.prevRot, particlex.rotate);
                   int outlineCol = ColorUtil.withAlpha(baseColor, clampByte(Math.round(205.0F * a)));
                   int diagCol = ColorUtil.withAlpha(baseColor, clampByte(Math.round(102.0F * a)));
-                  ms.push();
+                  ms.pushPose();
                   ms.translate((float)(pos.x - cameraPos.x), (float)(pos.y - cameraPos.y), (float)(pos.z - cameraPos.z));
-                  ms.multiply(new Quaternionf().rotationXYZ((float)rot.x, (float)rot.y, (float)rot.z));
+                  ms.mulPose(new Quaternionf().rotationXYZ((float)rot.x, (float)rot.y, (float)rot.z));
                   ms.scale(particlex.size, particlex.size, particlex.size);
-                  Entry pose = ms.peek();
+                  Pose pose = ms.last();
                   drawCubeOutline(lines, pose, outlineCol);
                   drawCubeDiagonals(lines, pose, diagCol);
-                  ms.pop();
+                  ms.popPose();
                }
             }
 
-            immediate.draw(ClientPipelines.WORLD_PARTICLES_LINES);
+            immediate.endBatch(ClientPipelines.WORLD_PARTICLES_LINES);
          }
       }
    }
 
-   private static void drawCubeOutline(VertexConsumer buf, Entry pose, int col) {
+   private static void drawCubeOutline(VertexConsumer buf, Pose pose, int col) {
       float a = -0.5F;
       float b = 0.5F;
       line(buf, pose, a, a, a, b, a, a, col);
@@ -147,7 +147,7 @@ public final class World extends Module {
       line(buf, pose, a, a, b, a, b, b, col);
    }
 
-   private static void drawCubeDiagonals(VertexConsumer buf, Entry pose, int col) {
+   private static void drawCubeDiagonals(VertexConsumer buf, Pose pose, int col) {
       float a = -0.5F;
       float b = 0.5F;
       line(buf, pose, a, a, a, b, b, b, col);
@@ -156,9 +156,9 @@ public final class World extends Module {
       line(buf, pose, b, a, b, a, b, a, col);
    }
 
-   private static void line(VertexConsumer buf, Entry pose, float x1, float y1, float z1, float x2, float y2, float z2, int col) {
-      buf.vertex(pose, x1, y1, z1).color(col);
-      buf.vertex(pose, x2, y2, z2).color(col);
+   private static void line(VertexConsumer buf, Pose pose, float x1, float y1, float z1, float x2, float y2, float z2, int col) {
+      buf.addVertex(pose, x1, y1, z1).setColor(col);
+      buf.addVertex(pose, x2, y2, z2).setColor(col);
    }
 
    private static int clampByte(int v) {
@@ -166,23 +166,23 @@ public final class World extends Module {
    }
 
    private static final class Particle {
-      Vec3d prev;
-      Vec3d prevRot;
-      Vec3d pos;
-      Vec3d rotate;
-      Vec3d motion;
-      Vec3d rotateMotion;
+      Vec3 prev;
+      Vec3 prevRot;
+      Vec3 pos;
+      Vec3 rotate;
+      Vec3 motion;
+      Vec3 rotateMotion;
       final long liveMs;
       final float size;
       final World.Timer timer = new World.Timer();
 
-      Particle(Vec3d pos, Vec3d rotate, Vec3d motion, Vec3d rotateMotion, long liveMs, float size) {
+      Particle(Vec3 pos, Vec3 rotate, Vec3 motion, Vec3 rotateMotion, long liveMs, float size) {
          this.pos = pos;
          this.prev = pos;
          this.rotate = rotate;
          this.prevRot = rotate;
-         this.motion = motion.multiply(0.04);
-         this.rotateMotion = rotateMotion.multiply(0.04);
+         this.motion = motion.scale(0.04);
+         this.rotateMotion = rotateMotion.scale(0.04);
          this.liveMs = liveMs;
          this.size = size;
       }
@@ -192,8 +192,8 @@ public final class World extends Module {
          this.prevRot = this.rotate;
          this.pos = this.pos.add(this.motion);
          this.rotate = this.rotate.add(this.rotateMotion);
-         this.motion = this.motion.multiply(0.98);
-         this.rotateMotion = this.rotateMotion.multiply(0.98);
+         this.motion = this.motion.scale(0.98);
+         this.rotateMotion = this.rotateMotion.scale(0.98);
       }
 
       float computeAlpha() {

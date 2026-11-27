@@ -3,7 +3,7 @@ package daamky.ua.api.module;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import daamky.ua.IMinecraft;
 import daamky.ua.api.drag.impl.Notifications;
 import daamky.ua.api.events.bus.EventBus;
@@ -160,7 +160,7 @@ public abstract class Module implements IMinecraft {
       }
    }
 
-   public void onTick(MinecraftClient client) {
+   public void onTick(Minecraft client) {
    }
 
    protected void onEnable() {

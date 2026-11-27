@@ -1,7 +1,7 @@
 package daamky.ua.utils.render.item;
 
-import net.minecraft.client.texture.TextureSetup;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.render.TextureSetup;
+import net.minecraft.resources.Identifier;
 
 record ItemTexture(Identifier id, TextureSetup setup) {
 }

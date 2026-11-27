@@ -1,24 +1,5 @@
 package daamky.ua.mixin;
 
-import net.minecraft.client.network.ClientPlayNetworkHandler;
-import net.minecraft.network.packet.s2c.play.ChunkDeltaUpdateS2CPacket;
-import net.minecraft.network.packet.s2c.play.DeathMessageS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityPositionS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityPositionSyncS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityStatusS2CPacket;
-import net.minecraft.network.packet.s2c.play.EntityVelocityUpdateS2CPacket;
-import net.minecraft.network.packet.s2c.play.GameJoinS2CPacket;
-import net.minecraft.network.packet.s2c.play.GameMessageS2CPacket;
-import net.minecraft.network.packet.s2c.play.GameStateChangeS2CPacket;
-import net.minecraft.network.packet.s2c.play.ItemPickupAnimationS2CPacket;
-import net.minecraft.network.packet.s2c.play.OpenScreenS2CPacket;
-import net.minecraft.network.packet.s2c.play.PlayerPositionLookS2CPacket;
-import net.minecraft.network.packet.s2c.play.PlayerRespawnS2CPacket;
-import net.minecraft.network.packet.s2c.play.ScreenHandlerSlotUpdateS2CPacket;
-import net.minecraft.network.packet.s2c.play.SubtitleS2CPacket;
-import net.minecraft.network.packet.s2c.play.TitleS2CPacket;
-import net.minecraft.network.packet.s2c.play.WorldTimeUpdateS2CPacket;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -27,14 +8,33 @@ import daamky.ua.api.events.impl.ChatEvent;
 import daamky.ua.api.events.impl.PacketEvent;
 import daamky.ua.manager.Manager;
 import daamky.ua.utils.network.Network;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
+import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
+import net.minecraft.network.protocol.game.ClientboundEntityPositionSyncPacket;
+import net.minecraft.network.protocol.game.ClientboundGameEventPacket;
+import net.minecraft.network.protocol.game.ClientboundLoginPacket;
+import net.minecraft.network.protocol.game.ClientboundMoveEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundOpenScreenPacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerCombatKillPacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
+import net.minecraft.network.protocol.game.ClientboundRespawnPacket;
+import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
+import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
+import net.minecraft.network.protocol.game.ClientboundTakeItemEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket;
 
-@Mixin({ClientPlayNetworkHandler.class})
+@Mixin({ClientPacketListener.class})
 public abstract class ClientPacketListenerMixin {
    public ClientPacketListenerMixin() {
    }
 
    @Inject(
-      method = {"sendChatMessage"},
+      method = {"sendChat"},
       at = {@At("HEAD")},
       cancellable = true
    )
@@ -46,11 +46,11 @@ public abstract class ClientPacketListenerMixin {
    }
 
    @Inject(
-      method = {"onPlayerPositionLook"},
+      method = {"handleMovePlayer"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$onMovePlayer(PlayerPositionLookS2CPacket packet, CallbackInfo ci) {
+   private void daamky$onMovePlayer(ClientboundPlayerPositionPacket packet, CallbackInfo ci) {
       PacketEvent event = Manager.postEvent(new PacketEvent(PacketEvent.Type.RECEIVE, packet));
       if (event.isCancelled()) {
          ci.cancel();
@@ -58,11 +58,11 @@ public abstract class ClientPacketListenerMixin {
    }
 
    @Inject(
-      method = {"onEntity"},
+      method = {"handleMoveEntity"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$onMoveEntity(EntityS2CPacket packet, CallbackInfo ci) {
+   private void daamky$onMoveEntity(ClientboundMoveEntityPacket packet, CallbackInfo ci) {
       PacketEvent event = Manager.postEvent(new PacketEvent(PacketEvent.Type.RECEIVE, packet));
       if (event.isCancelled()) {
          ci.cancel();
@@ -70,11 +70,11 @@ public abstract class ClientPacketListenerMixin {
    }
 
    @Inject(
-      method = {"onEntityPositionSync"},
+      method = {"handleEntityPositionSync"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$onEntityPositionSync(EntityPositionSyncS2CPacket packet, CallbackInfo ci) {
+   private void daamky$onEntityPositionSync(ClientboundEntityPositionSyncPacket packet, CallbackInfo ci) {
       PacketEvent event = Manager.postEvent(new PacketEvent(PacketEvent.Type.RECEIVE, packet));
       if (event.isCancelled()) {
          ci.cancel();
@@ -82,11 +82,11 @@ public abstract class ClientPacketListenerMixin {
    }
 
    @Inject(
-      method = {"onEntityPosition"},
+      method = {"handleTeleportEntity"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$onTeleportEntity(EntityPositionS2CPacket packet, CallbackInfo ci) {
+   private void daamky$onTeleportEntity(ClientboundTeleportEntityPacket packet, CallbackInfo ci) {
       PacketEvent event = Manager.postEvent(new PacketEvent(PacketEvent.Type.RECEIVE, packet));
       if (event.isCancelled()) {
          ci.cancel();
@@ -94,11 +94,11 @@ public abstract class ClientPacketListenerMixin {
    }
 
    @Inject(
-      method = {"onPlayerRespawn"},
+      method = {"handleRespawn"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$onRespawn(PlayerRespawnS2CPacket packet, CallbackInfo ci) {
+   private void daamky$onRespawn(ClientboundRespawnPacket packet, CallbackInfo ci) {
       PacketEvent event = Manager.postEvent(new PacketEvent(PacketEvent.Type.RECEIVE, packet));
       if (event.isCancelled()) {
          ci.cancel();
@@ -106,11 +106,11 @@ public abstract class ClientPacketListenerMixin {
    }
 
    @Inject(
-      method = {"onGameJoin"},
+      method = {"handleLogin"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$onLogin(GameJoinS2CPacket packet, CallbackInfo ci) {
+   private void daamky$onLogin(ClientboundLoginPacket packet, CallbackInfo ci) {
       PacketEvent event = Manager.postEvent(new PacketEvent(PacketEvent.Type.RECEIVE, packet));
       if (event.isCancelled()) {
          ci.cancel();
@@ -118,11 +118,11 @@ public abstract class ClientPacketListenerMixin {
    }
 
    @Inject(
-      method = {"onTitle"},
+      method = {"setTitleText"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$onSetTitleText(TitleS2CPacket packet, CallbackInfo ci) {
+   private void daamky$onSetTitleText(ClientboundSetTitleTextPacket packet, CallbackInfo ci) {
       PacketEvent event = Manager.postEvent(new PacketEvent(PacketEvent.Type.RECEIVE, packet));
       if (event.isCancelled()) {
          ci.cancel();
@@ -130,11 +130,11 @@ public abstract class ClientPacketListenerMixin {
    }
 
    @Inject(
-      method = {"onSubtitle"},
+      method = {"setSubtitleText"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$onSetSubtitleText(SubtitleS2CPacket packet, CallbackInfo ci) {
+   private void daamky$onSetSubtitleText(ClientboundSetSubtitleTextPacket packet, CallbackInfo ci) {
       PacketEvent event = Manager.postEvent(new PacketEvent(PacketEvent.Type.RECEIVE, packet));
       if (event.isCancelled()) {
          ci.cancel();
@@ -142,11 +142,11 @@ public abstract class ClientPacketListenerMixin {
    }
 
    @Inject(
-      method = {"onWorldTimeUpdate"},
+      method = {"handleSetTime"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$onSetTime(WorldTimeUpdateS2CPacket packet, CallbackInfo ci) {
+   private void daamky$onSetTime(ClientboundSetTimePacket packet, CallbackInfo ci) {
       Network.handleTimePacket();
       PacketEvent event = Manager.postEvent(new PacketEvent(PacketEvent.Type.RECEIVE, packet));
       if (event.isCancelled()) {
@@ -155,12 +155,12 @@ public abstract class ClientPacketListenerMixin {
    }
 
    @Inject(
-      method = {"onEntityVelocityUpdate"},
+      method = {"handleSetEntityMotion"},
       at = {@At("HEAD")},
       cancellable = true,
       require = 0
    )
-   private void daamky$onSetEntityMotion(EntityVelocityUpdateS2CPacket packet, CallbackInfo ci) {
+   private void daamky$onSetEntityMotion(ClientboundSetEntityMotionPacket packet, CallbackInfo ci) {
       PacketEvent event = Manager.postEvent(new PacketEvent(PacketEvent.Type.RECEIVE, packet));
       if (event.isCancelled()) {
          ci.cancel();
@@ -168,11 +168,11 @@ public abstract class ClientPacketListenerMixin {
    }
 
    @Inject(
-      method = {"onGameMessage"},
+      method = {"handleSystemChat"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$onSystemChat(GameMessageS2CPacket packet, CallbackInfo ci) {
+   private void daamky$onSystemChat(ClientboundSystemChatPacket packet, CallbackInfo ci) {
       PacketEvent event = Manager.postEvent(new PacketEvent(PacketEvent.Type.RECEIVE, packet));
       if (event.isCancelled()) {
          ci.cancel();
@@ -180,11 +180,11 @@ public abstract class ClientPacketListenerMixin {
    }
 
    @Inject(
-      method = {"onDeathMessage"},
+      method = {"handlePlayerCombatKill"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$onPlayerCombatKill(DeathMessageS2CPacket packet, CallbackInfo ci) {
+   private void daamky$onPlayerCombatKill(ClientboundPlayerCombatKillPacket packet, CallbackInfo ci) {
       PacketEvent event = Manager.postEvent(new PacketEvent(PacketEvent.Type.RECEIVE, packet));
       if (event.isCancelled()) {
          ci.cancel();
@@ -192,11 +192,11 @@ public abstract class ClientPacketListenerMixin {
    }
 
    @Inject(
-      method = {"onItemPickupAnimation"},
+      method = {"handleTakeItemEntity"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$onTakeItemEntity(ItemPickupAnimationS2CPacket packet, CallbackInfo ci) {
+   private void daamky$onTakeItemEntity(ClientboundTakeItemEntityPacket packet, CallbackInfo ci) {
       PacketEvent event = Manager.postEvent(new PacketEvent(PacketEvent.Type.RECEIVE, packet));
       if (event.isCancelled()) {
          ci.cancel();
@@ -204,11 +204,11 @@ public abstract class ClientPacketListenerMixin {
    }
 
    @Inject(
-      method = {"onScreenHandlerSlotUpdate"},
+      method = {"handleContainerSetSlot"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$onContainerSetSlot(ScreenHandlerSlotUpdateS2CPacket packet, CallbackInfo ci) {
+   private void daamky$onContainerSetSlot(ClientboundContainerSetSlotPacket packet, CallbackInfo ci) {
       PacketEvent event = Manager.postEvent(new PacketEvent(PacketEvent.Type.RECEIVE, packet));
       if (event.isCancelled()) {
          ci.cancel();
@@ -216,11 +216,11 @@ public abstract class ClientPacketListenerMixin {
    }
 
    @Inject(
-      method = {"onChunkDeltaUpdate"},
+      method = {"handleChunkBlocksUpdate"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$onChunkBlocksUpdate(ChunkDeltaUpdateS2CPacket packet, CallbackInfo ci) {
+   private void daamky$onChunkBlocksUpdate(ClientboundSectionBlocksUpdatePacket packet, CallbackInfo ci) {
       PacketEvent event = Manager.postEvent(new PacketEvent(PacketEvent.Type.RECEIVE, packet));
       if (event.isCancelled()) {
          ci.cancel();
@@ -228,11 +228,11 @@ public abstract class ClientPacketListenerMixin {
    }
 
    @Inject(
-      method = {"onOpenScreen"},
+      method = {"handleOpenScreen"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$onOpenScreen(OpenScreenS2CPacket packet, CallbackInfo ci) {
+   private void daamky$onOpenScreen(ClientboundOpenScreenPacket packet, CallbackInfo ci) {
       PacketEvent event = Manager.postEvent(new PacketEvent(PacketEvent.Type.RECEIVE, packet));
       if (event.isCancelled()) {
          ci.cancel();
@@ -240,11 +240,11 @@ public abstract class ClientPacketListenerMixin {
    }
 
    @Inject(
-      method = {"onGameStateChange"},
+      method = {"handleGameEvent"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$onGameEvent(GameStateChangeS2CPacket packet, CallbackInfo ci) {
+   private void daamky$onGameEvent(ClientboundGameEventPacket packet, CallbackInfo ci) {
       PacketEvent event = Manager.postEvent(new PacketEvent(PacketEvent.Type.RECEIVE, packet));
       if (event.isCancelled()) {
          ci.cancel();
@@ -252,11 +252,11 @@ public abstract class ClientPacketListenerMixin {
    }
 
    @Inject(
-      method = {"onEntityStatus"},
+      method = {"handleEntityEvent"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$onEntityEvent(EntityStatusS2CPacket packet, CallbackInfo ci) {
+   private void daamky$onEntityEvent(ClientboundEntityEventPacket packet, CallbackInfo ci) {
       PacketEvent event = Manager.postEvent(new PacketEvent(PacketEvent.Type.RECEIVE, packet));
       if (event.isCancelled()) {
          ci.cancel();

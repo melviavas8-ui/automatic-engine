@@ -1,17 +1,17 @@
 package daamky.ua.api.drag.impl;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.item.ItemStack;
 import daamky.ua.api.drag.core.HudElement;
 import daamky.ua.utils.render.color.ColorUtil;
 import daamky.ua.utils.render.item.RenderItem;
 import daamky.ua.utils.render.item.RenderItemOptions;
 import daamky.ua.utils.render.ui.Render2D;
 import daamky.ua.utils.render.ui.font.FontType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.world.item.ItemStack;
 
 public final class Hotbar implements HudElement {
-   private static final MinecraftClient mc = MinecraftClient.getInstance();
+   private static final Minecraft mc = Minecraft.getInstance();
    private static final RenderItemOptions ITEM_OPTIONS = RenderItemOptions.noDecorations(1.0F);
    private static final float CHAT_SCREEN_ALPHA = 0.82F;
    private static float animatedSelectedX;
@@ -40,15 +40,15 @@ public final class Hotbar implements HudElement {
 
    private Hotbar.HotbarState logics() {
       if (mc.player != null && mc.getWindow() != null) {
-         int sw = mc.getWindow().getScaledWidth();
-         int sh = mc.getWindow().getScaledHeight();
+         int sw = mc.getWindow().getGuiScaledWidth();
+         int sh = mc.getWindow().getGuiScaledHeight();
          float slot = 17.5F;
          float gap = 2.5F;
          float width = slot * 9.0F + gap * 8.0F;
          float x = (float)sw / 2.0F - width / 2.0F;
          float y = (float)(sh - 21);
          float offhandX = x - gap - slot;
-         ItemStack offhandStack = mc.player.getOffHandStack();
+         ItemStack offhandStack = mc.player.getOffhandItem();
          if (!offhandStack.isEmpty()) {
             lastOffhandStack = offhandStack.copy();
          }
@@ -90,7 +90,7 @@ public final class Hotbar implements HudElement {
 
       for (int i = 0; i < 9; i++) {
          float sx = state.x + (float)i * (state.slot + state.gap);
-         ItemStack stack = mc.player.getInventory().getStack(i);
+         ItemStack stack = mc.player.getInventory().getItem(i);
          if (stack.isEmpty()) {
             renderSlotNumber(i, sx, state.y, state.slot, alpha);
          } else {
@@ -104,7 +104,7 @@ public final class Hotbar implements HudElement {
 
       for (int ix = 0; ix < 9; ix++) {
          float sx = state.x + (float)ix * (state.slot + state.gap);
-         ItemStack stack = mc.player.getInventory().getStack(ix);
+         ItemStack stack = mc.player.getInventory().getItem(ix);
          if (!stack.isEmpty()) {
             renderItemDecorations(stack, sx + 0.75F, state.y + 0.75F, 16.0F, alpha);
          }
@@ -116,7 +116,7 @@ public final class Hotbar implements HudElement {
    }
 
    private static float hotbarAlpha() {
-      return mc.currentScreen instanceof ChatScreen ? 0.82F : 1.0F;
+      return mc.screen instanceof ChatScreen ? 0.82F : 1.0F;
    }
 
    private static void renderItemDecorations(ItemStack stack, float x, float y, float size, float alpha) {
@@ -129,7 +129,7 @@ public final class Hotbar implements HudElement {
 
    private static void renderCooldownOverlay(ItemStack stack, float x, float y, float size, float alpha) {
       if (mc.player != null) {
-         float cooldown = mc.player.getItemCooldownManager().getCooldownProgress(stack, 0.0F);
+         float cooldown = mc.player.getCooldowns().getCooldownPercent(stack, 0.0F);
          if (!(cooldown <= 0.0F)) {
             float overlayHeight = size * Math.max(0.0F, Math.min(1.0F, cooldown));
             Render2D.rect(x, y + size - overlayHeight, size, overlayHeight, 1.0F, ColorUtil.rgba(0, 0, 0, Math.round(145.0F * alpha)));
@@ -138,13 +138,13 @@ public final class Hotbar implements HudElement {
    }
 
    private static void renderDurabilityBar(ItemStack stack, float x, float y, float size, float alpha) {
-      if (stack.isItemBarVisible()) {
+      if (stack.isBarVisible()) {
          float barWidth = Math.max(8.0F, size * 0.78F);
          float barHeight = Math.max(1.5F, size * 0.07F);
          float barX = x + (size - barWidth) * 0.5F;
          float barY = y + size - barHeight - Math.max(1.0F, size * 0.08F);
-         float fill = Math.max(0.0F, Math.min(1.0F, (float)stack.getItemBarStep() / 13.0F));
-         int barColor = stack.getItemBarColor();
+         float fill = Math.max(0.0F, Math.min(1.0F, (float)stack.getBarWidth() / 13.0F));
+         int barColor = stack.getBarColor();
          Render2D.rect(barX, barY, barWidth, barHeight, barHeight * 0.5F, ColorUtil.rgba(0, 0, 0, Math.round(150.0F * alpha)));
          Render2D.rect(
             barX,

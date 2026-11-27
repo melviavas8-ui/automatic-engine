@@ -7,14 +7,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.LoreComponent;
-import net.minecraft.component.type.PotionContentsComponent;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.item.component.ItemLore;
 import daamky.ua.utils.modules.autobuy.AutoBuyItem;
 
 public final class AutoBuyCatalog {
@@ -256,8 +256,8 @@ public final class AutoBuyCatalog {
    private static void hwPotion(String name, int price, int color, String... aliases) {
       Supplier<ItemStack> factory = () -> {
          ItemStack stack = new ItemStack(Items.POTION);
-         stack.set(DataComponentTypes.CUSTOM_NAME, Text.literal(name).formatted(Formatting.AQUA));
-         stack.set(DataComponentTypes.POTION_CONTENTS, new PotionContentsComponent(Optional.empty(), Optional.of(color), List.of(), Optional.empty()));
+         stack.set(DataComponents.CUSTOM_NAME, Component.literal(name).withStyle(ChatFormatting.AQUA));
+         stack.set(DataComponents.POTION_CONTENTS, new PotionContents(Optional.empty(), Optional.of(color), List.of(), Optional.empty()));
          return stack;
       };
       addUnique(new AutoBuyItem(name, AutoBuyItemCategory.HOLYWORLD, price, factory, aliases));
@@ -266,9 +266,9 @@ public final class AutoBuyCatalog {
    private static void potion(String name, int price, int color, String... aliases) {
       Supplier<ItemStack> factory = () -> {
          ItemStack stack = new ItemStack(Items.SPLASH_POTION);
-         stack.set(DataComponentTypes.CUSTOM_NAME, Text.literal(name).formatted(Formatting.AQUA));
-         stack.set(DataComponentTypes.POTION_CONTENTS, new PotionContentsComponent(Optional.empty(), Optional.of(color), List.of(), Optional.empty()));
-         stack.set(DataComponentTypes.LORE, new LoreComponent(List.of(Text.literal(name))));
+         stack.set(DataComponents.CUSTOM_NAME, Component.literal(name).withStyle(ChatFormatting.AQUA));
+         stack.set(DataComponents.POTION_CONTENTS, new PotionContents(Optional.empty(), Optional.of(color), List.of(), Optional.empty()));
+         stack.set(DataComponents.LORE, new ItemLore(List.of(Component.literal(name))));
          return stack;
       };
       addUnique(new AutoBuyItem(name, AutoBuyItemCategory.POTIONS, price, factory, aliases));
@@ -293,8 +293,8 @@ public final class AutoBuyCatalog {
    private static Supplier<ItemStack> namedIcon(Item item, String name) {
       return () -> {
          ItemStack stack = new ItemStack(item);
-         stack.set(DataComponentTypes.CUSTOM_NAME, Text.literal(name).formatted(new Formatting[]{Formatting.BOLD, Formatting.DARK_RED}));
-         stack.set(DataComponentTypes.LORE, new LoreComponent(List.of(Text.literal("[★] Оригинальный предмет").formatted(Formatting.GRAY))));
+         stack.set(DataComponents.CUSTOM_NAME, Component.literal(name).withStyle(new ChatFormatting[]{ChatFormatting.BOLD, ChatFormatting.DARK_RED}));
+         stack.set(DataComponents.LORE, new ItemLore(List.of(Component.literal("[★] Оригинальный предмет").withStyle(ChatFormatting.GRAY))));
          return stack;
       };
    }

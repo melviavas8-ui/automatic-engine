@@ -1,7 +1,7 @@
 package daamky.ua.api.events.impl;
 
-import net.minecraft.item.ItemStack;
 import daamky.ua.api.events.Event;
+import net.minecraft.world.item.ItemStack;
 
 public final class HeldItemUpdateEvent implements Event {
    private ItemStack mainHand;

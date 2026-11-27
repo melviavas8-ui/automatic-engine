@@ -1,11 +1,11 @@
 package daamky.ua.screens.clickgui.impl.options;
 
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
 import daamky.ua.api.settings.impl.BooleanSetting;
 import daamky.ua.utils.render.animation.Easings;
 import daamky.ua.utils.render.animation.SmoothAnimation;
 import daamky.ua.utils.render.ui.Render2D;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.MouseButtonEvent;
 
 public class BooleanOption extends ClickGuiOption {
    private final SmoothAnimation toggleAnimation = new SmoothAnimation();
@@ -24,7 +24,7 @@ public class BooleanOption extends ClickGuiOption {
    }
 
    @Override
-   protected void renderControl(DrawContext graphics, float x, float y, float width, float height, float scale, float alpha) {
+   protected void renderControl(GuiGraphics graphics, float x, float y, float width, float height, float scale, float alpha) {
       this.enabled = this.setting.getValue();
       this.switchWidth = 22.0F * scale;
       this.switchHeight = 12.0F * scale;
@@ -42,7 +42,7 @@ public class BooleanOption extends ClickGuiOption {
    }
 
    @Override
-   public boolean mouseClicked(Click event, boolean doubled) {
+   public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
       if (event.button() != 0) {
          return false;
       } else if (this.hovered(

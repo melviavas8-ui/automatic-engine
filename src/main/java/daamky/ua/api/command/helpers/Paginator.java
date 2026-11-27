@@ -2,7 +2,7 @@ package daamky.ua.api.command.helpers;
 
 import java.util.List;
 import java.util.function.Function;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 import daamky.ua.api.command.CommandManager;
 
 public final class Paginator<T> {
@@ -23,7 +23,7 @@ public final class Paginator<T> {
       this.page = Math.max(1, page);
    }
 
-   public void display(Runnable header, Function<T, Text> rowFactory, String baseCommand) {
+   public void display(Runnable header, Function<T, Component> rowFactory, String baseCommand) {
       if (header != null) {
          header.run();
       }
@@ -35,7 +35,7 @@ public final class Paginator<T> {
       CommandManager manager = CommandManager.getInstance();
 
       for (int i = start; i < end; i++) {
-         Text row = rowFactory.apply(this.items.get(i));
+         Component row = rowFactory.apply(this.items.get(i));
          if (manager != null) {
             manager.sendRaw(row);
          }

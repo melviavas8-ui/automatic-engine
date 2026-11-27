@@ -1,11 +1,11 @@
 package daamky.ua.screens.modernui.settings;
 
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
 import daamky.ua.api.settings.impl.BooleanSetting;
 import daamky.ua.utils.render.animation.modernfx.Direction;
 import daamky.ua.utils.render.ui.Render2D;
 import daamky.ua.utils.render.ui.font.FontType;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.MouseButtonEvent;
 
 final class BooleanSettingCard extends SettingCardComponent<BooleanSetting> {
    BooleanSettingCard(BooleanSetting setting) {
@@ -23,7 +23,7 @@ final class BooleanSettingCard extends SettingCardComponent<BooleanSetting> {
    }
 
    @Override
-   void render(DrawContext graphics, SettingCardContext context, float cardX, float y, int mouseX, int mouseY) {
+   void render(GuiGraphics graphics, SettingCardContext context, float cardX, float y, int mouseX, int mouseY) {
       this.markRow(cardX, y, this.height(context));
       this.state.booleanAnimation.setDirection(this.setting.getValue() ? Direction.FORWARDS : Direction.BACKWARDS);
       float animation = context.clamp(this.state.booleanAnimation.getOutput().floatValue(), 0.0F, 1.0F);
@@ -92,7 +92,7 @@ final class BooleanSettingCard extends SettingCardComponent<BooleanSetting> {
    }
 
    @Override
-   boolean mouseClicked(Click event, boolean doubled, SettingCardContext context) {
+   boolean mouseClicked(MouseButtonEvent event, boolean doubled, SettingCardContext context) {
       if (event.button() != 0) {
          return false;
       } else {

@@ -1,32 +1,32 @@
 package daamky.ua.mixin.accessor;
 
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.item.HeldItemRenderer;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.item.ItemDisplayContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.Arm;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.renderer.ItemInHandRenderer;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
-@Mixin({HeldItemRenderer.class})
+@Mixin({ItemInHandRenderer.class})
 public interface HeldItemRendererAccessor {
-   @Invoker("renderArm")
-   void invokeRenderArm(MatrixStack var1, OrderedRenderCommandQueue var2, int var3, Arm var4);
+   @Invoker("renderMapHand")
+   void invokeRenderArm(PoseStack var1, SubmitNodeCollector var2, int var3, HumanoidArm var4);
 
-   @Invoker("renderMapInBothHands")
-   void invokeRenderMapInBothHands(MatrixStack var1, OrderedRenderCommandQueue var2, int var3, float var4, float var5, float var6);
+   @Invoker("renderTwoHandedMap")
+   void invokeRenderMapInBothHands(PoseStack var1, SubmitNodeCollector var2, int var3, float var4, float var5, float var6);
 
-   @Invoker("renderMapInOneHand")
-   void invokeRenderMapInOneHand(MatrixStack var1, OrderedRenderCommandQueue var2, int var3, float var4, Arm var5, float var6, ItemStack var7);
+   @Invoker("renderOneHandedMap")
+   void invokeRenderMapInOneHand(PoseStack var1, SubmitNodeCollector var2, int var3, float var4, HumanoidArm var5, float var6, ItemStack var7);
 
-   @Invoker("applyEquipOffset")
-   void invokeApplyEquipOffset(MatrixStack var1, Arm var2, float var3);
+   @Invoker("applyItemArmTransform")
+   void invokeApplyEquipOffset(PoseStack var1, HumanoidArm var2, float var3);
 
    @Invoker("swingArm")
-   void invokeSwingArm(float var1, MatrixStack var2, int var3, Arm var4);
+   void invokeSwingArm(float var1, PoseStack var2, int var3, HumanoidArm var4);
 
    @Invoker("renderItem")
-   void invokeRenderItem(LivingEntity var1, ItemStack var2, ItemDisplayContext var3, MatrixStack var4, OrderedRenderCommandQueue var5, int var6);
+   void invokeRenderItem(LivingEntity var1, ItemStack var2, ItemDisplayContext var3, PoseStack var4, SubmitNodeCollector var5, int var6);
 }

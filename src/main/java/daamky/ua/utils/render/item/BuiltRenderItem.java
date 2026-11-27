@@ -1,6 +1,6 @@
 package daamky.ua.utils.render.item;
 
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.item.ItemStack;
 
 public record BuiltRenderItem(ItemStack stack, float x, float y, float size, RenderItemOptions options, int seed) {
    public BuiltRenderItem(ItemStack stack, float x, float y, float size, RenderItemOptions options, int seed) {

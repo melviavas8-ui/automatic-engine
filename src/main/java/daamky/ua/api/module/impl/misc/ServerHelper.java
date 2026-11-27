@@ -12,40 +12,40 @@ import java.util.Map.Entry;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BooleanSupplier;
 import java.util.function.Predicate;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.LoreComponent;
-import net.minecraft.component.type.PotionContentsComponent;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.enchantment.Enchantments;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.passive.MerchantEntity;
-import net.minecraft.entity.player.ItemCooldownManager;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.s2c.play.ChunkDeltaUpdateS2CPacket;
-import net.minecraft.network.packet.s2c.play.GameMessageS2CPacket;
-import net.minecraft.network.packet.s2c.play.ItemPickupAnimationS2CPacket;
-import net.minecraft.network.packet.s2c.play.OpenScreenS2CPacket;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.screen.GenericContainerScreenHandler;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.text.Text;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundOpenScreenPacket;
+import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
+import net.minecraft.network.protocol.game.ClientboundTakeItemEntityPacket;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.npc.villager.AbstractVillager;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemCooldowns;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.item.component.ItemLore;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
 import daamky.ua.api.drag.impl.HudRenderCompat;
@@ -200,62 +200,62 @@ public final class ServerHelper extends Module {
          "hlopushka",
          "Хлопушка",
          "хлопушка",
-         new ServerHelper.EffectRequirement(StatusEffects.SLOWNESS, 9),
-         new ServerHelper.EffectRequirement(StatusEffects.SPEED, 4),
-         new ServerHelper.EffectRequirement(StatusEffects.BLINDNESS, 9),
-         new ServerHelper.EffectRequirement(StatusEffects.GLOWING, 0)
+         new ServerHelper.EffectRequirement(MobEffects.SLOWNESS, 9),
+         new ServerHelper.EffectRequirement(MobEffects.SPEED, 4),
+         new ServerHelper.EffectRequirement(MobEffects.BLINDNESS, 9),
+         new ServerHelper.EffectRequirement(MobEffects.GLOWING, 0)
       );
       this.addPotionItem(
          "holywater",
          "Святая вода",
          "святая вода",
-         new ServerHelper.EffectRequirement(StatusEffects.REGENERATION, 2),
-         new ServerHelper.EffectRequirement(StatusEffects.INVISIBILITY, 1),
-         new ServerHelper.EffectRequirement(StatusEffects.INSTANT_HEALTH, 1)
+         new ServerHelper.EffectRequirement(MobEffects.REGENERATION, 2),
+         new ServerHelper.EffectRequirement(MobEffects.INVISIBILITY, 1),
+         new ServerHelper.EffectRequirement(MobEffects.INSTANT_HEALTH, 1)
       );
       this.addPotionItem(
          "gnev",
          "Зелье Гнева",
          "зелье гнева",
-         new ServerHelper.EffectRequirement(StatusEffects.STRENGTH, 4),
-         new ServerHelper.EffectRequirement(StatusEffects.SLOWNESS, 3)
+         new ServerHelper.EffectRequirement(MobEffects.STRENGTH, 4),
+         new ServerHelper.EffectRequirement(MobEffects.SLOWNESS, 3)
       );
       this.addPotionItem(
          "paladin",
          "Зелье Палладина",
          "зелье палладина",
-         new ServerHelper.EffectRequirement(StatusEffects.RESISTANCE, 0),
-         new ServerHelper.EffectRequirement(StatusEffects.FIRE_RESISTANCE, 0),
-         new ServerHelper.EffectRequirement(StatusEffects.INVISIBILITY, 0),
-         new ServerHelper.EffectRequirement(StatusEffects.HEALTH_BOOST, 2)
+         new ServerHelper.EffectRequirement(MobEffects.RESISTANCE, 0),
+         new ServerHelper.EffectRequirement(MobEffects.FIRE_RESISTANCE, 0),
+         new ServerHelper.EffectRequirement(MobEffects.INVISIBILITY, 0),
+         new ServerHelper.EffectRequirement(MobEffects.HEALTH_BOOST, 2)
       );
       this.addPotionItem(
          "assassin",
          "Зелье Ассасина",
          "зелье ассасина",
-         new ServerHelper.EffectRequirement(StatusEffects.STRENGTH, 3),
-         new ServerHelper.EffectRequirement(StatusEffects.SPEED, 2),
-         new ServerHelper.EffectRequirement(StatusEffects.HASTE, 0),
-         new ServerHelper.EffectRequirement(StatusEffects.INSTANT_DAMAGE, 1)
+         new ServerHelper.EffectRequirement(MobEffects.STRENGTH, 3),
+         new ServerHelper.EffectRequirement(MobEffects.SPEED, 2),
+         new ServerHelper.EffectRequirement(MobEffects.HASTE, 0),
+         new ServerHelper.EffectRequirement(MobEffects.INSTANT_DAMAGE, 1)
       );
       this.addPotionItem(
          "radiation",
          "Зелье Радиации",
          "зелье радиации",
-         new ServerHelper.EffectRequirement(StatusEffects.POISON, 1),
-         new ServerHelper.EffectRequirement(StatusEffects.WITHER, 1),
-         new ServerHelper.EffectRequirement(StatusEffects.SLOWNESS, 2),
-         new ServerHelper.EffectRequirement(StatusEffects.HUNGER, 4),
-         new ServerHelper.EffectRequirement(StatusEffects.GLOWING, 0)
+         new ServerHelper.EffectRequirement(MobEffects.POISON, 1),
+         new ServerHelper.EffectRequirement(MobEffects.WITHER, 1),
+         new ServerHelper.EffectRequirement(MobEffects.SLOWNESS, 2),
+         new ServerHelper.EffectRequirement(MobEffects.HUNGER, 4),
+         new ServerHelper.EffectRequirement(MobEffects.GLOWING, 0)
       );
       this.addPotionItem(
          "snotvornoe",
          "Снотворное",
          "снотворное",
-         new ServerHelper.EffectRequirement(StatusEffects.WEAKNESS, 1),
-         new ServerHelper.EffectRequirement(StatusEffects.MINING_FATIGUE, 1),
-         new ServerHelper.EffectRequirement(StatusEffects.WITHER, 2),
-         new ServerHelper.EffectRequirement(StatusEffects.BLINDNESS, 0)
+         new ServerHelper.EffectRequirement(MobEffects.WEAKNESS, 1),
+         new ServerHelper.EffectRequirement(MobEffects.MINING_FATIGUE, 1),
+         new ServerHelper.EffectRequirement(MobEffects.WITHER, 2),
+         new ServerHelper.EffectRequirement(MobEffects.BLINDNESS, 0)
       );
       this.addSimpleItem("antiflight", Items.FIREWORK_STAR, "Анти полет", "анти полет");
       this.addSimpleItem("expscroll", Items.FLOWER_BANNER_PATTERN, "Свиток опыта", "свиток опыта");
@@ -272,19 +272,19 @@ public final class ServerHelper extends Module {
    }
 
    public List<ServerHelper.HudBind> getHudBinds(float tickDelta) {
-      if (mc.player != null && mc.world != null) {
+      if (mc.player != null && mc.level != null) {
          List<ServerHelper.HudBind> binds = new ArrayList<>();
 
          for (ServerHelper.KeyBindingEntry bind : this.keyBindings) {
             if (bind.setting.isVisible() && bind.setting.getValue().isBound()) {
                ServerHelper.ItemInfo info = this.itemConfig.get(bind.key);
                Slot slot = this.findSlotByBinding(bind);
-               ItemStack stack = slot == null ? bind.item.getDefaultStack() : slot.getStack().copy();
+               ItemStack stack = slot == null ? bind.item.getDefaultInstance() : slot.getItem().copy();
                int count = this.countMatchingBinding(bind, info);
-               float cooldown = !stack.isEmpty() && mc.player.getItemCooldownManager().isCoolingDown(stack)
-                  ? mc.player.getItemCooldownManager().getCooldownProgress(stack, tickDelta)
+               float cooldown = !stack.isEmpty() && mc.player.getCooldowns().isOnCooldown(stack)
+                  ? mc.player.getCooldowns().getCooldownPercent(stack, tickDelta)
                   : 0.0F;
-               String displayName = info == null ? stack.getName().getString() : info.displayName;
+               String displayName = info == null ? stack.getHoverName().getString() : info.displayName;
                binds.add(new ServerHelper.HudBind(bind.key, bind.item, bind.setting, stack, count, cooldown, displayName));
             }
          }
@@ -296,7 +296,7 @@ public final class ServerHelper extends Module {
    }
 
    public List<ServerHelper.HudEvent> getHudEvents() {
-      if (mc.player != null && mc.world != null) {
+      if (mc.player != null && mc.level != null) {
          List<ServerHelper.HudEvent> events = new ArrayList<>();
 
          for (ServerHelper.ServerEventData event : this.serverEvents) {
@@ -304,7 +304,7 @@ public final class ServerHelper extends Module {
                double open = (event.timeOpen - (double)System.currentTimeMillis()) / 1000.0;
                double end = (event.timeEnd - (double)System.currentTimeMillis()) / 1000.0;
                String timer = open > 0.0 ? "Start " + this.formatSeconds(open) : (end > 0.0 ? "End " + this.formatSeconds(end) : "Done");
-               double distance = Math.sqrt(mc.player.squaredDistanceTo(event.vec.x, event.vec.y, event.vec.z));
+               double distance = Math.sqrt(mc.player.distanceToSqr(event.vec.x, event.vec.y, event.vec.z));
                events.add(new ServerHelper.HudEvent(event.name, event.lvl, event.owner, timer, distance));
             }
          }
@@ -323,11 +323,11 @@ public final class ServerHelper extends Module {
    @Override
    protected void onDisable() {
       if (this.keysOverridden) {
-         mc.options.forwardKey.setPressed(false);
-         mc.options.backKey.setPressed(false);
-         mc.options.leftKey.setPressed(false);
-         mc.options.rightKey.setPressed(false);
-         mc.options.jumpKey.setPressed(false);
+         mc.options.keyUp.setDown(false);
+         mc.options.keyDown.setDown(false);
+         mc.options.keyLeft.setDown(false);
+         mc.options.keyRight.setDown(false);
+         mc.options.keyJump.setDown(false);
       }
 
       this.resetState();
@@ -335,23 +335,23 @@ public final class ServerHelper extends Module {
 
    @SubscribeEvent
    private void onPacket(PacketEvent event) {
-      if (event.isReceive() && mc.player != null && mc.world != null) {
-         if (event.getPacket() instanceof ItemPickupAnimationS2CPacket packet
+      if (event.isReceive() && mc.player != null && mc.level != null) {
+         if (event.getPacket() instanceof ClientboundTakeItemEntityPacket packet
             && this.autoShulkerSetting.isVisible()
             && this.autoShulkerSetting.getValue()
-            && packet.getCollectorEntityId() == mc.player.getId()
-            && mc.world.getEntityById(packet.getEntityId()) instanceof ItemEntity itemEntity) {
-            ItemStack stack = itemEntity.getStack();
-            if (stack.get(DataComponentTypes.CONTAINER) == null) {
+            && packet.getPlayerId() == mc.player.getId()
+            && mc.level.getEntity(packet.getItemId()) instanceof ItemEntity itemEntity) {
+            ItemStack stack = itemEntity.getItem();
+            if (stack.get(DataComponents.CONTAINER) == null) {
                this.pendingLootItems.merge(stack.getItem(), Math.max(1, stack.getCount()), Integer::sum);
                this.shulkerWatch.reset();
             }
          }
 
-         if (event.getPacket() instanceof ChunkDeltaUpdateS2CPacket packetx && this.consumablesSetting.isVisible() && this.consumablesSetting.getValue()) {
+         if (event.getPacket() instanceof ClientboundSectionBlocksUpdatePacket packetx && this.consumablesSetting.isVisible() && this.consumablesSetting.getValue()) {
             List<BlockPos> changedPositions = new ArrayList<>();
-            packetx.visitUpdates((posx, state) -> {
-               BlockPos immutable = posx.toImmutable();
+            packetx.runUpdates((posx, state) -> {
+               BlockPos immutable = posx.immutable();
                this.blockStateMap.put(immutable, state);
                changedPositions.add(immutable);
             });
@@ -359,11 +359,11 @@ public final class ServerHelper extends Module {
                boolean trapDetected = false;
 
                for (BlockPos pos : changedPositions) {
-                  if (this.isTrap(pos.up(2))) {
-                     this.addStructure(Items.NETHERITE_SCRAP, Vec3d.ofCenter(pos), (double)(System.currentTimeMillis() + 15000L));
+                  if (this.isTrap(pos.above(2))) {
+                     this.addStructure(Items.NETHERITE_SCRAP, Vec3.atCenterOf(pos), (double)(System.currentTimeMillis() + 15000L));
                      trapDetected = true;
-                  } else if (this.isBigTrap(pos.up(3))) {
-                     this.addStructure(Items.NETHERITE_SCRAP, Vec3d.ofCenter(pos), (double)(System.currentTimeMillis() + 30000L));
+                  } else if (this.isBigTrap(pos.above(3))) {
+                     this.addStructure(Items.NETHERITE_SCRAP, Vec3.atCenterOf(pos), (double)(System.currentTimeMillis() + 30000L));
                      trapDetected = true;
                   }
                }
@@ -371,7 +371,7 @@ public final class ServerHelper extends Module {
                if (!trapDetected) {
                   for (BlockPos posx : changedPositions) {
                      BlockPos plastCenter = this.findPlastCenter(posx);
-                     Vec3d plastVec = plastCenter == null ? null : Vec3d.ofCenter(plastCenter);
+                     Vec3 plastVec = plastCenter == null ? null : Vec3.atCenterOf(plastCenter);
                      if (plastVec != null && !this.hasStructureNear(Items.NETHERITE_SCRAP, plastVec, 7.0)) {
                         this.addPendingStructure(Items.DRIED_KELP, plastCenter, (double)(System.currentTimeMillis() + 60000L));
                      }
@@ -380,7 +380,7 @@ public final class ServerHelper extends Module {
             }
          }
 
-         if (event.getPacket() instanceof GameMessageS2CPacket packetxx) {
+         if (event.getPacket() instanceof ClientboundSystemChatPacket packetxx) {
             if (this.autoPointSetting.isVisible() && this.autoPointSetting.getValue()) {
                this.processServerPoint(packetxx.content());
             }
@@ -388,7 +388,7 @@ public final class ServerHelper extends Module {
             this.processExperienceCooldown(packetxx.content().getString());
          }
 
-         if (event.getPacket() instanceof OpenScreenS2CPacket packetxx && packetxx.getName().getString().contains("Рюкзак")) {
+         if (event.getPacket() instanceof ClientboundOpenScreenPacket packetxx && packetxx.getTitle().getString().contains("Рюкзак")) {
             this.shulkerWatch.reset();
          }
       }
@@ -396,9 +396,9 @@ public final class ServerHelper extends Module {
 
    @SubscribeEvent
    private void onRotationUpdate(RotationUpdateEvent event) {
-      if (event.isPre() && mc.player != null && mc.world != null) {
+      if (event.isPre() && mc.player != null && mc.level != null) {
          this.processFunTimeRecovery();
-         if (mc.currentScreen != null) {
+         if (mc.screen != null) {
             this.clearPressedBindState();
          } else {
             long now = System.currentTimeMillis();
@@ -420,13 +420,13 @@ public final class ServerHelper extends Module {
 
    @SubscribeEvent
    private void onWorldRender(WorldRenderEvent event) {
-      if (mc.player != null && mc.world != null && mc.getWindow() != null && mc.currentScreen == null) {
-         long handle = mc.getWindow().getHandle();
+      if (mc.player != null && mc.level != null && mc.getWindow() != null && mc.screen == null) {
+         long handle = mc.getWindow().handle();
          int lineColor = this.mode.is("FunTime") ? this.boxLineColor.getValue().getRGB() : -8249328;
          int fillColor = this.mode.is("FunTime") ? this.boxFillColor.getValue().getRGB() : 679616528;
-         BlockPos playerPos = mc.player.getBlockPos();
-         Vec3d smooth = MathUtils.interpolate(new Vec3d(mc.player.lastX, mc.player.lastY, mc.player.lastZ), mc.player.getEntityPos())
-            .subtract(Vec3d.of(playerPos));
+         BlockPos playerPos = mc.player.blockPosition();
+         Vec3 smooth = MathUtils.interpolate(new Vec3(mc.player.xo, mc.player.yo, mc.player.zo), mc.player.position())
+            .subtract(Vec3.atLowerCornerOf(playerPos));
 
          for (ServerHelper.KeyBindingEntry bind : this.keyBindings) {
             if (bind.setting.isVisible() && bind.setting.getValue().isDown(handle) && this.bindingItemAvailable.getOrDefault(bind.key, false)) {
@@ -466,14 +466,14 @@ public final class ServerHelper extends Module {
 
    @SubscribeEvent
    private void onDraw(DrawEvent event) {
-      if (mc.player != null && mc.world != null) {
-         DrawContext graphics = event.getGraphics();
+      if (mc.player != null && mc.level != null) {
+         GuiGraphics graphics = event.getGraphics();
          this.structures
             .removeIf(structure -> structure.item == Items.DRIED_KELP && this.sameStructureContext(structure) && !this.isStructureStillValid(structure));
 
          for (ServerHelper.Structure structure : this.structures) {
             if (structure.anarchy == Network.getAnarchyMode() && this.matchesWorld(structure.world)) {
-               Vec3d screen = this.projectWorldToScreen(structure.vec);
+               Vec3 screen = this.projectWorldToScreen(structure.vec);
                if (screen != null) {
                   this.renderStructureMarker(graphics, structure, screen);
                }
@@ -482,7 +482,7 @@ public final class ServerHelper extends Module {
 
          for (ServerHelper.ServerEventData serverEvent : this.serverEvents) {
             if (serverEvent.anarchy == Network.getAnarchyMode() && this.matchesWorld(serverEvent.world)) {
-               Vec3d screen = this.projectWorldToScreen(serverEvent.vec);
+               Vec3 screen = this.projectWorldToScreen(serverEvent.vec);
                if (screen != null) {
                   double open = (serverEvent.timeOpen - (double)System.currentTimeMillis()) / 1000.0;
                   double end = (serverEvent.timeEnd - (double)System.currentTimeMillis()) / 1000.0;
@@ -491,9 +491,9 @@ public final class ServerHelper extends Module {
                      serverEvent.name
                         + " ["
                         + this.formatDecimal(
-                           mc.player.squaredDistanceTo(serverEvent.vec.x, serverEvent.vec.y, serverEvent.vec.z) <= 0.0
+                           mc.player.distanceToSqr(serverEvent.vec.x, serverEvent.vec.y, serverEvent.vec.z) <= 0.0
                               ? 0.0
-                              : Math.sqrt(mc.player.squaredDistanceTo(serverEvent.vec.x, serverEvent.vec.y, serverEvent.vec.z))
+                              : Math.sqrt(mc.player.distanceToSqr(serverEvent.vec.x, serverEvent.vec.y, serverEvent.vec.z))
                         )
                         + "m]"
                   );
@@ -513,17 +513,17 @@ public final class ServerHelper extends Module {
 
          if (this.entityUUID != null) {
             PlayerInteractionHelper.streamEntities()
-               .filter(entity -> entity.getUuid().equals(this.entityUUID))
+               .filter(entity -> entity.getUUID().equals(this.entityUUID))
                .findFirst()
                .ifPresent(
                   entity -> {
-                     Vec3d screenx = this.projectWorldToScreen(Vec3d.ofCenter(entity.getBlockPos().down()));
+                     Vec3 screenx = this.projectWorldToScreen(Vec3.atCenterOf(entity.blockPosition().below()));
                      if (screenx != null) {
                         String text = !this.itemsWatch.finished(200.0)
                            ? "Можно забрать"
                            : (!this.itemsWatch.finished(20000.0) ? this.formatSeconds(20.0 - (double)this.itemsWatch.elapsedTime() / 1000.0) : "Скоро");
                         int color = mc.player.distanceTo(entity) < 5.0F ? FRIEND_COLOR : -43691;
-                        graphics.drawText(mc.textRenderer, text, (int)screenx.x - mc.textRenderer.getWidth(text) / 2, (int)screenx.y, color, true);
+                        graphics.drawString(mc.font, text, (int)screenx.x - mc.font.width(text) / 2, (int)screenx.y, color, true);
                      }
                   }
                );
@@ -592,21 +592,21 @@ public final class ServerHelper extends Module {
    }
 
    private void blockMovement() {
-      mc.options.forwardKey.setPressed(false);
-      mc.options.backKey.setPressed(false);
-      mc.options.leftKey.setPressed(false);
-      mc.options.rightKey.setPressed(false);
-      mc.options.jumpKey.setPressed(false);
+      mc.options.keyUp.setDown(false);
+      mc.options.keyDown.setDown(false);
+      mc.options.keyLeft.setDown(false);
+      mc.options.keyRight.setDown(false);
+      mc.options.keyJump.setDown(false);
       if (mc.player.isSprinting()) {
          mc.player.setSprinting(false);
       }
 
-      mc.options.sprintKey.setPressed(false);
+      mc.options.keySprint.setDown(false);
    }
 
    private void processKeyBindings() {
       if (mc.getWindow() != null) {
-         long handle = mc.getWindow().getHandle();
+         long handle = mc.getWindow().handle();
 
          for (ServerHelper.KeyBindingEntry bind : this.keyBindings) {
             if (bind.setting.isVisible()) {
@@ -630,8 +630,8 @@ public final class ServerHelper extends Module {
          if (slot == null) {
             this.notifyItemMissing(info);
          } else {
-            ItemStack stack = slot.getStack();
-            if (mc.player.getItemCooldownManager().isCoolingDown(stack)) {
+            ItemStack stack = slot.getItem();
+            if (mc.player.getCooldowns().isOnCooldown(stack)) {
                this.notifyItemCooldown(info, stack);
             } else {
                if (!this.itemQueue.contains(key)) {
@@ -651,8 +651,8 @@ public final class ServerHelper extends Module {
             if (slot == null) {
                this.notifyItemMissing(info);
                this.itemTimer.reset();
-            } else if (mc.player.getItemCooldownManager().isCoolingDown(slot.getStack())) {
-               this.notifyItemCooldown(info, slot.getStack());
+            } else if (mc.player.getCooldowns().isOnCooldown(slot.getItem())) {
+               this.notifyItemCooldown(info, slot.getItem());
                this.itemTimer.reset();
             } else {
                this.notifyItemUsed(info);
@@ -668,14 +668,14 @@ public final class ServerHelper extends Module {
          this.originalSlot = mc.player.getInventory().getSelectedSlot();
          this.originalSourceSlot = InventoryTask.getMenuSlotId(slot);
          if (this.swapMode.is("FunTime") && !this.isHotbarSourceSlot(this.originalSourceSlot)) {
-            this.recoveryHotbarItem = mc.player.getInventory().getStack(this.originalSlot).getItem();
+            this.recoveryHotbarItem = mc.player.getInventory().getItem(this.originalSlot).getItem();
          }
 
-         this.wasForwardPressed = mc.options.forwardKey.isPressed();
-         this.wasBackPressed = mc.options.backKey.isPressed();
-         this.wasLeftPressed = mc.options.leftKey.isPressed();
-         this.wasRightPressed = mc.options.rightKey.isPressed();
-         this.wasJumpPressed = mc.options.jumpKey.isPressed();
+         this.wasForwardPressed = mc.options.keyUp.isDown();
+         this.wasBackPressed = mc.options.keyDown.isDown();
+         this.wasLeftPressed = mc.options.keyLeft.isDown();
+         this.wasRightPressed = mc.options.keyRight.isDown();
+         this.wasJumpPressed = mc.options.keyJump.isDown();
          this.keysOverridden = true;
          this.movement.saveState();
          this.movement.block();
@@ -767,20 +767,20 @@ public final class ServerHelper extends Module {
    }
 
    private void processFunTimeRecovery() {
-      if (this.funTimeRecovery && this.actionState == ServerHelper.ActionState.IDLE && mc.player != null && mc.interactionManager != null) {
+      if (this.funTimeRecovery && this.actionState == ServerHelper.ActionState.IDLE && mc.player != null && mc.gameMode != null) {
          long now = System.currentTimeMillis();
          if (this.recoveryAttempts > 0
             && now - this.recoveryStartedAt < 800L
             && this.recoveryInventorySlot >= 0
             && this.recoveryHotbarSlot >= 0
             && this.recoveryHotbarSlot < 9
-            && this.recoveryInventorySlot < mc.player.currentScreenHandler.slots.size()) {
-            Item hotbarItem = mc.player.getInventory().getStack(this.recoveryHotbarSlot).getItem();
-            Item inventoryItem = mc.player.currentScreenHandler.getSlot(this.recoveryInventorySlot).getStack().getItem();
+            && this.recoveryInventorySlot < mc.player.containerMenu.slots.size()) {
+            Item hotbarItem = mc.player.getInventory().getItem(this.recoveryHotbarSlot).getItem();
+            Item inventoryItem = mc.player.containerMenu.getSlot(this.recoveryInventorySlot).getItem().getItem();
             if (hotbarItem == this.recoveryHotbarItem) {
                this.clearFunTimeRecovery();
             } else if (inventoryItem == this.recoveryHotbarItem && now - this.recoveryLastAttemptAt >= 150L) {
-               InventoryUtils.click(this.recoveryInventorySlot, this.recoveryHotbarSlot, SlotActionType.SWAP);
+               InventoryUtils.click(this.recoveryInventorySlot, this.recoveryHotbarSlot, ClickType.SWAP);
                this.recoveryAttempts--;
                this.recoveryLastAttemptAt = now;
             }
@@ -809,8 +809,8 @@ public final class ServerHelper extends Module {
    }
 
    private Slot getSourceSlot(int slot) {
-      return slot >= 0 && mc.player != null && mc.player.currentScreenHandler != null && slot < mc.player.currentScreenHandler.slots.size()
-         ? mc.player.currentScreenHandler.getSlot(slot)
+      return slot >= 0 && mc.player != null && mc.player.containerMenu != null && slot < mc.player.containerMenu.slots.size()
+         ? mc.player.containerMenu.getSlot(slot)
          : null;
    }
 
@@ -822,22 +822,22 @@ public final class ServerHelper extends Module {
 
    private void prepareInventoryUseSilent(Slot slot) {
       if (slot != null && this.originalSlot != -1) {
-         InventoryUtils.click(InventoryTask.getMenuSlotId(slot), this.originalSlot, SlotActionType.SWAP);
+         InventoryUtils.click(InventoryTask.getMenuSlotId(slot), this.originalSlot, ClickType.SWAP);
       }
    }
 
    private void finishInventoryUseSilent(Slot slot) {
       if (slot != null && this.originalSlot != -1) {
-         InventoryUtils.click(InventoryTask.getMenuSlotId(slot), this.originalSlot, SlotActionType.SWAP);
+         InventoryUtils.click(InventoryTask.getMenuSlotId(slot), this.originalSlot, ClickType.SWAP);
          InventoryUtils.syncSelectedHotbarSlot(this.originalSlot);
       }
    }
 
    private void performUseItem() {
-      if (mc.player != null && mc.interactionManager != null) {
-         Hand hand = Hand.MAIN_HAND;
-         mc.interactionManager.interactItem(mc.player, hand);
-         mc.player.swingHand(hand);
+      if (mc.player != null && mc.gameMode != null) {
+         InteractionHand hand = InteractionHand.MAIN_HAND;
+         mc.gameMode.useItem(mc.player, hand);
+         mc.player.swing(hand);
       }
    }
 
@@ -867,10 +867,10 @@ public final class ServerHelper extends Module {
 
    private int cooldownRemainingTicks(ItemStack stack) {
       if (mc.player != null && stack != null && !stack.isEmpty()) {
-         ItemCooldownManager cooldowns = mc.player.getItemCooldownManager();
+         ItemCooldowns cooldowns = mc.player.getCooldowns();
 
          try {
-            Identifier group = cooldowns.getGroup(stack);
+            Identifier group = cooldowns.getCooldownGroup(stack);
             Map<Identifier, ?> activeCooldowns = ((ItemCooldownsAccessor)cooldowns).daamky$getCooldowns();
             if (activeCooldowns.get(group) instanceof ItemCooldownInstanceAccessor accessor) {
                return Math.max(0, accessor.daamky$getEndTime() - ((ItemCooldownsAccessor)cooldowns).daamky$getTickCount());
@@ -878,7 +878,7 @@ public final class ServerHelper extends Module {
          } catch (RuntimeException var7) {
          }
 
-         float progress = cooldowns.getCooldownProgress(stack, 0.0F);
+         float progress = cooldowns.getCooldownPercent(stack, 0.0F);
          return progress <= 0.0F ? -1 : Math.max(1, Math.round(progress * 20.0F));
       } else {
          return -1;
@@ -898,11 +898,11 @@ public final class ServerHelper extends Module {
 
    private void restoreKeyStates() {
       if (this.keysOverridden) {
-         mc.options.forwardKey.setPressed(this.wasForwardPressed);
-         mc.options.backKey.setPressed(this.wasBackPressed);
-         mc.options.leftKey.setPressed(this.wasLeftPressed);
-         mc.options.rightKey.setPressed(this.wasRightPressed);
-         mc.options.jumpKey.setPressed(this.wasJumpPressed);
+         mc.options.keyUp.setDown(this.wasForwardPressed);
+         mc.options.keyDown.setDown(this.wasBackPressed);
+         mc.options.keyLeft.setDown(this.wasLeftPressed);
+         mc.options.keyRight.setDown(this.wasRightPressed);
+         mc.options.keyJump.setDown(this.wasJumpPressed);
          this.keysOverridden = false;
          this.movement.reset();
       }
@@ -914,27 +914,27 @@ public final class ServerHelper extends Module {
          && this.actionState == ServerHelper.ActionState.IDLE
          && this.repairWatch.every(5000.0)
          && List.of(
-               mc.player.getEquippedStack(EquipmentSlot.FEET),
-               mc.player.getEquippedStack(EquipmentSlot.LEGS),
-               mc.player.getEquippedStack(EquipmentSlot.CHEST),
-               mc.player.getEquippedStack(EquipmentSlot.HEAD)
+               mc.player.getItemBySlot(EquipmentSlot.FEET),
+               mc.player.getItemBySlot(EquipmentSlot.LEGS),
+               mc.player.getItemBySlot(EquipmentSlot.CHEST),
+               mc.player.getItemBySlot(EquipmentSlot.HEAD)
             )
             .stream()
             .anyMatch(this::needsMendingRepair)) {
          ServerHelper.ItemInfo exp = this.itemConfig.get("exp");
          Slot slot = exp == null ? null : this.findSlotByItem(exp);
-         if (slot != null && !mc.player.getItemCooldownManager().isCoolingDown(slot.getStack())) {
+         if (slot != null && !mc.player.getCooldowns().isOnCooldown(slot.getItem())) {
             this.startItemUse(slot);
          }
       }
 
       if (this.autoShulkerSetting.isVisible()
          && this.autoShulkerSetting.getValue()
-         && mc.currentScreen == null
+         && mc.screen == null
          && !this.pendingLootItems.isEmpty()
          && this.shulkerScript.isFinished()
          && this.shulkerWatch.finished(300.0)) {
-         Slot shulker = InventoryUtils.findSlot((Predicate<Slot>)(slotx -> slotx.hasStack() && slotx.getStack().get(DataComponentTypes.CONTAINER) != null));
+         Slot shulker = InventoryUtils.findSlot((Predicate<Slot>)(slotx -> slotx.hasItem() && slotx.getItem().get(DataComponents.CONTAINER) != null));
          if (shulker != null) {
             this.openLootShulker(shulker);
          }
@@ -942,14 +942,14 @@ public final class ServerHelper extends Module {
 
       if (this.autoLootSetting.isVisible() && this.autoLootSetting.getValue()) {
          PlayerInteractionHelper.streamEntities()
-            .filter(MerchantEntity.class::isInstance)
-            .map(MerchantEntity.class::cast)
-            .filter(villager -> !villager.getMainHandStack().isEmpty() || !villager.getOffHandStack().isEmpty())
+            .filter(AbstractVillager.class::isInstance)
+            .map(AbstractVillager.class::cast)
+            .filter(villager -> !villager.getMainHandItem().isEmpty() || !villager.getOffhandItem().isEmpty())
             .filter(villager -> mc.player.distanceTo(villager) <= 6.0F)
             .findFirst()
             .ifPresent(villager -> {
                this.itemsWatch.reset();
-               this.entityUUID = villager.getUuid();
+               this.entityUUID = villager.getUUID();
                PlayerInteractionHelper.interactEntity(villager);
             });
       }
@@ -963,13 +963,13 @@ public final class ServerHelper extends Module {
    }
 
    private boolean needsMendingRepair(ItemStack stack) {
-      if (stack != null && !stack.isEmpty() && stack.isDamageable()) {
-         if ((double)stack.getDamage() / (double)stack.getMaxDamage() < 0.94) {
+      if (stack != null && !stack.isEmpty() && stack.isDamageableItem()) {
+         if ((double)stack.getDamageValue() / (double)stack.getMaxDamage() < 0.94) {
             return false;
          } else {
             try {
-               RegistryEntry<Enchantment> mending = mc.world.getRegistryManager().getOrThrow(RegistryKeys.ENCHANTMENT).getOrThrow(Enchantments.MENDING);
-               return EnchantmentHelper.getLevel(mending, stack) > 0;
+               Holder<Enchantment> mending = mc.level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(Enchantments.MENDING);
+               return EnchantmentHelper.getItemEnchantmentLevel(mending, stack) > 0;
             } catch (Throwable var3) {
                return true;
             }
@@ -986,32 +986,32 @@ public final class ServerHelper extends Module {
       if (sourceInHotbar) {
          InventoryUtils.syncSelectedHotbarSlot(sourceSlot - 36);
       } else {
-         InventoryUtils.click(sourceSlot, selected, SlotActionType.SWAP);
+         InventoryUtils.click(sourceSlot, selected, ClickType.SWAP);
       }
 
-      PlayerInteractionHelper.interactItem(Hand.MAIN_HAND);
+      PlayerInteractionHelper.interactItem(InteractionHand.MAIN_HAND);
       this.shulkerScript
          .cleanup()
          .addTickStep(
             0,
             () -> this.moveLootIntoOpenedBackpack(sourceSlot, selected, sourceInHotbar),
-            () -> mc.player.currentScreenHandler instanceof GenericContainerScreenHandler && mc.currentScreen != null
+            () -> mc.player.containerMenu instanceof ChestMenu && mc.screen != null
          );
    }
 
    private void moveLootIntoOpenedBackpack(int sourceSlot, int selectedSlot, boolean sourceInHotbar) {
-      if (mc.player.currentScreenHandler instanceof GenericContainerScreenHandler chestMenu) {
+      if (mc.player.containerMenu instanceof ChestMenu chestMenu) {
          HashMap<Item, Integer> var12 = new HashMap<>();
-         int start = chestMenu.getRows() * 9;
+         int start = chestMenu.getRowCount() * 9;
 
          for (int slotId = start; slotId < chestMenu.slots.size(); slotId++) {
             Slot slot = (Slot)chestMenu.slots.get(slotId);
-            if (slot.hasStack()) {
-               Item item = slot.getStack().getItem();
+            if (slot.hasItem()) {
+               Item item = slot.getItem().getItem();
                int remaining = this.pendingLootItems.getOrDefault(item, 0) - var12.getOrDefault(item, 0);
                if (remaining > 0) {
-                  int movedCount = Math.min(slot.getStack().getCount(), remaining);
-                  InventoryUtils.click(slotId, 0, SlotActionType.QUICK_MOVE);
+                  int movedCount = Math.min(slot.getItem().getCount(), remaining);
+                  InventoryUtils.click(slotId, 0, ClickType.QUICK_MOVE);
                   var12.merge(item, movedCount, Integer::sum);
                }
             }
@@ -1028,7 +1028,7 @@ public final class ServerHelper extends Module {
 
          InventoryUtils.closeScreen();
          if (!sourceInHotbar) {
-            InventoryUtils.click(sourceSlot, selectedSlot, SlotActionType.SWAP);
+            InventoryUtils.click(sourceSlot, selectedSlot, ClickType.SWAP);
          }
 
          InventoryUtils.syncSelectedHotbarSlot(selectedSlot);
@@ -1040,9 +1040,9 @@ public final class ServerHelper extends Module {
       List<String> lore = new ArrayList<>();
       if (stack != null && !stack.isEmpty()) {
          try {
-            LoreComponent itemLore = (LoreComponent)stack.get(DataComponentTypes.LORE);
+            ItemLore itemLore = (ItemLore)stack.get(DataComponents.LORE);
             if (itemLore != null) {
-               for (Text line : itemLore.lines()) {
+               for (Component line : itemLore.lines()) {
                   String clean = this.cleanText(line);
                   if (!clean.isEmpty()) {
                      lore.add(clean);
@@ -1084,23 +1084,23 @@ public final class ServerHelper extends Module {
          if (stack.getItem() != Items.SPLASH_POTION && stack.getItem() != Items.LINGERING_POTION) {
             return false;
          } else {
-            PotionContentsComponent contents = (PotionContentsComponent)stack.get(DataComponentTypes.POTION_CONTENTS);
+            PotionContents contents = (PotionContents)stack.get(DataComponents.POTION_CONTENTS);
             if (contents == null) {
                return false;
             } else {
                int matches = 0;
 
                for (ServerHelper.EffectRequirement requirement : requirements) {
-                  for (StatusEffectInstance effect : contents.customEffects()) {
-                     if (effect.getEffectType().equals(requirement.effect) && effect.getAmplifier() >= requirement.minAmplifier) {
+                  for (MobEffectInstance effect : contents.customEffects()) {
+                     if (effect.getEffect().equals(requirement.effect) && effect.getAmplifier() >= requirement.minAmplifier) {
                         matches++;
                         break;
                      }
                   }
 
                   if (matches < requirements.size()) {
-                     for (StatusEffectInstance effectx : contents.getEffects()) {
-                        if (effectx.getEffectType().equals(requirement.effect) && effectx.getAmplifier() >= requirement.minAmplifier) {
+                     for (MobEffectInstance effectx : contents.getAllEffects()) {
+                        if (effectx.getEffect().equals(requirement.effect) && effectx.getAmplifier() >= requirement.minAmplifier) {
                            matches++;
                            break;
                         }
@@ -1120,8 +1120,8 @@ public final class ServerHelper extends Module {
       if (bind != null && mc.player != null) {
          int count = 0;
 
-         for (int i = 0; i < mc.player.getInventory().size(); i++) {
-            ItemStack stack = mc.player.getInventory().getStack(i);
+         for (int i = 0; i < mc.player.getInventory().getContainerSize(); i++) {
+            ItemStack stack = mc.player.getInventory().getItem(i);
             if (!stack.isEmpty() && this.matchesBindingStack(stack, bind, info)) {
                count += stack.getCount();
             }
@@ -1162,9 +1162,9 @@ public final class ServerHelper extends Module {
          if (this.mode.is("FunTime") && info.funTimeOnly) {
             if (info.effectRequirements != null && !info.effectRequirements.isEmpty()) {
                Slot slot = InventoryUtils.findSlot(
-                  (Predicate<Slot>)(candidate -> candidate.hasStack()
-                        && candidate.getStack().getItem() == info.item
-                        && this.matchesPotionEffects(candidate.getStack(), info.effectRequirements))
+                  (Predicate<Slot>)(candidate -> candidate.hasItem()
+                        && candidate.getItem().getItem() == info.item
+                        && this.matchesPotionEffects(candidate.getItem(), info.effectRequirements))
                );
                if (slot != null) {
                   return slot;
@@ -1173,9 +1173,9 @@ public final class ServerHelper extends Module {
 
             if (info.loreKeywords != null && !info.loreKeywords.isEmpty()) {
                Slot slot = InventoryUtils.findSlot(
-                  (Predicate<Slot>)(candidate -> candidate.hasStack()
-                        && candidate.getStack().getItem() == info.item
-                        && this.matchesLore(candidate.getStack(), info.loreKeywords))
+                  (Predicate<Slot>)(candidate -> candidate.hasItem()
+                        && candidate.getItem().getItem() == info.item
+                        && this.matchesLore(candidate.getItem(), info.loreKeywords))
                );
                if (slot != null) {
                   return slot;
@@ -1184,16 +1184,16 @@ public final class ServerHelper extends Module {
          }
 
          return InventoryUtils.findSlot(
-            (Predicate<Slot>)(candidate -> candidate.hasStack()
-                  && candidate.getStack().getItem() == info.item
-                  && this.matchesFallbackName(candidate.getStack(), info.nameFallback))
+            (Predicate<Slot>)(candidate -> candidate.hasItem()
+                  && candidate.getItem().getItem() == info.item
+                  && this.matchesFallbackName(candidate.getItem(), info.nameFallback))
          );
       }
    }
 
    private boolean matchesFallbackName(ItemStack stack, String fallbackName) {
       if (fallbackName != null && !fallbackName.isEmpty()) {
-         String cleanName = this.cleanText(stack.getName());
+         String cleanName = this.cleanText(stack.getHoverName());
          if (cleanName.contains(fallbackName.toLowerCase(Locale.ROOT))) {
             return true;
          } else {
@@ -1208,21 +1208,21 @@ public final class ServerHelper extends Module {
    private Slot findSlotByBinding(ServerHelper.KeyBindingEntry bind) {
       ServerHelper.ItemInfo info = this.itemConfig.get(bind.key);
       Slot slot = info == null ? null : this.findSlotByItem(info);
-      return slot != null ? slot : InventoryUtils.findSlot((Predicate<Slot>)(candidate -> candidate.hasStack() && candidate.getStack().getItem() == bind.item));
+      return slot != null ? slot : InventoryUtils.findSlot((Predicate<Slot>)(candidate -> candidate.hasItem() && candidate.getItem().getItem() == bind.item));
    }
 
    private void processFuntimeAhSearchCombo() {
-      if (mc.player != null && mc.currentScreen == null && this.mode.is("FunTime")) {
+      if (mc.player != null && mc.screen == null && this.mode.is("FunTime")) {
          KeyBind bind = this.funtimeAhSearchBind.getValue();
-         boolean pressed = bind != null && mc.getWindow() != null && bind.isDown(mc.getWindow().getHandle());
+         boolean pressed = bind != null && mc.getWindow() != null && bind.isDown(mc.getWindow().handle());
          if (!pressed) {
             this.ahSearchBindWasPressed = false;
          } else if (!this.ahSearchBindWasPressed && this.ahSearchTimer.finished(700.0)) {
-            ItemStack stack = mc.player.getMainHandStack();
-            if (!stack.isEmpty() && mc.player.networkHandler != null) {
-               String query = this.cleanText(stack.getName()).replaceAll("[^\\p{L}\\p{N}\\s]", " ").replaceAll("\\s+", " ").trim();
+            ItemStack stack = mc.player.getMainHandItem();
+            if (!stack.isEmpty() && mc.player.connection != null) {
+               String query = this.cleanText(stack.getHoverName()).replaceAll("[^\\p{L}\\p{N}\\s]", " ").replaceAll("\\s+", " ").trim();
                if (!query.isEmpty()) {
-                  mc.player.networkHandler.sendChatCommand("ah search " + query);
+                  mc.player.connection.sendCommand("ah search " + query);
                }
             }
 
@@ -1232,7 +1232,7 @@ public final class ServerHelper extends Module {
       }
    }
 
-   private void renderStructureMarker(DrawContext graphics, ServerHelper.Structure structure, Vec3d screen) {
+   private void renderStructureMarker(GuiGraphics graphics, ServerHelper.Structure structure, Vec3 screen) {
       String name = this.structureName(structure.item);
       String separator = "|";
       String timer = this.formatMarkerSeconds((structure.time - (double)System.currentTimeMillis()) / 1000.0);
@@ -1262,14 +1262,14 @@ public final class ServerHelper extends Module {
             .color(ColorUtil.rgba(0, 0, 0, 255))
             .build()
       );
-      graphics.getMatrices().pushMatrix();
+      graphics.pose().pushMatrix();
 
       try {
-         graphics.getMatrices().translate(iconX, iconY);
-         graphics.getMatrices().scale(0.5F);
-         graphics.drawItem(structure.item.getDefaultStack(), 0, 0);
+         graphics.pose().translate(iconX, iconY);
+         graphics.pose().scale(0.5F);
+         graphics.renderItem(structure.item.getDefaultInstance(), 0, 0);
       } finally {
-         graphics.getMatrices().popMatrix();
+         graphics.pose().popMatrix();
       }
 
       Render2D.text(FontType.SEMIBOLD, name, nameX, textY, fontSize, ColorUtil.rgba(245, 245, 245, 255));
@@ -1289,7 +1289,7 @@ public final class ServerHelper extends Module {
       if (distance == 0.0F) {
          return true;
       } else {
-         for (PlayerEntity player : mc.world.getPlayers()) {
+         for (Player player : mc.level.players()) {
             if (player != mc.player && !FriendUtils.isFriend(player) && mc.player.distanceTo(player) <= distance) {
                return true;
             }
@@ -1299,10 +1299,10 @@ public final class ServerHelper extends Module {
       }
    }
 
-   private void drawItemCube(BlockPos playerPos, Vec3d smooth, float size, int lineColor, int fillColor) {
-      Box box = new Box(playerPos.up()).offset(smooth).expand((double)size);
-      boolean playerInside = mc.world
-         .getPlayers()
+   private void drawItemCube(BlockPos playerPos, Vec3 smooth, float size, int lineColor, int fillColor) {
+      AABB box = new AABB(playerPos.above()).move(smooth).inflate((double)size);
+      boolean playerInside = mc.level
+         .players()
          .stream()
          .anyMatch(player -> player != mc.player && !FriendUtils.isFriend(player) && box.intersects(player.getBoundingBox()));
       if (playerInside) {
@@ -1312,7 +1312,7 @@ public final class ServerHelper extends Module {
       }
    }
 
-   private void processServerPoint(Text content) {
+   private void processServerPoint(Component content) {
       String contentString = content.toString();
       String message = content.getString();
       String name = this.substringBetween(message, "||| [", "] ");
@@ -1324,7 +1324,7 @@ public final class ServerHelper extends Module {
             String[] parts = position.split(" ");
             if (parts.length >= 3) {
                try {
-                  Vec3d center = Vec3d.ofCenter(new BlockPos(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), Integer.parseInt(parts[2])));
+                  Vec3 center = Vec3.atCenterOf(new BlockPos(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), Integer.parseInt(parts[2])));
                   switch (name) {
                      case "Мистический сундук":
                         this.addEvent(name, lvl, owner, center, "overworld", 300, 0);
@@ -1346,10 +1346,10 @@ public final class ServerHelper extends Module {
          } else {
             switch (name) {
                case "Сундук смерти":
-                  this.addEvent(name, lvl, owner, Vec3d.ofCenter(new BlockPos(-155, 64, 205)), "lobby", 300, 0);
+                  this.addEvent(name, lvl, owner, Vec3.atCenterOf(new BlockPos(-155, 64, 205)), "lobby", 300, 0);
                   break;
                case "Адская резня":
-                  this.addEvent(name, lvl, owner, Vec3d.ofCenter(new BlockPos(48, 87, 73)), "lobby", 180, 120);
+                  this.addEvent(name, lvl, owner, Vec3.atCenterOf(new BlockPos(48, 87, 73)), "lobby", 180, 120);
             }
          }
       }
@@ -1361,14 +1361,14 @@ public final class ServerHelper extends Module {
          if (seconds != null && !seconds.isEmpty()) {
             try {
                int duration = Integer.parseInt(seconds) * 20;
-               mc.player.getItemCooldownManager().set(Items.EXPERIENCE_BOTTLE.getDefaultStack(), duration);
+               mc.player.getCooldowns().addCooldown(Items.EXPERIENCE_BOTTLE.getDefaultInstance(), duration);
             } catch (NumberFormatException var4) {
             }
          }
       }
    }
 
-   private void addEvent(String name, String lvl, String owner, Vec3d vec, String world, int timeOpen, int timeLoot) {
+   private void addEvent(String name, String lvl, String owner, Vec3 vec, String world, int timeOpen, int timeLoot) {
       for (ServerHelper.ServerEventData event : this.serverEvents) {
          if (event.vec.equals(vec)) {
             return;
@@ -1380,7 +1380,7 @@ public final class ServerHelper extends Module {
       this.serverEvents.add(new ServerHelper.ServerEventData(name, lvl, owner, vec, world, Network.getAnarchyMode(), (double)open, (double)end));
    }
 
-   private void addStructure(Item item, Vec3d vec, double time) {
+   private void addStructure(Item item, Vec3 vec, double time) {
       if (item != Items.DRIED_KELP || !this.hasStructureNear(Items.NETHERITE_SCRAP, vec, 7.0)) {
          if (item == Items.NETHERITE_SCRAP) {
             this.structures
@@ -1399,25 +1399,25 @@ public final class ServerHelper extends Module {
 
    private void addPendingStructure(Item item, BlockPos center, double time) {
       if (center != null) {
-         Vec3d vec = Vec3d.ofCenter(center);
+         Vec3 vec = Vec3.atCenterOf(center);
          if (!this.hasStructureNear(item, vec, 3.0) && !this.hasPendingStructureNear(item, vec, 3.0)) {
             long now = System.currentTimeMillis();
             this.pendingStructures
                .add(
                   new ServerHelper.PendingStructure(
-                     item, center.toImmutable(), this.currentWorldToken(), Network.getAnarchyMode(), time, now + 75L, now + 1000L
+                     item, center.immutable(), this.currentWorldToken(), Network.getAnarchyMode(), time, now + 75L, now + 1000L
                   )
                );
          }
       }
    }
 
-   private boolean hasPendingStructureNear(Item item, Vec3d vec, double distance) {
+   private boolean hasPendingStructureNear(Item item, Vec3 vec, double distance) {
       for (ServerHelper.PendingStructure structure : this.pendingStructures) {
          if (structure.item == item
             && structure.anarchy == Network.getAnarchyMode()
             && this.matchesWorld(structure.world)
-            && Vec3d.ofCenter(structure.center).distanceTo(vec) < distance) {
+            && Vec3.atCenterOf(structure.center).distanceTo(vec) < distance) {
             return true;
          }
       }
@@ -1435,7 +1435,7 @@ public final class ServerHelper extends Module {
                return false;
             } else {
                if (this.isRealStructure(structure)) {
-                  this.addStructure(structure.item, Vec3d.ofCenter(structure.center), structure.time);
+                  this.addStructure(structure.item, Vec3.atCenterOf(structure.center), structure.time);
                }
 
                return true;
@@ -1449,10 +1449,10 @@ public final class ServerHelper extends Module {
    }
 
    private boolean isStructureStillValid(ServerHelper.Structure structure) {
-      return structure.item == Items.DRIED_KELP && this.sameStructureContext(structure) ? this.isRealPlast(BlockPos.ofFloored(structure.vec)) : true;
+      return structure.item == Items.DRIED_KELP && this.sameStructureContext(structure) ? this.isRealPlast(BlockPos.containing(structure.vec)) : true;
    }
 
-   private boolean hasStructureNear(Item item, Vec3d vec, double distance) {
+   private boolean hasStructureNear(Item item, Vec3 vec, double distance) {
       for (ServerHelper.Structure structure : this.structures) {
          if (structure.item == item && this.sameStructureContext(structure) && structure.vec.distanceTo(vec) < distance) {
             return true;
@@ -1472,7 +1472,7 @@ public final class ServerHelper extends Module {
       for (int x = -2; x <= 2; x++) {
          for (int y = -2; y <= 2; y++) {
             for (int z = -2; z <= 2; z++) {
-               BlockPos center = changedPos.add(x, y, z);
+               BlockPos center = changedPos.offset(x, y, z);
                best = this.bestPlastCandidate(best, new ServerHelper.PlastCandidate(center, this.countSolidPlane(center, ServerHelper.Plane.XY)));
                best = this.bestPlastCandidate(best, new ServerHelper.PlastCandidate(center, this.countSolidPlane(center, ServerHelper.Plane.XZ)));
                best = this.bestPlastCandidate(best, new ServerHelper.PlastCandidate(center, this.countSolidPlane(center, ServerHelper.Plane.YZ)));
@@ -1497,9 +1497,9 @@ public final class ServerHelper extends Module {
       for (int a = -2; a <= 2; a++) {
          for (int b = -2; b <= 2; b++) {
             BlockPos pos = switch (plane) {
-               case XY -> center.add(a, b, 0);
-               case XZ -> center.add(a, 0, b);
-               case YZ -> center.add(0, a, b);
+               case XY -> center.offset(a, b, 0);
+               case XZ -> center.offset(a, 0, b);
+               case YZ -> center.offset(0, a, b);
             };
             BlockState state = this.blockStateMap.get(pos);
             if (state != null && !state.isAir()) {
@@ -1512,7 +1512,7 @@ public final class ServerHelper extends Module {
    }
 
    private boolean isRealPlast(BlockPos center) {
-      return mc.world != null && center != null
+      return mc.level != null && center != null
          ? this.isIsolatedWorldPlane(center, ServerHelper.Plane.XY)
             || this.isIsolatedWorldPlane(center, ServerHelper.Plane.XZ)
             || this.isIsolatedWorldPlane(center, ServerHelper.Plane.YZ)
@@ -1531,15 +1531,15 @@ public final class ServerHelper extends Module {
       for (int a = -2; a <= 2; a++) {
          for (int b = -2; b <= 2; b++) {
             BlockPos pos = switch (plane) {
-               case XY -> center.add(a, b, normalOffset);
-               case XZ -> center.add(a, normalOffset, b);
-               case YZ -> center.add(normalOffset, a, b);
+               case XY -> center.offset(a, b, normalOffset);
+               case XZ -> center.offset(a, normalOffset, b);
+               case YZ -> center.offset(normalOffset, a, b);
             };
-            if (!mc.world.isChunkLoaded(pos)) {
+            if (!mc.level.hasChunkAt(pos)) {
                return 0;
             }
 
-            BlockState state = mc.world.getBlockState(pos);
+            BlockState state = mc.level.getBlockState(pos);
             if (state != null && !state.isAir()) {
                solid++;
             }
@@ -1553,15 +1553,15 @@ public final class ServerHelper extends Module {
       int inconsistencies = 0;
 
       for (BlockPos pos : PlayerInteractionHelper.getCube(center, 2.0F)) {
-         if (Vec3d.ofCenter(pos).distanceTo(Vec3d.ofCenter(center)) < 2.0) {
+         if (Vec3.atCenterOf(pos).distanceTo(Vec3.atCenterOf(center)) < 2.0) {
             BlockState state = this.blockStateMap.get(pos);
             if (state != null && !state.isAir()) {
                inconsistencies++;
             }
-         } else if (!pos.equals(center.up(2).north().east())
-            && !pos.equals(center.up(2).north().west())
-            && !pos.equals(center.up(2).south().east())
-            && !pos.equals(center.up(2).south().west())) {
+         } else if (!pos.equals(center.above(2).north().east())
+            && !pos.equals(center.above(2).north().west())
+            && !pos.equals(center.above(2).south().east())
+            && !pos.equals(center.above(2).south().west())) {
             BlockState state = this.blockStateMap.get(pos);
             if (state == null || state.isAir()) {
                inconsistencies++;
@@ -1585,7 +1585,7 @@ public final class ServerHelper extends Module {
             if (state != null && !state.isAir()) {
                inconsistencies++;
             }
-         } else if (!pos.equals(center.up(3))) {
+         } else if (!pos.equals(center.above(3))) {
             BlockState state = this.blockStateMap.get(pos);
             if (state == null || state.isAir()) {
                inconsistencies++;
@@ -1600,20 +1600,20 @@ public final class ServerHelper extends Module {
       return true;
    }
 
-   private void drawLines(DrawContext graphics, List<String> lines, Vec3d screen) {
+   private void drawLines(GuiGraphics graphics, List<String> lines, Vec3 screen) {
       int y = (int)screen.y;
 
       for (String line : lines) {
-         graphics.drawText(mc.textRenderer, line, (int)screen.x - mc.textRenderer.getWidth(line) / 2, y, -1, true);
+         graphics.drawString(mc.font, line, (int)screen.x - mc.font.width(line) / 2, y, -1, true);
          y += 10;
       }
    }
 
-   private Vec3d projectWorldToScreen(Vec3d worldPos) {
+   private Vec3 projectWorldToScreen(Vec3 worldPos) {
       if (mc.getWindow() == null) {
          return null;
       } else {
-         Vec3d relativePos = worldPos.subtract(Render3D.lastCameraPos);
+         Vec3 relativePos = worldPos.subtract(Render3D.lastCameraPos);
          Matrix4f combined = new Matrix4f(Render3D.lastProjMat).mul(Render3D.lastModMat);
          Vector4f clip = combined.transform(new Vector4f((float)relativePos.x, (float)relativePos.y, (float)relativePos.z, 1.0F));
          if (Float.isFinite(clip.w) && !(clip.w <= 0.01F)) {
@@ -1623,11 +1623,11 @@ public final class ServerHelper extends Module {
             if (!Float.isFinite(ndcX) || !Float.isFinite(ndcY) || !Float.isFinite(ndcZ)) {
                return null;
             } else if (!(ndcZ < -1.0F) && !(ndcZ > 1.0F)) {
-               int width = mc.getWindow().getScaledWidth();
-               int height = mc.getWindow().getScaledHeight();
+               int width = mc.getWindow().getGuiScaledWidth();
+               int height = mc.getWindow().getGuiScaledHeight();
                double x = ((double)ndcX * 0.5 + 0.5) * (double)width;
                double y = (1.0 - ((double)ndcY * 0.5 + 0.5)) * (double)height;
-               return !(x < -32.0) && !(x > (double)width + 32.0) && !(y < -32.0) && !(y > (double)height + 32.0) ? new Vec3d(x, y, (double)ndcZ) : null;
+               return !(x < -32.0) && !(x > (double)width + 32.0) && !(y < -32.0) && !(y > (double)height + 32.0) ? new Vec3(x, y, (double)ndcZ) : null;
             } else {
                return null;
             }
@@ -1643,10 +1643,10 @@ public final class ServerHelper extends Module {
    }
 
    private String currentWorldToken() {
-      return mc.world == null ? "unknown" : mc.world.getRegistryKey().getValue().getPath();
+      return mc.level == null ? "unknown" : mc.level.dimension().identifier().getPath();
    }
 
-   private String cleanText(Text component) {
+   private String cleanText(Component component) {
       return component == null ? "" : this.cleanText(component.getString());
    }
 
@@ -1706,7 +1706,7 @@ public final class ServerHelper extends Module {
       }
    }
 
-   private static record EffectRequirement(RegistryEntry<StatusEffect> effect, int minAmplifier) {
+   private static record EffectRequirement(Holder<MobEffect> effect, int minAmplifier) {
    }
 
    public static record HudBind(String key, Item item, BindSetting setting, ItemStack stack, int inventoryCount, float cooldownProgress, String displayName) {
@@ -1758,9 +1758,9 @@ public final class ServerHelper extends Module {
    private static record PlastCandidate(BlockPos center, int solidBlocks) {
    }
 
-   private static record ServerEventData(String name, String lvl, String owner, Vec3d vec, String world, int anarchy, double timeOpen, double timeEnd) {
+   private static record ServerEventData(String name, String lvl, String owner, Vec3 vec, String world, int anarchy, double timeOpen, double timeEnd) {
    }
 
-   private static record Structure(Item item, Vec3d vec, String world, int anarchy, double time) {
+   private static record Structure(Item item, Vec3 vec, String world, int anarchy, double time) {
    }
 }

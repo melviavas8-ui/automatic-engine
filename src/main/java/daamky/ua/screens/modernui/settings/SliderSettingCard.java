@@ -2,8 +2,8 @@ package daamky.ua.screens.modernui.settings;
 
 import java.awt.Color;
 import java.util.Locale;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.MouseButtonEvent;
 import daamky.ua.api.settings.impl.NumberSetting;
 import daamky.ua.utils.render.ui.Render2D;
 import daamky.ua.utils.render.ui.font.FontType;
@@ -24,7 +24,7 @@ final class SliderSettingCard extends SettingCardComponent<NumberSetting> {
    }
 
    @Override
-   void render(DrawContext graphics, SettingCardContext context, float cardX, float y, int mouseX, int mouseY) {
+   void render(GuiGraphics graphics, SettingCardContext context, float cardX, float y, int mouseX, int mouseY) {
       this.markRow(cardX, y, this.height(context));
       float sliderX = cardX + 8.0F;
       float sliderY = y + 11.5F;
@@ -65,7 +65,7 @@ final class SliderSettingCard extends SettingCardComponent<NumberSetting> {
    }
 
    @Override
-   boolean mouseClicked(Click event, boolean doubled, SettingCardContext context) {
+   boolean mouseClicked(MouseButtonEvent event, boolean doubled, SettingCardContext context) {
       if (event.button() == 0 && context.inside(event.x(), event.y(), this.state.sliderX, this.state.sliderY, this.state.sliderWidth, this.state.sliderHeight)) {
          context.draggingSlider = this.setting;
          this.updateValue(context, event.x());
@@ -77,7 +77,7 @@ final class SliderSettingCard extends SettingCardComponent<NumberSetting> {
    }
 
    @Override
-   boolean mouseReleased(Click event, SettingCardContext context) {
+   boolean mouseReleased(MouseButtonEvent event, SettingCardContext context) {
       if (context.draggingSlider != this.setting) {
          return false;
       } else {
@@ -87,7 +87,7 @@ final class SliderSettingCard extends SettingCardComponent<NumberSetting> {
    }
 
    @Override
-   boolean mouseDragged(Click event, double dragX, double dragY, SettingCardContext context) {
+   boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY, SettingCardContext context) {
       if (context.draggingSlider != this.setting) {
          return false;
       } else {

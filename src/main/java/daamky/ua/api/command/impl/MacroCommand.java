@@ -4,7 +4,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Stream;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
 import daamky.ua.api.command.Command;
 import daamky.ua.api.command.helpers.TabCompleteHelper;
 import daamky.ua.utils.repository.macro.Macro;
@@ -23,40 +23,40 @@ public final class MacroCommand extends Command {
       switch (action) {
          case "add":
             if (args.length < 4) {
-               this.logDirect("Usage: macro add <key> <name> <message>", Formatting.RED);
+               this.logDirect("Usage: macro add <key> <name> <message>", ChatFormatting.RED);
                return;
             }
 
             int key = KeyHelper.getKeyCode(args[1]);
             if (key < 0) {
-               this.logDirect("Unknown key: " + args[1], Formatting.RED);
+               this.logDirect("Unknown key: " + args[1], ChatFormatting.RED);
                return;
             }
 
             String name = args[2];
             String message = String.join(" ", Arrays.copyOfRange(args, 3, args.length));
             repository.addMacroAndSave(name, message, key);
-            this.logDirect("Macro " + name + " added.", Formatting.GREEN);
+            this.logDirect("Macro " + name + " added.", ChatFormatting.GREEN);
             break;
          case "remove":
          case "del":
          case "delete":
             if (args.length < 2) {
-               this.logDirect("Usage: macro remove <name>", Formatting.RED);
+               this.logDirect("Usage: macro remove <name>", ChatFormatting.RED);
                return;
             }
 
             repository.deleteMacroAndSave(args[1]);
-            this.logDirect("Macro " + args[1] + " removed.", Formatting.GREEN);
+            this.logDirect("Macro " + args[1] + " removed.", ChatFormatting.GREEN);
             break;
          case "clear":
             int count = repository.size();
             repository.clearListAndSave();
-            this.logDirect("Macros cleared. Removed: " + count, Formatting.GREEN);
+            this.logDirect("Macros cleared. Removed: " + count, ChatFormatting.GREEN);
             break;
          case "list":
             if (repository.getMacroList().isEmpty()) {
-               this.logDirect("Macro list is empty.", Formatting.RED);
+               this.logDirect("Macro list is empty.", ChatFormatting.RED);
                return;
             }
 

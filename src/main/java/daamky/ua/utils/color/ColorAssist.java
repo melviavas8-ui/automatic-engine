@@ -1,8 +1,8 @@
 package daamky.ua.utils.color;
 
 import java.awt.Color;
-import net.minecraft.util.math.ColorHelper;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.ARGB;
+import net.minecraft.util.Mth;
 
 public final class ColorAssist {
    public static final int green = new Color(64, 255, 64).getRGB();
@@ -82,14 +82,14 @@ public final class ColorAssist {
    }
 
    public static int getColor(int red, int green, int blue, int alpha) {
-      return ColorHelper.getArgb(
-         MathHelper.clamp(alpha, 0, 255), MathHelper.clamp(red, 0, 255), MathHelper.clamp(green, 0, 255), MathHelper.clamp(blue, 0, 255)
+      return ARGB.color(
+         Mth.clamp(alpha, 0, 255), Mth.clamp(red, 0, 255), Mth.clamp(green, 0, 255), Mth.clamp(blue, 0, 255)
       );
    }
 
    public static int applyOpacity(int hex, float opacity) {
-      return ColorHelper.getArgb(
-         (int)((float)ColorHelper.getAlpha(hex) * (opacity / 255.0F)), ColorHelper.getRed(hex), ColorHelper.getGreen(hex), ColorHelper.getBlue(hex)
+      return ARGB.color(
+         (int)((float)ARGB.alpha(hex) * (opacity / 255.0F)), ARGB.red(hex), ARGB.green(hex), ARGB.blue(hex)
       );
    }
 
@@ -100,15 +100,15 @@ public final class ColorAssist {
    }
 
    public static int reAlphaInt(int color, int alpha) {
-      return MathHelper.clamp(alpha, 0, 255) << 24 | color & 16777215;
+      return Mth.clamp(alpha, 0, 255) << 24 | color & 16777215;
    }
 
    public static int astolfo(int speed, int index, float saturation, float brightness, float alpha) {
       float hueStep = 90.0F;
       float baseHue = (float)calculateHuyDegrees(speed, index);
       float hue = (baseHue + (float)index * hueStep) % 360.0F;
-      int rgb = Color.HSBtoRGB(hue / 360.0F, MathHelper.clamp(saturation, 0.0F, 1.0F), MathHelper.clamp(brightness, 0.0F, 1.0F));
-      return reAlphaInt(rgb, MathHelper.clamp((int)(alpha * 255.0F), 0, 255));
+      int rgb = Color.HSBtoRGB(hue / 360.0F, Mth.clamp(saturation, 0.0F, 1.0F), Mth.clamp(brightness, 0.0F, 1.0F));
+      return reAlphaInt(rgb, Mth.clamp((int)(alpha * 255.0F), 0, 255));
    }
 
    public static int toColor(String hexColor) {
@@ -121,11 +121,11 @@ public final class ColorAssist {
    }
 
    public static int setAlpha(int color, int alpha) {
-      return color & 16777215 | MathHelper.clamp(alpha, 0, 255) << 24;
+      return color & 16777215 | Mth.clamp(alpha, 0, 255) << 24;
    }
 
    public static int interpolateColor(int color1, int color2, float amount) {
-      float value = MathHelper.clamp(amount, 0.0F, 1.0F);
+      float value = Mth.clamp(amount, 0.0F, 1.0F);
       int red = interpolateInt(getRed(color1), getRed(color2), (double)value);
       int green = interpolateInt(getGreen(color1), getGreen(color2), (double)value);
       int blue = interpolateInt(getBlue(color1), getBlue(color2), (double)value);
@@ -158,12 +158,12 @@ public final class ColorAssist {
    }
 
    public static int overCol(int color1, int color2, float percent01) {
-      float percent = MathHelper.clamp(percent01, 0.0F, 1.0F);
+      float percent = Mth.clamp(percent01, 0.0F, 1.0F);
       return getColor(
-         MathHelper.lerp(percent, red(color1), red(color2)),
-         MathHelper.lerp(percent, green(color1), green(color2)),
-         MathHelper.lerp(percent, blue(color1), blue(color2)),
-         MathHelper.lerp(percent, alpha(color1), alpha(color2))
+         Mth.lerpInt(percent, red(color1), red(color2)),
+         Mth.lerpInt(percent, green(color1), green(color2)),
+         Mth.lerpInt(percent, blue(color1), blue(color2)),
+         Mth.lerpInt(percent, alpha(color1), alpha(color2))
       );
    }
 

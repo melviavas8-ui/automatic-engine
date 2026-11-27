@@ -1,9 +1,9 @@
 package daamky.ua.api.module.impl.combat;
 
 import java.util.function.Supplier;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.math.Box;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.settings.impl.NumberSetting;
@@ -19,16 +19,16 @@ public class HitBoxModule extends Module {
       super("Hit Box", "Expands target hitboxes.", ModuleCategory.COMBAT);
    }
 
-   public static Box apply(LivingEntity entity, Box box) {
+   public static AABB apply(LivingEntity entity, AABB box) {
       if (Boolean.TRUE.equals(SUPPRESS_EXPANSION.get())) {
          return box;
       } else {
          Module module = Manager.getModules() == null ? null : Manager.getModules().getHitBox().orElse(null);
-         MinecraftClient client = MinecraftClient.getInstance();
+         Minecraft client = Minecraft.getInstance();
          if (module instanceof HitBoxModule hitBox && module.isEnabled() && entity != client.player && !FriendUtils.isFriend(entity)) {
             double xz = hitBox.xzExpand.getValue() * 0.5;
             double y = hitBox.yExpand.getValue() * 0.5;
-            return new Box(box.minX - xz, box.minY - y, box.minZ - xz, box.maxX + xz, box.maxY + y, box.maxZ + xz);
+            return new AABB(box.minX - xz, box.minY - y, box.minZ - xz, box.maxX + xz, box.maxY + y, box.maxZ + xz);
          }
 
          return box;

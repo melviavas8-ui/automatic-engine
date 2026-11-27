@@ -1,11 +1,11 @@
 package daamky.ua.screens.clickgui.impl.options;
 
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
 import daamky.ua.api.drag.impl.ClientLanguage;
 import daamky.ua.api.settings.impl.ButtonSetting;
 import daamky.ua.utils.render.animation.Easings;
 import daamky.ua.utils.render.animation.SmoothAnimation;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.MouseButtonEvent;
 
 public class ButtonOption extends ClickGuiOption {
    private final String action;
@@ -24,7 +24,7 @@ public class ButtonOption extends ClickGuiOption {
    }
 
    @Override
-   protected void renderControl(DrawContext graphics, float x, float y, float width, float height, float scale, float alpha) {
+   protected void renderControl(GuiGraphics graphics, float x, float y, float width, float height, float scale, float alpha) {
       this.controlWidth = 39.0F * scale;
       this.controlHeight = 13.0F * scale;
       this.controlX = x + width - this.controlWidth - 6.0F * scale;
@@ -65,7 +65,7 @@ public class ButtonOption extends ClickGuiOption {
    }
 
    @Override
-   public boolean mouseClicked(Click event, boolean doubled) {
+   public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
       if (event.button() != 0) {
          return false;
       } else if (this.hovered(event.x(), event.y(), this.controlX, this.controlY, this.controlWidth, this.controlHeight)) {

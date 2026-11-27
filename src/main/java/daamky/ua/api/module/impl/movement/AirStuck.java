@@ -1,9 +1,5 @@
 package daamky.ua.api.module.impl.movement;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.InputEvent;
 import daamky.ua.api.events.impl.PacketEvent;
@@ -11,10 +7,14 @@ import daamky.ua.api.events.impl.PlayerTravelEvent;
 import daamky.ua.api.events.impl.TickEvent;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 public class AirStuck extends Module {
    private static final double RELEASE_FALL_VELOCITY = -0.0784;
-   private Vec3d stuckPosition;
+   private Vec3 stuckPosition;
 
    public AirStuck() {
       super("AirStuck", "Air Stuck", ModuleCategory.MOVEMENT);
@@ -33,7 +33,7 @@ public class AirStuck extends Module {
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
+   public void onTick(Minecraft client) {
       this.freezePlayer();
    }
 
@@ -51,26 +51,26 @@ public class AirStuck extends Module {
    private void onTravel(PlayerTravelEvent event) {
       if (event.isPre()) {
          this.freezePlayer();
-         event.setMotion(Vec3d.ZERO);
+         event.setMotion(Vec3.ZERO);
          event.setCancelled(true);
       }
    }
 
    @SubscribeEvent
    private void onPacket(PacketEvent event) {
-      if (event.isSend() && event.getPacket() instanceof PlayerMoveC2SPacket) {
+      if (event.isSend() && event.getPacket() instanceof ServerboundMovePlayerPacket) {
          event.setCancelled(true);
       }
    }
 
    private void freezePlayer() {
-      if (mc.player != null && mc.world != null) {
+      if (mc.player != null && mc.level != null) {
          if (this.stuckPosition == null) {
             this.capturePosition();
          }
 
-         mc.player.setVelocity(Vec3d.ZERO);
-         mc.player.setPosition(this.stuckPosition.x, this.stuckPosition.y, this.stuckPosition.z);
+         mc.player.setDeltaMovement(Vec3.ZERO);
+         mc.player.setPos(this.stuckPosition.x, this.stuckPosition.y, this.stuckPosition.z);
          mc.player.setSprinting(false);
          mc.player.fallDistance = 0.0;
       } else {
@@ -80,25 +80,25 @@ public class AirStuck extends Module {
 
    private void capturePosition() {
       if (mc.player != null) {
-         this.stuckPosition = mc.player.getEntityPos();
+         this.stuckPosition = mc.player.position();
       }
    }
 
    private void releasePlayer() {
-      if (mc.player != null && mc.world != null) {
-         double fallVelocity = Math.min(mc.player.getVelocity().y, -0.0784);
+      if (mc.player != null && mc.level != null) {
+         double fallVelocity = Math.min(mc.player.getDeltaMovement().y, -0.0784);
          double releaseMoveY = this.getReleaseMoveY(fallVelocity);
          if (releaseMoveY != 0.0) {
-            mc.player.setPosition(mc.player.getX(), mc.player.getY() + releaseMoveY, mc.player.getZ());
+            mc.player.setPos(mc.player.getX(), mc.player.getY() + releaseMoveY, mc.player.getZ());
          }
 
-         mc.player.setVelocity(0.0, fallVelocity, 0.0);
+         mc.player.setDeltaMovement(0.0, fallVelocity, 0.0);
          mc.player.setSprinting(false);
       }
    }
 
    private double getReleaseMoveY(double moveY) {
-      Box movedBox = mc.player.getBoundingBox().offset(0.0, moveY, 0.0);
-      return mc.world.isSpaceEmpty(mc.player, movedBox) ? moveY : 0.0;
+      AABB movedBox = mc.player.getBoundingBox().move(0.0, moveY, 0.0);
+      return mc.level.noCollision(mc.player, movedBox) ? moveY : 0.0;
    }
 }

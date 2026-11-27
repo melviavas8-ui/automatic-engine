@@ -1,16 +1,5 @@
 package daamky.ua.mixin;
 
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.network.ClientPlayerInteractionManager;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -24,25 +13,36 @@ import daamky.ua.api.module.ModuleManager;
 import daamky.ua.api.module.impl.combat.AuraModule;
 import daamky.ua.api.module.impl.player.AntiDrop;
 import daamky.ua.manager.Manager;
+import net.minecraft.client.multiplayer.MultiPlayerGameMode;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.BlockHitResult;
 
-@Mixin({ClientPlayerInteractionManager.class})
+@Mixin({MultiPlayerGameMode.class})
 public abstract class MultiPlayerGameModeMixin {
    public MultiPlayerGameModeMixin() {
    }
 
    @Inject(
-      method = {"clickSlot"},
+      method = {"handleInventoryMouseClick"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$clickSlotHook(int containerId, int slotId, int button, SlotActionType clickType, PlayerEntity player, CallbackInfo ci) {
+   private void daamky$clickSlotHook(int containerId, int slotId, int button, ClickType clickType, Player player, CallbackInfo ci) {
       ItemStack droppedStack = ItemStack.EMPTY;
-      if (clickType == SlotActionType.THROW && slotId >= 0 && slotId < player.currentScreenHandler.slots.size()) {
-         droppedStack = player.currentScreenHandler.getSlot(slotId).getStack();
+      if (clickType == ClickType.THROW && slotId >= 0 && slotId < player.containerMenu.slots.size()) {
+         droppedStack = player.containerMenu.getSlot(slotId).getItem();
       }
 
-      if (clickType == SlotActionType.PICKUP && slotId == -999) {
-         droppedStack = player.currentScreenHandler.getCursorStack();
+      if (clickType == ClickType.PICKUP && slotId == -999) {
+         droppedStack = player.containerMenu.getCarried();
       }
 
       if (AntiDrop.shouldBlock(droppedStack)) {
@@ -56,7 +56,7 @@ public abstract class MultiPlayerGameModeMixin {
    }
 
    @Inject(
-      method = {"dropCreativeStack"},
+      method = {"handleCreativeModeItemDrop"},
       at = {@At("HEAD")},
       cancellable = true
    )
@@ -67,7 +67,7 @@ public abstract class MultiPlayerGameModeMixin {
    }
 
    @Inject(
-      method = {"attackBlock"},
+      method = {"startDestroyBlock"},
       at = {@At("HEAD")}
    )
    private void daamky$startDestroyBlock(BlockPos pos, Direction direction, CallbackInfoReturnable<Boolean> cir) {
@@ -75,7 +75,7 @@ public abstract class MultiPlayerGameModeMixin {
    }
 
    @Inject(
-      method = {"updateBlockBreakingProgress"},
+      method = {"continueDestroyBlock"},
       at = {@At("HEAD")}
    )
    private void daamky$continueDestroyBlock(BlockPos pos, Direction direction, CallbackInfoReturnable<Boolean> cir) {
@@ -83,11 +83,11 @@ public abstract class MultiPlayerGameModeMixin {
    }
 
    @Inject(
-      method = {"attackEntity"},
+      method = {"attack"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$onAttack(PlayerEntity player, Entity target, CallbackInfo ci) {
+   private void daamky$onAttack(Player player, Entity target, CallbackInfo ci) {
       AttackEvent attackEvent = Manager.postEvent(new AttackEvent(target));
       InteractEntityEvent interactEvent = Manager.postEvent(new InteractEntityEvent(target));
       if (attackEvent.isCancelled() || interactEvent.isCancelled()) {
@@ -96,43 +96,43 @@ public abstract class MultiPlayerGameModeMixin {
    }
 
    @Inject(
-      method = {"interactItem"},
+      method = {"useItem"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$cancelShieldUse(PlayerEntity player, Hand hand, CallbackInfoReturnable<ActionResult> cir) {
+   private void daamky$cancelShieldUse(Player player, InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir) {
       AuraModule aura = AuraModule.getInstance();
       if (aura != null && aura.shouldCancelInteractItem(hand)) {
-         cir.setReturnValue(ActionResult.PASS);
+         cir.setReturnValue(InteractionResult.PASS);
       }
    }
 
    @Inject(
-      method = {"interactBlock"},
+      method = {"useItemOn"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$cancelUseItemOn(ClientPlayerEntity player, Hand hand, BlockHitResult hitResult, CallbackInfoReturnable<ActionResult> cir) {
+   private void daamky$cancelUseItemOn(LocalPlayer player, InteractionHand hand, BlockHitResult hitResult, CallbackInfoReturnable<InteractionResult> cir) {
       AuraModule aura = AuraModule.getInstance();
       ModuleManager modules = Manager.getModules();
       boolean noInteract = modules != null && modules.isNoInteractEnabled();
       if (noInteract || aura != null && aura.shouldCancelInteractBlock()) {
-         cir.setReturnValue(ActionResult.PASS);
+         cir.setReturnValue(InteractionResult.PASS);
       }
    }
 
    @Inject(
-      method = {"interactEntity"},
+      method = {"interact"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$cancelInteract(PlayerEntity player, Entity target, Hand hand, CallbackInfoReturnable<ActionResult> cir) {
+   private void daamky$cancelInteract(Player player, Entity target, InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir) {
       AuraModule aura = AuraModule.getInstance();
       InteractEntityEvent event = Manager.postEvent(new InteractEntityEvent(target));
       ModuleManager modules = Manager.getModules();
       boolean noInteract = modules != null && modules.isNoInteractEnabled();
       if (event.isCancelled() || noInteract || aura != null && aura.shouldCancelEntityInteraction()) {
-         cir.setReturnValue(ActionResult.PASS);
+         cir.setReturnValue(InteractionResult.PASS);
       }
    }
 }

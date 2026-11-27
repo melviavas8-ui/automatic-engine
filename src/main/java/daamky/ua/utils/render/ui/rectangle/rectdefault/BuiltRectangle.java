@@ -1,7 +1,7 @@
 package daamky.ua.utils.render.ui.rectangle.rectdefault;
 
-import net.minecraft.client.gui.DrawContext;
 import daamky.ua.utils.render.color.ColorUtil;
+import net.minecraft.client.gui.GuiGraphics;
 
 public record BuiltRectangle(
    float x,
@@ -67,7 +67,7 @@ public record BuiltRectangle(
       );
    }
 
-   public void render(DrawContext graphics) {
+   public void render(GuiGraphics graphics) {
       DefaultRectangleRenderer.getInstance().draw(graphics, this);
    }
 

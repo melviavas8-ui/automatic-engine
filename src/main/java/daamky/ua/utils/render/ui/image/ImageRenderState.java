@@ -1,25 +1,25 @@
 package daamky.ua.utils.render.ui.image;
 
 import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.gui.ScreenRect;
-import net.minecraft.client.gui.render.state.SimpleGuiElementRenderState;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.texture.TextureSetup;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.gui.render.TextureSetup;
+import net.minecraft.client.gui.render.state.GuiElementRenderState;
 import org.joml.Matrix3x2f;
 
-final class ImageRenderState implements SimpleGuiElementRenderState {
+final class ImageRenderState implements GuiElementRenderState {
    private final Matrix3x2f pose;
    private final ImageTexture texture;
-   private final ScreenRect scissorArea;
+   private final ScreenRectangle scissorArea;
    private final List<ImageQuad> images = new ArrayList<>(16);
    private float minX = Float.MAX_VALUE;
    private float minY = Float.MAX_VALUE;
    private float maxX = -Float.MAX_VALUE;
    private float maxY = -Float.MAX_VALUE;
 
-   ImageRenderState(Matrix3x2f pose, ImageTexture texture, ScreenRect scissorArea) {
+   ImageRenderState(Matrix3x2f pose, ImageTexture texture, ScreenRectangle scissorArea) {
       this.pose = pose;
       this.texture = texture;
       this.scissorArea = scissorArea;
@@ -33,7 +33,7 @@ final class ImageRenderState implements SimpleGuiElementRenderState {
       this.includeBounds(image, image.x() + image.width(), image.y());
    }
 
-   public void setupVertices(VertexConsumer vertices) {
+   public void buildVertices(VertexConsumer vertices) {
       for (ImageQuad image : this.images) {
          int batchIndex = ImageRenderer.getInstance().reserve(image);
          if (batchIndex >= 0) {
@@ -50,7 +50,7 @@ final class ImageRenderState implements SimpleGuiElementRenderState {
    }
 
    private void vertex(VertexConsumer consumer, ImageQuad image, float x, float y, float u, float v, int color, int batchIndex) {
-      consumer.vertex(this.pose, rotateX(image, x, y), rotateY(image, x, y)).texture(u, v).color(color).lineWidth((float)(batchIndex + 1));
+      consumer.addVertexWith2DPose(this.pose, rotateX(image, x, y), rotateY(image, x, y)).setUv(u, v).setColor(color).setLineWidth((float)(batchIndex + 1));
    }
 
    private void includeBounds(ImageQuad image, float x, float y) {
@@ -92,19 +92,19 @@ final class ImageRenderState implements SimpleGuiElementRenderState {
       return this.texture.setup();
    }
 
-   public ScreenRect scissorArea() {
+   public ScreenRectangle scissorArea() {
       return this.scissorArea;
    }
 
-   public ScreenRect bounds() {
+   public ScreenRectangle bounds() {
       if (this.images.isEmpty()) {
-         return new ScreenRect(0, 0, 1, 1);
+         return new ScreenRectangle(0, 0, 1, 1);
       } else {
          int x = (int)Math.floor((double)this.minX);
          int y = (int)Math.floor((double)this.minY);
          int width = Math.max(1, (int)Math.ceil((double)(this.maxX - this.minX)));
          int height = Math.max(1, (int)Math.ceil((double)(this.maxY - this.minY)));
-         ScreenRect transformedBounds = new ScreenRect(x, y, width, height).transformEachVertex(this.pose);
+         ScreenRectangle transformedBounds = new ScreenRectangle(x, y, width, height).transformMaxBounds(this.pose);
          return this.scissorArea == null ? transformedBounds : this.scissorArea.intersection(transformedBounds);
       }
    }

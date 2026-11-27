@@ -1,7 +1,7 @@
 package daamky.ua.utils.render.ui.arc;
 
 import java.util.Arrays;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
 
 public record BuiltArc(float x, float y, float size, float thickness, float degree, float rotation, int[] colors) {
    public BuiltArc(float x, float y, float size, float thickness, float degree, float rotation, int[] colors) {
@@ -19,7 +19,7 @@ public record BuiltArc(float x, float y, float size, float thickness, float degr
       this(x, y, size, thickness, degree, rotation, new int[]{color});
    }
 
-   public void render(DrawContext graphics) {
+   public void render(GuiGraphics graphics) {
       ArcRenderer.getInstance().draw(graphics, this);
    }
 

@@ -1,9 +1,9 @@
 package daamky.ua.mixin;
 
-import net.minecraft.client.render.SkyRendering;
+import net.minecraft.client.renderer.SkyRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 
-@Mixin({SkyRendering.class})
+@Mixin({SkyRenderer.class})
 public class SkyRendererMixin {
    public SkyRendererMixin() {
    }

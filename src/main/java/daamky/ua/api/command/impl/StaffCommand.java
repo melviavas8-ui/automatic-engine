@@ -5,9 +5,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Stream;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.PlayerInfo;
 import daamky.ua.api.command.Command;
 import daamky.ua.api.command.helpers.TabCompleteHelper;
 import daamky.ua.utils.repository.staff.StaffUtils;
@@ -23,33 +23,33 @@ public final class StaffCommand extends Command {
       switch (action) {
          case "add":
             if (args.length < 2) {
-               this.logDirect("Usage: staff add <name>", Formatting.RED);
+               this.logDirect("Usage: staff add <name>", ChatFormatting.RED);
                return;
             }
 
             StaffUtils.addStaffAndSave(args[1]);
-            this.logDirect(args[1] + " added to staff.", Formatting.GREEN);
+            this.logDirect(args[1] + " added to staff.", ChatFormatting.GREEN);
             break;
          case "remove":
          case "del":
          case "delete":
             if (args.length < 2) {
-               this.logDirect("Usage: staff remove <name>", Formatting.RED);
+               this.logDirect("Usage: staff remove <name>", ChatFormatting.RED);
                return;
             }
 
             StaffUtils.removeStaffAndSave(args[1]);
-            this.logDirect(args[1] + " removed from staff.", Formatting.GREEN);
+            this.logDirect(args[1] + " removed from staff.", ChatFormatting.GREEN);
             break;
          case "clear":
             int count = StaffUtils.size();
             StaffUtils.clearAndSave();
-            this.logDirect("Staff list cleared. Removed: " + count, Formatting.GREEN);
+            this.logDirect("Staff list cleared. Removed: " + count, ChatFormatting.GREEN);
             break;
          case "list":
             List<String> staff = StaffUtils.getStaffNames();
             if (staff.isEmpty()) {
-               this.logDirect("Staff list is empty.", Formatting.RED);
+               this.logDirect("Staff list is empty.", ChatFormatting.RED);
                return;
             }
 
@@ -87,9 +87,9 @@ public final class StaffCommand extends Command {
 
    private List<String> getOnlinePlayers() {
       List<String> players = new ArrayList<>();
-      MinecraftClient mc = MinecraftClient.getInstance();
-      if (mc.getNetworkHandler() != null) {
-         for (PlayerListEntry info : mc.getNetworkHandler().getPlayerList()) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.getConnection() != null) {
+         for (PlayerInfo info : mc.getConnection().getOnlinePlayers()) {
             players.add(info.getProfile().name());
          }
       }

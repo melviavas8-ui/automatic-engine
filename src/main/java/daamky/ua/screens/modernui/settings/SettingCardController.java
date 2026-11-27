@@ -7,11 +7,11 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.input.CharInput;
-import net.minecraft.client.input.KeyInput;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import daamky.ua.api.drag.impl.ClientLanguage;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
@@ -61,7 +61,7 @@ public final class SettingCardController {
    }
 
    public void render(
-      DrawContext graphics,
+      GuiGraphics graphics,
       float x,
       float y,
       float panelWidth,
@@ -76,7 +76,7 @@ public final class SettingCardController {
       this.renderModuleCards(graphics, x, y, panelWidth, panelHeight, this.displayedModules, 1.0F, mouseX, mouseY);
    }
 
-   public boolean mouseClicked(Click event, boolean doubled) {
+   public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
       if (this.listeningModuleBind != null) {
          this.finishModuleBind(KeyBind.mouse(event.button()));
          return true;
@@ -105,7 +105,7 @@ public final class SettingCardController {
       }
    }
 
-   public boolean mouseReleased(Click event) {
+   public boolean mouseReleased(MouseButtonEvent event) {
       boolean consumed = false;
 
       for (SettingCardComponent<?> component : this.settingComponents.values()) {
@@ -115,7 +115,7 @@ public final class SettingCardController {
       return consumed;
    }
 
-   public boolean mouseDragged(Click event, double dragX, double dragY) {
+   public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
       for (SettingCardComponent<?> component : this.settingComponents.values()) {
          if (component.mouseDragged(event, dragX, dragY, this.context)) {
             return true;
@@ -150,7 +150,7 @@ public final class SettingCardController {
       }
    }
 
-   public boolean keyPressed(KeyInput event) {
+   public boolean keyPressed(KeyEvent event) {
       if (this.listeningModuleBind != null) {
          if (event.key() != 256 && event.key() != 259 && event.key() != 261) {
             this.finishModuleBind(KeyBind.keyboard(event.key()));
@@ -176,7 +176,7 @@ public final class SettingCardController {
       }
    }
 
-   public boolean charTyped(CharInput event) {
+   public boolean charTyped(CharacterEvent event) {
       if (this.context.focusedText == null) {
          return false;
       } else {
@@ -186,7 +186,7 @@ public final class SettingCardController {
    }
 
    private void renderModuleCards(
-      DrawContext graphics, float x, float y, float panelWidth, float panelHeight, List<Module> modules, float categoryProgress, int mouseX, int mouseY
+      GuiGraphics graphics, float x, float y, float panelWidth, float panelHeight, List<Module> modules, float categoryProgress, int mouseX, int mouseY
    ) {
       this.context.mouseX = (double)mouseX;
       this.context.mouseY = (double)mouseY;
@@ -266,7 +266,7 @@ public final class SettingCardController {
    }
 
    private void renderModuleLayoutPass(
-      DrawContext graphics,
+      GuiGraphics graphics,
       float x,
       float y,
       float panelWidth,
@@ -340,7 +340,7 @@ public final class SettingCardController {
    }
 
    private void renderModuleCard(
-      DrawContext graphics, Module module, List<SettingCardComponent<?>> settings, SettingCardController.ModuleState state, float alpha, int mouseX, int mouseY
+      GuiGraphics graphics, Module module, List<SettingCardComponent<?>> settings, SettingCardController.ModuleState state, float alpha, int mouseX, int mouseY
    ) {
       float cardX = state.cardX;
       float cardY = state.cardY;
@@ -378,7 +378,7 @@ public final class SettingCardController {
       }
    }
 
-   private void renderExitingModules(DrawContext graphics, float categoryProgress, int mouseX, int mouseY) {
+   private void renderExitingModules(GuiGraphics graphics, float categoryProgress, int mouseX, int mouseY) {
       for (SettingCardController.ModuleState state : this.moduleStates.values()) {
          if (!state.includedThisFrame && state.includedLastFrame) {
             state.entryAnimation.setDirection(Direction.BACKWARDS);
@@ -394,7 +394,7 @@ public final class SettingCardController {
       }
    }
 
-   private void renderFloatingOverlays(DrawContext graphics, float alpha) {
+   private void renderFloatingOverlays(GuiGraphics graphics, float alpha) {
       if (!(alpha <= 0.02F)) {
          float previousAlpha = this.context.visualAlpha();
          this.context.setVisualAlpha(previousAlpha * alpha);
@@ -443,7 +443,7 @@ public final class SettingCardController {
       }
    }
 
-   private void renderModuleHeader(DrawContext graphics, Module module, SettingCardController.ModuleState state) {
+   private void renderModuleHeader(GuiGraphics graphics, Module module, SettingCardController.ModuleState state) {
       float cardX = state.cardX;
       float cardY = state.cardY;
       state.toggleAnimation.setDirection(module.isEnabled() ? Direction.FORWARDS : Direction.BACKWARDS);
@@ -541,7 +541,7 @@ public final class SettingCardController {
       );
    }
 
-   private boolean dispatchOverlayClick(Click event) {
+   private boolean dispatchOverlayClick(MouseButtonEvent event) {
       for (SettingCardComponent<?> component : this.settingComponents.values()) {
          if (component.mouseClickedOverlay(event, this.context)) {
             return true;
@@ -551,7 +551,7 @@ public final class SettingCardController {
       return false;
    }
 
-   private boolean dispatchSettingClick(Click event, boolean doubled) {
+   private boolean dispatchSettingClick(MouseButtonEvent event, boolean doubled) {
       for (SettingCardComponent<?> component : this.settingComponents.values()) {
          if (component.state().visible && component.mouseClicked(event, doubled, this.context)) {
             return true;
@@ -561,7 +561,7 @@ public final class SettingCardController {
       return false;
    }
 
-   private boolean handleModuleClick(Click event) {
+   private boolean handleModuleClick(MouseButtonEvent event) {
       for (SettingCardController.ModuleState state : this.moduleStates.values()) {
          if (state.visible
             && event.button() == 0
@@ -574,7 +574,7 @@ public final class SettingCardController {
       return false;
    }
 
-   private boolean handleModuleStarClick(Click event) {
+   private boolean handleModuleStarClick(MouseButtonEvent event) {
       if (event.button() != 0) {
          return false;
       } else {
@@ -590,14 +590,14 @@ public final class SettingCardController {
       }
    }
 
-   private boolean handleModuleVoiceClick(Click event) {
+   private boolean handleModuleVoiceClick(MouseButtonEvent event) {
       if (event.button() != 0) {
          return false;
       } else {
          for (SettingCardController.ModuleState state : this.moduleStates.values()) {
             if (state.visible && this.context.inside(event.x(), event.y(), state.micX, state.micY, state.micWidth, state.micHeight)) {
-               MinecraftClient minecraft = MinecraftClient.getInstance();
-               minecraft.setScreen(new VoiceBindScreen(minecraft.currentScreen, state.module));
+               Minecraft minecraft = Minecraft.getInstance();
+               minecraft.setScreen(new VoiceBindScreen(minecraft.screen, state.module));
                return true;
             }
          }
@@ -606,7 +606,7 @@ public final class SettingCardController {
       }
    }
 
-   private boolean handleModuleBindClick(Click event) {
+   private boolean handleModuleBindClick(MouseButtonEvent event) {
       for (SettingCardController.ModuleState state : this.moduleStates.values()) {
          if (state.visible && this.context.inside(event.x(), event.y(), state.cardX, state.cardY, state.cardWidth, Math.min(22.0F, state.cardHeight))) {
             this.listeningModuleBind = state.module;

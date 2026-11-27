@@ -1,35 +1,35 @@
 package daamky.ua.api.module.impl.visual.particles;
 
 import java.util.Random;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 
 final class ParticleWorld {
    private ParticleWorld() {
    }
 
-   static Vec3d entityVecForParticle(MinecraftClient client, Entity entityFor, float yMultiplier) {
+   static Vec3 entityVecForParticle(Minecraft client, Entity entityFor, float yMultiplier) {
       Entity entity = (Entity)(entityFor == null ? client.player : entityFor);
       if (entity == null) {
-         return Vec3d.ZERO;
+         return Vec3.ZERO;
       } else {
-         float eyeHeight = client.player == null ? entity.getStandingEyeHeight() : client.player.getStandingEyeHeight();
-         return entity.getEyePos().add(0.0, (double)(-eyeHeight * yMultiplier), 0.0);
+         float eyeHeight = client.player == null ? entity.getEyeHeight() : client.player.getEyeHeight();
+         return entity.getEyePosition().add(0.0, (double)(-eyeHeight * yMultiplier), 0.0);
       }
    }
 
-   static Vec3d randomSpawnPosition(MinecraftClient client, Random random, ParticleSettings settings, Vec3d at, Entity entityFor) {
-      if (client.world == null) {
+   static Vec3 randomSpawnPosition(Minecraft client, Random random, ParticleSettings settings, Vec3 at, Entity entityFor) {
+      if (client.level == null) {
          return null;
       } else {
          boolean worldPoint = entityFor == null || entityFor == client.player;
          float maxDistance = worldPoint ? settings.maxSpawnDistanceInWorld.getFloat() : settings.maxSpawnDistanceOnAttack.getFloat();
 
          for (int attempt = 0; attempt < 10; attempt++) {
-            Vec3d vec = ParticleMath.randomVec(random, at, maxDistance / 5.0F, maxDistance);
+            Vec3 vec = ParticleMath.randomVec(random, at, maxDistance / 5.0F, maxDistance);
             if (!isSolidCollisionBlock(client, vec.x, vec.y, vec.z)) {
                return vec;
             }
@@ -39,13 +39,13 @@ final class ParticleWorld {
       }
    }
 
-   static boolean isSolidCollisionBlock(MinecraftClient client, double x, double y, double z) {
-      if (client.world == null) {
+   static boolean isSolidCollisionBlock(Minecraft client, double x, double y, double z) {
+      if (client.level == null) {
          return false;
       } else {
-         BlockPos pos = BlockPos.ofFloored(x, y, z);
-         BlockState state = client.world.getBlockState(pos);
-         return !state.isAir() && !state.getCollisionShape(client.world, pos).isEmpty();
+         BlockPos pos = BlockPos.containing(x, y, z);
+         BlockState state = client.level.getBlockState(pos);
+         return !state.isAir() && !state.getCollisionShape(client.level, pos).isEmpty();
       }
    }
 }

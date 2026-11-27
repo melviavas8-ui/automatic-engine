@@ -5,8 +5,8 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.Mth;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.utils.math.MathUtils;
 import daamky.ua.utils.render.Render3D;
 import daamky.ua.utils.render.color.ColorUtil;
@@ -18,7 +18,7 @@ public final class FragEffectParticleSystem {
    public FragEffectParticleSystem() {
    }
 
-   public void spawnBurst(Vec3d center, int lifetimeMin, int lifetimeMax, float maxFlight, int count, float gravity) {
+   public void spawnBurst(Vec3 center, int lifetimeMin, int lifetimeMax, float maxFlight, int count, float gravity) {
       if (center != null) {
          int safeLifetimeMin = Math.max(1, lifetimeMin);
          float lifetimeTicks = (float)safeLifetimeMin / 50.0F;
@@ -83,7 +83,7 @@ public final class FragEffectParticleSystem {
       private final float baseSize;
       private final long createdMillis = System.currentTimeMillis();
 
-      private Particle(Vec3d spawnPos, int maxTime, float motionXzSpeedMax, float motionYSpeedMax, float gravity) {
+      private Particle(Vec3 spawnPos, int maxTime, float motionXzSpeedMax, float motionYSpeedMax, float gravity) {
          this.posX = spawnPos.x;
          this.posY = spawnPos.y;
          this.posZ = spawnPos.z;
@@ -114,17 +114,17 @@ public final class FragEffectParticleSystem {
 
       private double renderX(float partialTicks) {
          float tickDelta = Math.clamp(partialTicks, 0.0F, 1.0F);
-         return MathHelper.lerp((double)tickDelta, this.prevX, this.posX);
+         return Mth.lerp((double)tickDelta, this.prevX, this.posX);
       }
 
       private double renderY(float partialTicks) {
          float tickDelta = Math.clamp(partialTicks, 0.0F, 1.0F);
-         return MathHelper.lerp((double)tickDelta, this.prevY, this.posY);
+         return Mth.lerp((double)tickDelta, this.prevY, this.posY);
       }
 
       private double renderZ(float partialTicks) {
          float tickDelta = Math.clamp(partialTicks, 0.0F, 1.0F);
-         return MathHelper.lerp((double)tickDelta, this.prevZ, this.posZ);
+         return Mth.lerp((double)tickDelta, this.prevZ, this.posZ);
       }
 
       private float alpha() {

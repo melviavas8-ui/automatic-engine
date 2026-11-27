@@ -1,10 +1,6 @@
 package daamky.ua.mixin;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.input.KeyboardInput;
-import net.minecraft.util.PlayerInput;
-import net.minecraft.util.math.MathHelper;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -18,6 +14,10 @@ import daamky.ua.manager.Manager;
 import daamky.ua.utils.inventory.InventoryFlowManager;
 import daamky.ua.utils.modules.warden.rotation.FreeLookController;
 import daamky.ua.utils.modules.warden.rotation.RotationController;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.KeyboardInput;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.player.Input;
 
 @Mixin({KeyboardInput.class})
 public abstract class KeyboardInputMixin {
@@ -28,10 +28,10 @@ public abstract class KeyboardInputMixin {
       method = {"tick"},
       at = {@At(
          value = "NEW",
-         target = "(ZZZZZZZ)Lnet/minecraft/util/PlayerInput;"
+         target = "(ZZZZZZZ)Lnet/minecraft/world/entity/player/Input;"
       )}
    )
-   private PlayerInput daamky$tickHook(PlayerInput original) {
+   private Input daamky$tickHook(Input original) {
       InputEvent event = Manager.postEvent(new InputEvent(original));
       InventoryFlowManager.input(event);
       AutoSwap autoSwap = AutoSwap.getInstance();
@@ -47,13 +47,13 @@ public abstract class KeyboardInputMixin {
    }
 
    @Unique
-   private PlayerInput daamky$transformInput(PlayerInput input) {
-      MinecraftClient client = MinecraftClient.getInstance();
+   private Input daamky$transformInput(Input input) {
+      Minecraft client = Minecraft.getInstance();
       AngleConnection rotationController = AngleConnection.INSTANCE;
       Angle angle = rotationController.getCurrentAngle();
       AngleConstructor plan = rotationController.getCurrentRotationPlan();
       if (client.player != null && RotationController.isRotating() && FreeLookController.isActive() && !this.daamky$shouldPreserveInventoryMovement()) {
-         return this.daamky$rotateInput(input, FreeLookController.getFreeYaw() - client.player.getYaw());
+         return this.daamky$rotateInput(input, FreeLookController.getFreeYaw() - client.player.getYRot());
       } else {
          return client.player != null
                && !this.daamky$shouldPreserveInventoryMovement()
@@ -61,23 +61,23 @@ public abstract class KeyboardInputMixin {
                && plan != null
                && plan.isMoveCorrection()
                && plan.isFreeCorrection()
-            ? this.daamky$rotateInput(input, client.player.getYaw() - angle.getYaw())
+            ? this.daamky$rotateInput(input, client.player.getYRot() - angle.getYaw())
             : input;
       }
    }
 
    @Unique
-   private PlayerInput daamky$rotateInput(PlayerInput input, float deltaYaw) {
+   private Input daamky$rotateInput(Input input, float deltaYaw) {
       float z = this.daamky$getMovementMultiplier(input.forward(), input.backward());
       float x = this.daamky$getMovementMultiplier(input.left(), input.right());
       float radians = deltaYaw * (float) (Math.PI / 180.0);
-      float cos = MathHelper.cos((double)radians);
-      float sin = MathHelper.sin((double)radians);
+      float cos = Mth.cos((double)radians);
+      float sin = Mth.sin((double)radians);
       float newX = x * cos - z * sin;
       float newZ = z * cos + x * sin;
       int movementSideways = Math.round(newX);
       int movementForward = Math.round(newZ);
-      return new PlayerInput(movementForward > 0, movementForward < 0, movementSideways > 0, movementSideways < 0, input.jump(), input.sneak(), input.sprint());
+      return new Input(movementForward > 0, movementForward < 0, movementSideways > 0, movementSideways < 0, input.jump(), input.shift(), input.sprint());
    }
 
    @Unique

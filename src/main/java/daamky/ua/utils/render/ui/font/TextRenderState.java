@@ -1,17 +1,17 @@
 package daamky.ua.utils.render.ui.font;
 
 import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.util.List;
-import net.minecraft.client.gui.ScreenRect;
-import net.minecraft.client.gui.render.state.SimpleGuiElementRenderState;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.texture.TextureSetup;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.gui.render.TextureSetup;
+import net.minecraft.client.gui.render.state.GuiElementRenderState;
 import org.joml.Matrix3x2f;
 
-final class TextRenderState implements SimpleGuiElementRenderState {
+final class TextRenderState implements GuiElementRenderState {
    private final Matrix3x2f pose;
    private final GlyphAtlasPage page;
-   private final ScreenRect scissorArea;
+   private final ScreenRectangle scissorArea;
    private final RenderPipeline pipeline;
    private float[] positions = new float[1024];
    private float[] uvs = new float[512];
@@ -22,7 +22,7 @@ final class TextRenderState implements SimpleGuiElementRenderState {
    private float maxX = -Float.MAX_VALUE;
    private float maxY = -Float.MAX_VALUE;
 
-   TextRenderState(Matrix3x2f pose, GlyphAtlasPage page, ScreenRect scissorArea, RenderPipeline pipeline) {
+   TextRenderState(Matrix3x2f pose, GlyphAtlasPage page, ScreenRectangle scissorArea, RenderPipeline pipeline) {
       this.pose = pose;
       this.page = page;
       this.scissorArea = scissorArea;
@@ -111,7 +111,7 @@ final class TextRenderState implements SimpleGuiElementRenderState {
       }
    }
 
-   public void setupVertices(VertexConsumer vertices) {
+   public void buildVertices(VertexConsumer vertices) {
       for (int i = 0; i < this.quadCount; i++) {
          int positionIndex = i * 8;
          int uvIndex = i * 4;
@@ -251,7 +251,7 @@ final class TextRenderState implements SimpleGuiElementRenderState {
    }
 
    private void vertex(VertexConsumer consumer, float x, float y, float u, float v, int color) {
-      consumer.vertex(this.pose, x, y).texture(u, v).color(color);
+      consumer.addVertexWith2DPose(this.pose, x, y).setUv(u, v).setColor(color);
    }
 
    public RenderPipeline pipeline() {
@@ -262,19 +262,19 @@ final class TextRenderState implements SimpleGuiElementRenderState {
       return this.page.textureSetup();
    }
 
-   public ScreenRect scissorArea() {
+   public ScreenRectangle scissorArea() {
       return this.scissorArea;
    }
 
-   public ScreenRect bounds() {
+   public ScreenRectangle bounds() {
       if (this.quadCount == 0) {
-         return new ScreenRect(0, 0, 1, 1);
+         return new ScreenRectangle(0, 0, 1, 1);
       } else {
          int x = (int)Math.floor((double)this.minX);
          int y = (int)Math.floor((double)this.minY);
          int width = Math.max(1, (int)Math.ceil((double)(this.maxX - this.minX)));
          int height = Math.max(1, (int)Math.ceil((double)(this.maxY - this.minY)));
-         ScreenRect transformedBounds = new ScreenRect(x, y, width, height).transformEachVertex(this.pose);
+         ScreenRectangle transformedBounds = new ScreenRectangle(x, y, width, height).transformMaxBounds(this.pose);
          return this.scissorArea == null ? transformedBounds : this.scissorArea.intersection(transformedBounds);
       }
    }

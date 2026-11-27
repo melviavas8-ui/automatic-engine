@@ -1,25 +1,25 @@
 package daamky.ua.api.events.impl;
 
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.Hand;
+import com.mojang.blaze3d.vertex.PoseStack;
 import daamky.ua.api.events.CancellableEvent;
+import net.minecraft.world.InteractionHand;
 
 public final class HandAnimationEvent extends CancellableEvent {
-   private final MatrixStack matrices;
-   private final Hand hand;
+   private final PoseStack matrices;
+   private final InteractionHand hand;
    private final float swingProgress;
 
-   public HandAnimationEvent(MatrixStack matrices, Hand hand, float swingProgress) {
+   public HandAnimationEvent(PoseStack matrices, InteractionHand hand, float swingProgress) {
       this.matrices = matrices;
       this.hand = hand;
       this.swingProgress = swingProgress;
    }
 
-   public MatrixStack getMatrices() {
+   public PoseStack getMatrices() {
       return this.matrices;
    }
 
-   public Hand getHand() {
+   public InteractionHand getHand() {
       return this.hand;
    }
 

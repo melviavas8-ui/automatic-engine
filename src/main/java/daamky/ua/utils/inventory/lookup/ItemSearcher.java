@@ -1,6 +1,6 @@
 package daamky.ua.utils.inventory.lookup;
 
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.item.ItemStack;
 
 @FunctionalInterface
 public interface ItemSearcher {

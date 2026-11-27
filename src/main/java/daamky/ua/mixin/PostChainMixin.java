@@ -1,19 +1,19 @@
 package daamky.ua.mixin;
 
 import com.mojang.blaze3d.buffers.GpuBuffer;
+import com.mojang.blaze3d.framegraph.FrameGraphBuilder;
 import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.RenderSystem;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.PostEffectPass;
-import net.minecraft.client.gl.PostEffectProcessor;
-import net.minecraft.client.gl.PostEffectProcessor.FramebufferSet;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.FrameGraphBuilder;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.PostChain;
+import net.minecraft.client.renderer.PostChain.TargetBundle;
+import net.minecraft.client.renderer.PostPass;
+import net.minecraft.resources.Identifier;
 import org.lwjgl.system.MemoryStack;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -24,12 +24,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import daamky.ua.api.module.impl.visual.EntityBloom;
 import daamky.ua.mixin.accessor.PostPassAccessor;
 
-@Mixin({PostEffectProcessor.class})
+@Mixin({PostChain.class})
 public abstract class PostChainMixin {
-   private static final Identifier ENTITY_OUTLINE = Identifier.ofVanilla("entity_outline");
+   private static final Identifier ENTITY_OUTLINE = Identifier.withDefaultNamespace("entity_outline");
    @Shadow
    @Final
-   private List<PostEffectPass> passes;
+   private List<PostPass> passes;
    @Shadow
    @Final
    private Set<Identifier> externalTargets;
@@ -38,10 +38,10 @@ public abstract class PostChainMixin {
    }
 
    @Inject(
-      method = {"render(Lnet/minecraft/client/render/FrameGraphBuilder;IILnet/minecraft/client/gl/PostEffectProcessor$FramebufferSet;)V"},
+      method = {"addToFrame(Lcom/mojang/blaze3d/framegraph/FrameGraphBuilder;IILnet/minecraft/client/renderer/PostChain$TargetBundle;)V"},
       at = {@At("HEAD")}
    )
-   private void daamky$configureEntityBloom(FrameGraphBuilder frameGraph, int width, int height, FramebufferSet targets, CallbackInfo ci) {
+   private void daamky$configureEntityBloom(FrameGraphBuilder frameGraph, int width, int height, TargetBundle targets, CallbackInfo ci) {
       if (this.externalTargets.contains(ENTITY_OUTLINE)) {
          EntityBloom bloom = EntityBloom.getInstance();
          float radius = bloom != null ? bloom.getShaderRadius() : 2.0F;
@@ -57,7 +57,7 @@ public abstract class PostChainMixin {
          CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
          int blurPass = 0;
 
-         for (PostEffectPass pass : this.passes) {
+         for (PostPass pass : this.passes) {
             Map<String, GpuBuffer> uniforms = ((PostPassAccessor)pass).daamky$getCustomUniforms();
             if (uniforms.containsKey("BloomConfig")) {
                writeHitFill(encoder, uniforms, hitFill);
@@ -103,18 +103,18 @@ public abstract class PostChainMixin {
    }
 
    private static double daamky$focalLength() {
-      double fieldOfView = (double)((Integer)MinecraftClient.getInstance().options.getFov().getValue()).intValue();
+      double fieldOfView = (double)((Integer)Minecraft.getInstance().options.fov().get()).intValue();
       return 0.5 / Math.tan(Math.toRadians(Math.max(1.0, fieldOfView)) * 0.5);
    }
 
    private static double daamky$cameraYaw() {
-      Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
-      return camera.isReady() ? (double)camera.getYaw() : 0.0;
+      Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
+      return camera.isInitialized() ? (double)camera.yRot() : 0.0;
    }
 
    private static double daamky$cameraPitch() {
-      Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
-      return camera.isReady() ? (double)camera.getPitch() : 0.0;
+      Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
+      return camera.isInitialized() ? (double)camera.xRot() : 0.0;
    }
 
    private static double daamky$wrapAnchor(double value) {

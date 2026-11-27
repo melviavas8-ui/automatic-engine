@@ -1,6 +1,6 @@
 package daamky.ua.utils.render.item;
 
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 
 record CachedItemQuad(
    Identifier atlas,

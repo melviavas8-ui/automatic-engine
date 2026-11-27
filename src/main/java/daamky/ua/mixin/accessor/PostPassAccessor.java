@@ -2,12 +2,12 @@ package daamky.ua.mixin.accessor;
 
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import java.util.Map;
-import net.minecraft.client.gl.PostEffectPass;
+import net.minecraft.client.renderer.PostPass;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-@Mixin({PostEffectPass.class})
+@Mixin({PostPass.class})
 public interface PostPassAccessor {
-   @Accessor("uniformBuffers")
+   @Accessor("customUniforms")
    Map<String, GpuBuffer> daamky$getCustomUniforms();
 }

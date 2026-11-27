@@ -3,7 +3,9 @@ package daamky.ua.utils.render.post.heavenlywrath;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.GpuDevice;
 import com.mojang.blaze3d.systems.RenderPass;
@@ -11,15 +13,13 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.textures.TextureFormat;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.nio.ByteBuffer;
 import java.util.OptionalInt;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 import org.lwjgl.system.MemoryStack;
@@ -29,9 +29,9 @@ public final class HeavenlyWrathWorldRenderer {
    private static final int UNIFORM_SIZE = 112;
    private static final float SKY_DEPTH_THRESHOLD = 0.9995F;
    private static final long START_NANOS = System.nanoTime();
-   private static final Identifier PIPELINE_ID = Identifier.of("daamky", "pipeline/post/heavenly_wrath_world");
-   private static final Identifier VERTEX_SHADER = Identifier.of("daamky", "post/heavenly_wrath_world/heavenly_wrath_world");
-   private static final Identifier FRAGMENT_SHADER = Identifier.of("daamky", "post/heavenly_wrath_world/heavenly_wrath_world");
+   private static final Identifier PIPELINE_ID = Identifier.fromNamespaceAndPath("daamky", "pipeline/post/heavenly_wrath_world");
+   private static final Identifier VERTEX_SHADER = Identifier.fromNamespaceAndPath("daamky", "post/heavenly_wrath_world/heavenly_wrath_world");
+   private static final Identifier FRAGMENT_SHADER = Identifier.fromNamespaceAndPath("daamky", "post/heavenly_wrath_world/heavenly_wrath_world");
    private static RenderPipeline pipeline;
    private static GpuBuffer uniformBuffer;
    private static GpuTexture sceneCopyTexture;
@@ -54,32 +54,32 @@ public final class HeavenlyWrathWorldRenderer {
    }
 
    public static void apply(
-      Framebuffer target,
+      RenderTarget target,
       Matrix4fc projectionMatrix,
       Matrix4fc viewMatrix,
-      Vec3d cameraPosition,
+      Vec3 cameraPosition,
       int skyColor,
       float speed,
       float intensity,
       float shadowStrength
    ) {
       if (!disabledAfterError && target != null && projectionMatrix != null && viewMatrix != null) {
-         if (target.getColorAttachment() != null
-            && target.getDepthAttachment() != null
-            && target.getColorAttachmentView() != null
-            && target.textureWidth > 0
-            && target.textureHeight > 0) {
+         if (target.getColorTexture() != null
+            && target.getDepthTexture() != null
+            && target.getColorTextureView() != null
+            && target.width > 0
+            && target.height > 0) {
             init();
-            if (pipeline != null && uniformBuffer != null && ensureTextures(target.textureWidth, target.textureHeight)) {
+            if (pipeline != null && uniformBuffer != null && ensureTextures(target.width, target.height)) {
                try {
                   CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
-                  encoder.copyTextureToTexture(target.getColorAttachment(), sceneCopyTexture, 0, 0, 0, 0, 0, target.textureWidth, target.textureHeight);
-                  encoder.copyTextureToTexture(target.getDepthAttachment(), depthCopyTexture, 0, 0, 0, 0, 0, target.textureWidth, target.textureHeight);
+                  encoder.copyTextureToTexture(target.getColorTexture(), sceneCopyTexture, 0, 0, 0, 0, 0, target.width, target.height);
+                  encoder.copyTextureToTexture(target.getDepthTexture(), depthCopyTexture, 0, 0, 0, 0, 0, target.width, target.height);
                   Matrix4f inverseViewProjection = new Matrix4f(projectionMatrix).mul(viewMatrix).invert();
                   writeUniforms(
-                     encoder, inverseViewProjection, cameraPosition != null ? cameraPosition : Vec3d.ZERO, skyColor, speed, intensity, shadowStrength
+                     encoder, inverseViewProjection, cameraPosition != null ? cameraPosition : Vec3.ZERO, skyColor, speed, intensity, shadowStrength
                   );
-                  RenderPass renderPass = encoder.createRenderPass(() -> "daamky:heavenly_wrath_world", target.getColorAttachmentView(), OptionalInt.empty());
+                  RenderPass renderPass = encoder.createRenderPass(() -> "daamky:heavenly_wrath_world", target.getColorTextureView(), OptionalInt.empty());
 
                   try {
                      renderPass.setPipeline(pipeline);
@@ -122,7 +122,7 @@ public final class HeavenlyWrathWorldRenderer {
                      .withLocation(PIPELINE_ID)
                      .withVertexShader(VERTEX_SHADER)
                      .withFragmentShader(FRAGMENT_SHADER)
-                     .withVertexFormat(VertexFormats.EMPTY, DrawMode.TRIANGLES)
+                     .withVertexFormat(DefaultVertexFormat.EMPTY, Mode.TRIANGLES)
                      .withUniform("HeavenlyWorldData", UniformType.UNIFORM_BUFFER)
                      .withSampler("SceneSampler")
                      .withSampler("DepthSampler")
@@ -165,7 +165,7 @@ public final class HeavenlyWrathWorldRenderer {
    }
 
    private static void writeUniforms(
-      CommandEncoder encoder, Matrix4fc inverseViewProjection, Vec3d cameraPosition, int skyColor, float speed, float intensity, float shadowStrength
+      CommandEncoder encoder, Matrix4fc inverseViewProjection, Vec3 cameraPosition, int skyColor, float speed, float intensity, float shadowStrength
    ) {
       float red = (float)(skyColor >> 16 & 0xFF) / 255.0F;
       float green = (float)(skyColor >> 8 & 0xFF) / 255.0F;

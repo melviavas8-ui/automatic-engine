@@ -1,7 +1,7 @@
 package daamky.ua.utils.render.ui.rectangle.recthalftone;
 
-import net.minecraft.client.gui.DrawContext;
 import daamky.ua.utils.render.color.ColorUtil;
+import net.minecraft.client.gui.GuiGraphics;
 
 public record BuiltHalftoneRectangle(
    float x,
@@ -128,7 +128,7 @@ public record BuiltHalftoneRectangle(
       );
    }
 
-   public void render(DrawContext graphics) {
+   public void render(GuiGraphics graphics) {
       HalftoneRectangleRenderer.getInstance().draw(graphics, this);
    }
 

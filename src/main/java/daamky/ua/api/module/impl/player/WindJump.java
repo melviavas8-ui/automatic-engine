@@ -3,11 +3,11 @@ package daamky.ua.api.module.impl.player;
 import java.util.Locale;
 import java.util.Map;
 import lombok.Generated;
-import net.minecraft.client.util.InputUtil.Type;
-import net.minecraft.entity.player.ItemCooldownManager;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.ItemCooldowns;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import com.mojang.blaze3d.platform.InputConstants.Type;
 import daamky.ua.api.drag.impl.Notifications;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.HotBarScrollEvent;
@@ -52,7 +52,7 @@ public class WindJump extends Module {
 
    @SubscribeEvent
    public void onKey(KeyEvent event) {
-      if (mc.player != null && mc.world != null && mc.currentScreen == null && this.phase == WindJump.Phase.IDLE) {
+      if (mc.player != null && mc.level != null && mc.screen == null && this.phase == WindJump.Phase.IDLE) {
          if (event.action() == 1 && this.matchesBind(event)) {
             this.tryUseWindCharge();
          }
@@ -61,7 +61,7 @@ public class WindJump extends Module {
 
    @SubscribeEvent
    public void onScroll(HotBarScrollEvent event) {
-      if (mc.player != null && mc.world != null && mc.currentScreen == null && this.phase == WindJump.Phase.IDLE) {
+      if (mc.player != null && mc.level != null && mc.screen == null && this.phase == WindJump.Phase.IDLE) {
          if (InventoryBindHelper.matchesScroll(event, this.keySetting)) {
             event.setCancelled(true);
             this.tryUseWindCharge();
@@ -71,8 +71,8 @@ public class WindJump extends Module {
 
    @SubscribeEvent
    public void onRotationUpdate(RotationUpdateEvent event) {
-      if (mc.player != null && mc.world != null && this.phase != WindJump.Phase.IDLE && event.isPre()) {
-         Angle throwAngle = new Angle(mc.player.getYaw(), 90.0F);
+      if (mc.player != null && mc.level != null && this.phase != WindJump.Phase.IDLE && event.isPre()) {
+         Angle throwAngle = new Angle(mc.player.getYRot(), 90.0F);
          AngleConfig config = new AngleConfig(new LinearConstructor(), true, true);
          AngleConnection.INSTANCE.rotateTo(throwAngle, 3, config, TaskPriority.HIGH_IMPORTANCE_1, this);
       }
@@ -80,7 +80,7 @@ public class WindJump extends Module {
 
    @SubscribeEvent
    public void onTick(TickEvent.Pre event) {
-      if (mc.player == null || mc.world == null) {
+      if (mc.player == null || mc.level == null) {
          this.resetState();
       } else if (this.phase == WindJump.Phase.ROTATING) {
          this.rotationTicks++;
@@ -150,8 +150,8 @@ public class WindJump extends Module {
       } else {
          int hotbarSlot = InventoryUtils.findItemInHotbar(Items.WIND_CHARGE);
          if (hotbarSlot != -1) {
-            ItemStack charge = mc.player.getInventory().getStack(hotbarSlot);
-            if (mc.player.getItemCooldownManager().isCoolingDown(charge)) {
+            ItemStack charge = mc.player.getInventory().getItem(hotbarSlot);
+            if (mc.player.getCooldowns().isOnCooldown(charge)) {
                this.notifyItemCooldown("Заряд ветра", charge);
                return false;
             } else {
@@ -163,8 +163,8 @@ public class WindJump extends Module {
             if (inventorySlot == -1) {
                return false;
             } else {
-               ItemStack charge = mc.player.getInventory().getStack(inventorySlot);
-               if (mc.player.getItemCooldownManager().isCoolingDown(charge)) {
+               ItemStack charge = mc.player.getInventory().getItem(inventorySlot);
+               if (mc.player.getCooldowns().isOnCooldown(charge)) {
                   this.notifyItemCooldown("Заряд ветра", charge);
                   return false;
                } else {
@@ -230,10 +230,10 @@ public class WindJump extends Module {
 
    private int cooldownRemainingTicks(ItemStack stack) {
       if (mc.player != null && stack != null && !stack.isEmpty()) {
-         ItemCooldownManager cooldowns = mc.player.getItemCooldownManager();
+         ItemCooldowns cooldowns = mc.player.getCooldowns();
 
          try {
-            Identifier group = cooldowns.getGroup(stack);
+            Identifier group = cooldowns.getCooldownGroup(stack);
             Map<Identifier, ?> activeCooldowns = ((ItemCooldownsAccessor)cooldowns).daamky$getCooldowns();
             if (activeCooldowns.get(group) instanceof ItemCooldownInstanceAccessor accessor) {
                return Math.max(0, accessor.daamky$getEndTime() - ((ItemCooldownsAccessor)cooldowns).daamky$getTickCount());
@@ -241,7 +241,7 @@ public class WindJump extends Module {
          } catch (RuntimeException var7) {
          }
 
-         float progress = cooldowns.getCooldownProgress(stack, 0.0F);
+         float progress = cooldowns.getCooldownPercent(stack, 0.0F);
          return progress <= 0.0F ? -1 : Math.max(1, Math.round(progress * 20.0F));
       } else {
          return -1;

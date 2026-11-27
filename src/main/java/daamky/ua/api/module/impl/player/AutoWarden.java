@@ -4,26 +4,26 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 import java.util.function.Predicate;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.entity.SignBlockEntity;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.PotionContentsComponent;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.screen.GenericContainerScreenHandler;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.text.Text;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.Direction.Type;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Direction.Plane;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.SignBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.RotationUpdateEvent;
 import daamky.ua.api.events.impl.TickEvent;
@@ -119,8 +119,8 @@ public final class AutoWarden extends Module {
    @SubscribeEvent
    private void r(RotationUpdateEvent event) {
       if (event.isPre() && mc.player != null && this.tb != null) {
-         Vec3d hitVec = Vec3d.ofCenter(this.tb).add(0.0, 0.25, 0.0);
-         Angle angle = MathAngle.fromTo(mc.player.getEyePos(), hitVec);
+         Vec3 hitVec = Vec3.atCenterOf(this.tb).add(0.0, 0.25, 0.0);
+         Angle angle = MathAngle.fromTo(mc.player.getEyePosition(), hitVec);
          AngleConnection.INSTANCE
             .rotateTo(
                new Angle.VecRotation(angle, hitVec),
@@ -135,22 +135,22 @@ public final class AutoWarden extends Module {
 
    @SubscribeEvent
    private void t(TickEvent.Post event) {
-      if (mc.player != null && mc.world != null && mc.interactionManager != null) {
+      if (mc.player != null && mc.level != null && mc.gameMode != null) {
          WardenHelper.updateTimers();
          this.barJump();
-         BlockPos playerPos = mc.player.getBlockPos();
+         BlockPos playerPos = mc.player.blockPosition();
          boolean atDeathSpawn = playerPos.getX() == 0 && playerPos.getY() == 90 && playerPos.getZ() == 0;
          if (atDeathSpawn) {
             if (!this.dead) {
                this.dead = true;
                this.rst();
                this.stop();
-               if (mc.player.currentScreenHandler != mc.player.playerScreenHandler) {
-                  mc.player.closeHandledScreen();
+               if (mc.player.containerMenu != mc.player.inventoryMenu) {
+                  mc.player.closeContainer();
                }
 
                String warehouseAnarchy = this.sk.getValue().trim();
-               mc.player.networkHandler.sendChatCommand("an" + warehouseAnarchy);
+               mc.player.connection.sendCommand("an" + warehouseAnarchy);
                this.init = true;
                this.wr = true;
                this.rd = 40;
@@ -163,24 +163,24 @@ public final class AutoWarden extends Module {
             if (this.ut > 0) {
                if (this.um != 11 && this.um != 22 && this.um != 33) {
                   if (mc.options != null) {
-                     mc.options.useKey.setPressed(true);
+                     mc.options.keyUse.setDown(true);
                   }
 
                   this.ut--;
-                  boolean usedInvis = this.um == 1 && mc.player.hasStatusEffect(StatusEffects.INVISIBILITY);
-                  boolean usedFood = this.um == 2 && !mc.player.getHungerManager().isNotFull();
-                  boolean usedSpeed = this.um == 3 && mc.player.hasStatusEffect(StatusEffects.SPEED);
+                  boolean usedInvis = this.um == 1 && mc.player.hasEffect(MobEffects.INVISIBILITY);
+                  boolean usedFood = this.um == 2 && !mc.player.getFoodData().needsFood();
+                  boolean usedSpeed = this.um == 3 && mc.player.hasEffect(MobEffects.SPEED);
                   if (usedInvis || usedFood || usedSpeed || this.ut <= 0) {
                      if (mc.options != null) {
-                        mc.options.useKey.setPressed(false);
+                        mc.options.keyUse.setDown(false);
                      }
 
                      if ((this.um == 1 || this.um == 3)
-                        && mc.player.currentScreenHandler == mc.player.playerScreenHandler
-                        && !mc.player.getMainHandStack().isEmpty()) {
-                        mc.interactionManager
-                           .clickSlot(
-                              mc.player.playerScreenHandler.syncId, 36 + mc.player.getInventory().getSelectedSlot(), 0, SlotActionType.QUICK_MOVE, mc.player
+                        && mc.player.containerMenu == mc.player.inventoryMenu
+                        && !mc.player.getMainHandItem().isEmpty()) {
+                        mc.gameMode
+                           .handleInventoryMouseClick(
+                              mc.player.inventoryMenu.containerId, 36 + mc.player.getInventory().getSelectedSlot(), 0, ClickType.QUICK_MOVE, mc.player
                            );
                      }
 
@@ -190,9 +190,9 @@ public final class AutoWarden extends Module {
                } else {
                   this.ut--;
                   if (this.ut <= 0) {
-                     mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
+                     mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
                      if (mc.options != null) {
-                        mc.options.useKey.setPressed(true);
+                        mc.options.keyUse.setDown(true);
                      }
 
                      this.um = this.um == 11 ? 1 : (this.um == 22 ? 2 : 3);
@@ -200,16 +200,16 @@ public final class AutoWarden extends Module {
                   }
                }
             } else {
-               if (this.um == 0 && this.iv == 0 && this.p3 == 0 && !mc.player.getMainHandStack().isEmpty()) {
-                  ScreenHandler menu = mc.player.currentScreenHandler;
+               if (this.um == 0 && this.iv == 0 && this.p3 == 0 && !mc.player.getMainHandItem().isEmpty()) {
+                  AbstractContainerMenu menu = mc.player.containerMenu;
                   int selected = mc.player.getInventory().getSelectedSlot();
                   int hotbarSlot = 36 + selected;
-                  if (menu != mc.player.playerScreenHandler) {
+                  if (menu != mc.player.inventoryMenu) {
                      int containerSlots = 0;
 
                      for (int i = 0; i < menu.slots.size(); i++) {
                         Slot slot = (Slot)menu.slots.get(i);
-                        if (slot.inventory == mc.player.getInventory()) {
+                        if (slot.container == mc.player.getInventory()) {
                            break;
                         }
 
@@ -220,7 +220,7 @@ public final class AutoWarden extends Module {
                   }
 
                   if (hotbarSlot >= 0 && hotbarSlot < menu.slots.size()) {
-                     mc.interactionManager.clickSlot(menu.syncId, hotbarSlot, 0, SlotActionType.QUICK_MOVE, mc.player);
+                     mc.gameMode.handleInventoryMouseClick(menu.containerId, hotbarSlot, 0, ClickType.QUICK_MOVE, mc.player);
                      this.d = 2;
                      return;
                   }
@@ -264,7 +264,7 @@ public final class AutoWarden extends Module {
                   } else if (this.ss == 0 && this.iv == 0 && this.um == 0 && !Network.isPvp() && this.full() && this.hasLoot()) {
                      if (!this.onSk()) {
                         String anName = this.sk.getValue().trim();
-                        mc.player.networkHandler.sendChatCommand("an" + anName);
+                        mc.player.connection.sendCommand("an" + anName);
                      }
 
                      this.all();
@@ -280,23 +280,23 @@ public final class AutoWarden extends Module {
                      int carrotSlot = -1;
 
                      for (int i = 0; i < 36; i++) {
-                        if (mc.player.getInventory().getStack(i).isOf(Items.GOLDEN_CARROT)) {
+                        if (mc.player.getInventory().getItem(i).is(Items.GOLDEN_CARROT)) {
                            hasCarrot = true;
                            carrotSlot = i;
                            break;
                         }
                      }
 
-                     if (this.invis.getValue() && !mc.player.hasStatusEffect(StatusEffects.INVISIBILITY)
-                        || this.speed.getValue() && !mc.player.hasStatusEffect(StatusEffects.SPEED)
+                     if (this.invis.getValue() && !mc.player.hasEffect(MobEffects.INVISIBILITY)
+                        || this.speed.getValue() && !mc.player.hasEffect(MobEffects.SPEED)
                         || this.carrot.getValue() && !hasCarrot
-                        || this.carrot.getValue() && hasCarrot && mc.player.getHungerManager().isNotFull()
+                        || this.carrot.getValue() && hasCarrot && mc.player.getFoodData().needsFood()
                         || this.iv != 0) {
                         int invisPotionSlot = -1;
                         int speedPotionSlot = -1;
 
                         for (int ix = 0; ix < 36; ix++) {
-                           ItemStack stack = mc.player.getInventory().getStack(ix);
+                           ItemStack stack = mc.player.getInventory().getItem(ix);
                            if (invisPotionSlot == -1 && this.invPot(stack)) {
                               invisPotionSlot = ix;
                            }
@@ -310,14 +310,14 @@ public final class AutoWarden extends Module {
                            }
                         }
 
-                        if (mc.player.currentScreenHandler == mc.player.playerScreenHandler
+                        if (mc.player.containerMenu == mc.player.inventoryMenu
                            && this.iv == 0
                            && invisPotionSlot != -1
                            && this.invis.getValue()
-                           && !mc.player.hasStatusEffect(StatusEffects.INVISIBILITY)) {
+                           && !mc.player.hasEffect(MobEffects.INVISIBILITY)) {
                            int old = mc.player.getInventory().getSelectedSlot();
                            if (invisPotionSlot >= 9) {
-                              mc.interactionManager.clickSlot(mc.player.playerScreenHandler.syncId, invisPotionSlot, old, SlotActionType.SWAP, mc.player);
+                              mc.gameMode.handleInventoryMouseClick(mc.player.inventoryMenu.containerId, invisPotionSlot, old, ClickType.SWAP, mc.player);
                               invisPotionSlot = old;
                            }
 
@@ -328,14 +328,14 @@ public final class AutoWarden extends Module {
                            return;
                         }
 
-                        if (mc.player.currentScreenHandler == mc.player.playerScreenHandler
+                        if (mc.player.containerMenu == mc.player.inventoryMenu
                            && this.iv == 0
                            && speedPotionSlot != -1
                            && this.speed.getValue()
-                           && !mc.player.hasStatusEffect(StatusEffects.SPEED)) {
+                           && !mc.player.hasEffect(MobEffects.SPEED)) {
                            int old = mc.player.getInventory().getSelectedSlot();
                            if (speedPotionSlot >= 9) {
-                              mc.interactionManager.clickSlot(mc.player.playerScreenHandler.syncId, speedPotionSlot, old, SlotActionType.SWAP, mc.player);
+                              mc.gameMode.handleInventoryMouseClick(mc.player.inventoryMenu.containerId, speedPotionSlot, old, ClickType.SWAP, mc.player);
                               speedPotionSlot = old;
                            }
 
@@ -347,13 +347,13 @@ public final class AutoWarden extends Module {
                         }
 
                         if (this.carrot.getValue()
-                           && mc.player.currentScreenHandler == mc.player.playerScreenHandler
+                           && mc.player.containerMenu == mc.player.inventoryMenu
                            && this.iv == 0
                            && carrotSlot != -1
-                           && mc.player.getHungerManager().isNotFull()) {
+                           && mc.player.getFoodData().needsFood()) {
                            int old = mc.player.getInventory().getSelectedSlot();
                            if (carrotSlot >= 9) {
-                              mc.interactionManager.clickSlot(mc.player.playerScreenHandler.syncId, carrotSlot, old, SlotActionType.SWAP, mc.player);
+                              mc.gameMode.handleInventoryMouseClick(mc.player.inventoryMenu.containerId, carrotSlot, old, ClickType.SWAP, mc.player);
                               carrotSlot = old;
                            }
 
@@ -365,8 +365,8 @@ public final class AutoWarden extends Module {
                         }
 
                         if (this.iv == 0) {
-                           this.ni = this.invis.getValue() && !mc.player.hasStatusEffect(StatusEffects.INVISIBILITY) && invisPotionSlot == -1;
-                           this.ns = this.speed.getValue() && !mc.player.hasStatusEffect(StatusEffects.SPEED) && speedPotionSlot == -1;
+                           this.ni = this.invis.getValue() && !mc.player.hasEffect(MobEffects.INVISIBILITY) && invisPotionSlot == -1;
+                           this.ns = this.speed.getValue() && !mc.player.hasEffect(MobEffects.SPEED) && speedPotionSlot == -1;
                            this.nc = this.carrot.getValue() && !hasCarrot;
                            if (!this.ni && !this.ns && !this.nc) {
                               this.d = 5;
@@ -388,7 +388,7 @@ public final class AutoWarden extends Module {
                         if (this.iv == 7) {
                            if (!this.onSk()) {
                               String anName = this.sk.getValue().trim();
-                              mc.player.networkHandler.sendChatCommand("an" + anName);
+                              mc.player.connection.sendCommand("an" + anName);
                            }
 
                            this.ib = null;
@@ -418,7 +418,7 @@ public final class AutoWarden extends Module {
                               }
                            }
 
-                           if (mc.player.squaredDistanceTo(Vec3d.ofCenter(this.pos)) > 2.25) {
+                           if (mc.player.distanceToSqr(Vec3.atCenterOf(this.pos)) > 2.25) {
                               if (!this.mv) {
                                  this.go(this.pos);
                                  this.mv = true;
@@ -462,15 +462,15 @@ public final class AutoWarden extends Module {
                            }
 
                            this.tb = this.ib;
-                           Vec3d vec = Vec3d.ofCenter(this.ib).add(0.0, 0.5, 0.0);
-                           mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, new BlockHitResult(vec, Direction.UP, this.ib, false));
+                           Vec3 vec = Vec3.atCenterOf(this.ib).add(0.0, 0.5, 0.0);
+                           mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(vec, Direction.UP, this.ib, false));
                            this.d = 3;
                            this.iv = 3;
                            return;
                         }
 
                         if (this.iv == 3) {
-                           if (!(mc.player.currentScreenHandler instanceof GenericContainerScreenHandler menux)) {
+                           if (!(mc.player.containerMenu instanceof ChestMenu menux)) {
                               if (++this.sr >= 4) {
                                  this.sr = 0;
                                  this.iv = 2;
@@ -483,13 +483,13 @@ public final class AutoWarden extends Module {
                            }
 
                            this.sr = 0;
-                           int var41 = menux.getRows() * 9;
+                           int var41 = menux.getRowCount() * 9;
                            if (this.take(menux)) {
                               return;
                            }
 
                            if (!this.ni && !this.ns && !this.nc) {
-                              mc.player.closeHandledScreen();
+                              mc.player.closeContainer();
                               this.iv = 4;
                               this.d = 3;
                               return;
@@ -501,7 +501,7 @@ public final class AutoWarden extends Module {
                            boolean foundCarrot = false;
 
                            for (int ix = 0; ix < var41; ix++) {
-                              ItemStack stackx = ((Slot)menux.slots.get(ix)).getStack();
+                              ItemStack stackx = ((Slot)menux.slots.get(ix)).getItem();
                               if (this.ni && this.invPot(stackx)) {
                                  itemSlot = ix;
                                  foundInvisPotion = true;
@@ -514,7 +514,7 @@ public final class AutoWarden extends Module {
                                  break;
                               }
 
-                              if (this.nc && stackx.isOf(Items.GOLDEN_CARROT)) {
+                              if (this.nc && stackx.is(Items.GOLDEN_CARROT)) {
                                  itemSlot = ix;
                                  foundCarrot = true;
                                  break;
@@ -522,7 +522,7 @@ public final class AutoWarden extends Module {
                            }
 
                            if (itemSlot == -1) {
-                              mc.player.closeHandledScreen();
+                              mc.player.closeContainer();
                               this.iv = 4;
                               this.d = 20;
                               return;
@@ -531,7 +531,7 @@ public final class AutoWarden extends Module {
                            int bar = -1;
 
                            for (int ix = 0; ix < 9; ix++) {
-                              if (mc.player.getInventory().getStack(ix).isEmpty()) {
+                              if (mc.player.getInventory().getItem(ix).isEmpty()) {
                                  bar = ix;
                                  break;
                               }
@@ -541,18 +541,18 @@ public final class AutoWarden extends Module {
                               bar = mc.player.getInventory().getSelectedSlot();
                               int emptyInventorySlot = this.empty(menux, var41);
                               if (emptyInventorySlot == -1) {
-                                 mc.player.closeHandledScreen();
+                                 mc.player.closeContainer();
                                  this.d = 10;
                                  return;
                               }
 
-                              this.mvSlot(menux.syncId, var41 + 27 + bar, emptyInventorySlot);
+                              this.mvSlot(menux.containerId, var41 + 27 + bar, emptyInventorySlot);
                               this.d = 3;
                               return;
                            }
 
                            int targetSlot = var41 + 27 + bar;
-                           this.sch(mc.player.currentScreenHandler.syncId, itemSlot, targetSlot, foundInvisPotion, foundSpeedPotion, foundCarrot);
+                           this.sch(mc.player.containerMenu.containerId, itemSlot, targetSlot, foundInvisPotion, foundSpeedPotion, foundCarrot);
                            this.d = 0;
                            return;
                         }
@@ -576,12 +576,12 @@ public final class AutoWarden extends Module {
                         }
                      }
 
-                     ScreenHandler menux = mc.player.currentScreenHandler;
-                     if (menux != mc.player.playerScreenHandler) {
+                     AbstractContainerMenu menux = mc.player.containerMenu;
+                     if (menux != mc.player.inventoryMenu) {
                         if (this.ob != null) {
                            this.loot(menux);
                         } else {
-                           mc.player.closeHandledScreen();
+                           mc.player.closeContainer();
                            this.d = 5;
                         }
                      } else {
@@ -626,7 +626,7 @@ public final class AutoWarden extends Module {
                            this.stop();
                            this.clr();
                            this.d = 1;
-                        } else if (mc.player.squaredDistanceTo(Vec3d.ofCenter(this.pos)) > 2.25) {
+                        } else if (mc.player.distanceToSqr(Vec3.atCenterOf(this.pos)) > 2.25) {
                            if (!this.mv) {
                               this.go(this.pos);
                               this.mv = true;
@@ -646,8 +646,8 @@ public final class AutoWarden extends Module {
                            this.d = 1;
                         } else {
                            this.ob = this.tb;
-                           Vec3d hit = Vec3d.ofCenter(this.ob).add(0.0, 0.5, 0.0);
-                           mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, new BlockHitResult(hit, Direction.UP, this.ob, false));
+                           Vec3 hit = Vec3.atCenterOf(this.ob).add(0.0, 0.5, 0.0);
+                           mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(hit, Direction.UP, this.ob, false));
                            this.d = 3;
                         }
                      }
@@ -659,8 +659,8 @@ public final class AutoWarden extends Module {
    }
 
    private void depTick() {
-      ScreenHandler menu = mc.player.currentScreenHandler;
-      if (menu != mc.player.playerScreenHandler) {
+      AbstractContainerMenu menu = mc.player.containerMenu;
+      if (menu != mc.player.inventoryMenu) {
          this.dep(menu);
       } else {
          boolean needRetarget = this.tb == null || this.skip(this.tb) || !this.box(this.tb);
@@ -688,7 +688,7 @@ public final class AutoWarden extends Module {
                }
             }
 
-            if (mc.player.squaredDistanceTo(Vec3d.ofCenter(this.pos)) > 2.25) {
+            if (mc.player.distanceToSqr(Vec3.atCenterOf(this.pos)) > 2.25) {
                if (!this.mv) {
                   this.go(this.pos);
                   this.mv = true;
@@ -704,20 +704,20 @@ public final class AutoWarden extends Module {
                this.d = 3;
             } else {
                this.ob = this.tb;
-               Vec3d hit = Vec3d.ofCenter(this.ob).add(0.0, 0.5, 0.0);
-               mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, new BlockHitResult(hit, Direction.UP, this.ob, false));
+               Vec3 hit = Vec3.atCenterOf(this.ob).add(0.0, 0.5, 0.0);
+               mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(hit, Direction.UP, this.ob, false));
                this.d = 3;
             }
          }
       }
    }
 
-   private void dep(ScreenHandler menu) {
+   private void dep(AbstractContainerMenu menu) {
       int containerSlots = 0;
 
       for (int i = 0; i < menu.slots.size(); i++) {
          Slot slot = (Slot)menu.slots.get(i);
-         if (slot.inventory == mc.player.getInventory()) {
+         if (slot.container == mc.player.getInventory()) {
             break;
          }
 
@@ -728,8 +728,8 @@ public final class AutoWarden extends Module {
 
       for (int i = containerSlots; i < menu.slots.size(); i++) {
          Slot slot = (Slot)menu.slots.get(i);
-         if (slot.hasStack() && this.Ite(slot.getStack())) {
-            mc.interactionManager.clickSlot(menu.syncId, i, 0, SlotActionType.QUICK_MOVE, mc.player);
+         if (slot.hasItem() && this.Ite(slot.getItem())) {
+            mc.gameMode.handleInventoryMouseClick(menu.containerId, i, 0, ClickType.QUICK_MOVE, mc.player);
             if (++moved >= 6) {
                this.d = 0;
                return;
@@ -740,7 +740,7 @@ public final class AutoWarden extends Module {
       if (moved > 0) {
          this.d = 0;
       } else {
-         mc.player.closeHandledScreen();
+         mc.player.closeContainer();
          this.all();
          this.ds = false;
          this.ss = 0;
@@ -757,8 +757,8 @@ public final class AutoWarden extends Module {
    }
 
    private void mvSlot(int containerId, int sourceSlot, int targetSlot) {
-      mc.interactionManager.clickSlot(containerId, sourceSlot, 0, SlotActionType.PICKUP, mc.player);
-      mc.interactionManager.clickSlot(containerId, targetSlot, 0, SlotActionType.PICKUP, mc.player);
+      mc.gameMode.handleInventoryMouseClick(containerId, sourceSlot, 0, ClickType.PICKUP, mc.player);
+      mc.gameMode.handleInventoryMouseClick(containerId, targetSlot, 0, ClickType.PICKUP, mc.player);
    }
 
    private void sch(int containerId, int sourceSlot, int targetSlot, boolean invisPotion, boolean speedPotion, boolean goldenCarrot) {
@@ -771,25 +771,25 @@ public final class AutoWarden extends Module {
       this.pC = goldenCarrot;
    }
 
-   private boolean take(GenericContainerScreenHandler menu) {
+   private boolean take(ChestMenu menu) {
       if (this.p3 == 0) {
          return false;
-      } else if (menu.syncId != this.p0) {
+      } else if (menu.containerId != this.p0) {
          this.takeClr();
          return false;
       } else {
          if (this.p3 == 1) {
-            ItemStack sourceStack = ((Slot)menu.slots.get(this.p1)).getStack();
+            ItemStack sourceStack = ((Slot)menu.slots.get(this.p1)).getItem();
             this.pR = (this.pI || this.pS) && sourceStack.getCount() > 1;
-            mc.interactionManager.clickSlot(menu.syncId, this.p1, 0, SlotActionType.PICKUP, mc.player);
+            mc.gameMode.handleInventoryMouseClick(menu.containerId, this.p1, 0, ClickType.PICKUP, mc.player);
             this.p3 = 2;
          } else if (this.p3 == 2) {
-            mc.interactionManager.clickSlot(menu.syncId, this.p2, !this.pC && !this.pR ? 0 : 1, SlotActionType.PICKUP, mc.player);
+            mc.gameMode.handleInventoryMouseClick(menu.containerId, this.p2, !this.pC && !this.pR ? 0 : 1, ClickType.PICKUP, mc.player);
             if (this.pC) {
-               ItemStack targetStack = ((Slot)menu.slots.get(this.p2)).getStack();
-               if (menu.getCursorStack().isEmpty()) {
+               ItemStack targetStack = ((Slot)menu.slots.get(this.p2)).getItem();
+               if (menu.getCarried().isEmpty()) {
                   this.takeEnd();
-               } else if (!targetStack.isEmpty() && targetStack.getCount() >= targetStack.getMaxCount()) {
+               } else if (!targetStack.isEmpty() && targetStack.getCount() >= targetStack.getMaxStackSize()) {
                   this.p3 = 3;
                }
             } else if (this.pR) {
@@ -798,7 +798,7 @@ public final class AutoWarden extends Module {
                this.takeEnd();
             }
          } else {
-            mc.interactionManager.clickSlot(menu.syncId, this.p1, 0, SlotActionType.PICKUP, mc.player);
+            mc.gameMode.handleInventoryMouseClick(menu.containerId, this.p1, 0, ClickType.PICKUP, mc.player);
             this.takeEnd();
          }
 
@@ -834,9 +834,9 @@ public final class AutoWarden extends Module {
       this.pR = false;
    }
 
-   private int empty(ScreenHandler menu, int containerSlots) {
+   private int empty(AbstractContainerMenu menu, int containerSlots) {
       for (int slot = containerSlots; slot < containerSlots + 27 && slot < menu.slots.size(); slot++) {
-         if (!((Slot)menu.slots.get(slot)).hasStack()) {
+         if (!((Slot)menu.slots.get(slot)).hasItem()) {
             return slot;
          }
       }
@@ -844,12 +844,12 @@ public final class AutoWarden extends Module {
       return -1;
    }
 
-   private void loot(ScreenHandler menu) {
+   private void loot(AbstractContainerMenu menu) {
       int containerSlots = 0;
 
       for (int i = 0; i < menu.slots.size(); i++) {
          Slot slot = (Slot)menu.slots.get(i);
-         if (slot.inventory == mc.player.getInventory()) {
+         if (slot.container == mc.player.getInventory()) {
             break;
          }
 
@@ -860,8 +860,8 @@ public final class AutoWarden extends Module {
 
       for (int i = 0; i < containerSlots; i++) {
          Slot slot = (Slot)menu.slots.get(i);
-         if (slot.hasStack() && this.Ite(slot.getStack()) && this.room(slot.getStack())) {
-            mc.interactionManager.clickSlot(menu.syncId, i, 0, SlotActionType.QUICK_MOVE, mc.player);
+         if (slot.hasItem() && this.Ite(slot.getItem()) && this.room(slot.getItem())) {
+            mc.gameMode.handleInventoryMouseClick(menu.containerId, i, 0, ClickType.QUICK_MOVE, mc.player);
             if (++moved >= 6) {
                this.d = 0;
                return;
@@ -876,7 +876,7 @@ public final class AutoWarden extends Module {
             this.ig.add(this.ob);
          }
 
-         mc.player.closeHandledScreen();
+         mc.player.closeContainer();
          this.all();
          this.d = 5;
          this.rt = 0;
@@ -884,13 +884,13 @@ public final class AutoWarden extends Module {
    }
 
    private boolean invPot(ItemStack stack) {
-      if (stack != null && (stack.isOf(Items.POTION) || stack.isOf(Items.SPLASH_POTION) || stack.isOf(Items.LINGERING_POTION))) {
-         PotionContentsComponent potion = (PotionContentsComponent)stack.get(DataComponentTypes.POTION_CONTENTS);
+      if (stack != null && (stack.is(Items.POTION) || stack.is(Items.SPLASH_POTION) || stack.is(Items.LINGERING_POTION))) {
+         PotionContents potion = (PotionContents)stack.get(DataComponents.POTION_CONTENTS);
          if (potion == null) {
             return false;
          } else {
-            for (StatusEffectInstance effect : potion.getEffects()) {
-               if (effect.getEffectType().matches(StatusEffects.INVISIBILITY)) {
+            for (MobEffectInstance effect : potion.getAllEffects()) {
+               if (effect.getEffect().is(MobEffects.INVISIBILITY)) {
                   return true;
                }
             }
@@ -904,7 +904,7 @@ public final class AutoWarden extends Module {
 
    private boolean hasLoot() {
       for (int i = 0; i < 36; i++) {
-         if (this.Ite(mc.player.getInventory().getStack(i))) {
+         if (this.Ite(mc.player.getInventory().getItem(i))) {
             return true;
          }
       }
@@ -913,13 +913,13 @@ public final class AutoWarden extends Module {
    }
 
    private boolean spdPot(ItemStack stack) {
-      if (stack != null && (stack.isOf(Items.POTION) || stack.isOf(Items.SPLASH_POTION) || stack.isOf(Items.LINGERING_POTION))) {
-         PotionContentsComponent potion = (PotionContentsComponent)stack.get(DataComponentTypes.POTION_CONTENTS);
+      if (stack != null && (stack.is(Items.POTION) || stack.is(Items.SPLASH_POTION) || stack.is(Items.LINGERING_POTION))) {
+         PotionContents potion = (PotionContents)stack.get(DataComponents.POTION_CONTENTS);
          if (potion == null) {
             return false;
          } else {
-            for (StatusEffectInstance effect : potion.getEffects()) {
-               if (effect.getEffectType().matches(StatusEffects.SPEED)) {
+            for (MobEffectInstance effect : potion.getAllEffects()) {
+               if (effect.getEffect().is(MobEffects.SPEED)) {
                   return true;
                }
             }
@@ -932,11 +932,11 @@ public final class AutoWarden extends Module {
    }
 
    private boolean eat() {
-      if (this.carrot.getValue() && mc.player.getHungerManager().isNotFull() && mc.player.currentScreenHandler == mc.player.playerScreenHandler) {
+      if (this.carrot.getValue() && mc.player.getFoodData().needsFood() && mc.player.containerMenu == mc.player.inventoryMenu) {
          int carrotSlot = -1;
 
          for (int i = 0; i < 36; i++) {
-            if (mc.player.getInventory().getStack(i).isOf(Items.GOLDEN_CARROT)) {
+            if (mc.player.getInventory().getItem(i).is(Items.GOLDEN_CARROT)) {
                carrotSlot = i;
                break;
             }
@@ -947,7 +947,7 @@ public final class AutoWarden extends Module {
          } else {
             int selected = mc.player.getInventory().getSelectedSlot();
             if (carrotSlot >= 9) {
-               mc.interactionManager.clickSlot(mc.player.playerScreenHandler.syncId, carrotSlot, selected, SlotActionType.SWAP, mc.player);
+               mc.gameMode.handleInventoryMouseClick(mc.player.inventoryMenu.containerId, carrotSlot, selected, ClickType.SWAP, mc.player);
                carrotSlot = selected;
             }
 
@@ -966,7 +966,7 @@ public final class AutoWarden extends Module {
       int count = 0;
 
       for (int i = 0; i < 36; i++) {
-         if (this.Ite(mc.player.getInventory().getStack(i))) {
+         if (this.Ite(mc.player.getInventory().getItem(i))) {
             count++;
          }
       }
@@ -976,7 +976,7 @@ public final class AutoWarden extends Module {
 
    private boolean full() {
       for (int i = 0; i < 36; i++) {
-         if (mc.player.getInventory().getStack(i).isEmpty()) {
+         if (mc.player.getInventory().getItem(i).isEmpty()) {
             return false;
          }
       }
@@ -986,12 +986,12 @@ public final class AutoWarden extends Module {
 
    private boolean room(ItemStack incoming) {
       for (int i = 0; i < 36; i++) {
-         ItemStack current = mc.player.getInventory().getStack(i);
+         ItemStack current = mc.player.getInventory().getItem(i);
          if (current.isEmpty()) {
             return true;
          }
 
-         if (ItemStack.areItemsAndComponentsEqual(current, incoming) && current.getCount() < current.getMaxCount()) {
+         if (ItemStack.isSameItemSameComponents(current, incoming) && current.getCount() < current.getMaxStackSize()) {
             return true;
          }
       }
@@ -1003,15 +1003,15 @@ public final class AutoWarden extends Module {
       if (this.count() >= 5) {
          return true;
       } else {
-         boolean missingInvis = this.invis.getValue() && !mc.player.hasStatusEffect(StatusEffects.INVISIBILITY) && !this.hasInv(this::invPot);
-         boolean missingSpeed = this.speed.getValue() && !mc.player.hasStatusEffect(StatusEffects.SPEED) && !this.hasInv(this::spdPot);
+         boolean missingInvis = this.invis.getValue() && !mc.player.hasEffect(MobEffects.INVISIBILITY) && !this.hasInv(this::invPot);
+         boolean missingSpeed = this.speed.getValue() && !mc.player.hasEffect(MobEffects.SPEED) && !this.hasInv(this::spdPot);
          return missingInvis || missingSpeed;
       }
    }
 
    private boolean hasInv(Predicate<ItemStack> predicate) {
       for (int i = 0; i < 36; i++) {
-         if (predicate.test(mc.player.getInventory().getStack(i))) {
+         if (predicate.test(mc.player.getInventory().getItem(i))) {
             return true;
          }
       }
@@ -1023,17 +1023,17 @@ public final class AutoWarden extends Module {
       this.ep = true;
       this.et = null;
       this.pr = 0;
-      this.eh = Math.toRadians((double)mc.player.getYaw());
+      this.eh = Math.toRadians((double)mc.player.getYRot());
       this.all();
       this.ss = 0;
       this.ds = false;
       this.takeClr();
-      if (mc.player.currentScreenHandler != mc.player.playerScreenHandler) {
-         mc.player.closeHandledScreen();
+      if (mc.player.containerMenu != mc.player.inventoryMenu) {
+         mc.player.closeContainer();
       }
 
       if (mc.options != null) {
-         mc.options.useKey.setPressed(false);
+         mc.options.keyUse.setDown(false);
       }
 
       this.ut = 0;
@@ -1041,12 +1041,12 @@ public final class AutoWarden extends Module {
    }
 
    private void escTick() {
-      if (mc.player.currentScreenHandler != mc.player.playerScreenHandler) {
-         mc.player.closeHandledScreen();
+      if (mc.player.containerMenu != mc.player.inventoryMenu) {
+         mc.player.closeContainer();
       }
 
-      int tick = mc.player.age;
-      if (this.et == null || tick >= this.pr || mc.player.squaredDistanceTo(Vec3d.ofCenter(this.et)) < 6.25) {
+      int tick = mc.player.tickCount;
+      if (this.et == null || tick >= this.pr || mc.player.distanceToSqr(Vec3.atCenterOf(this.et)) < 6.25) {
          int distance = 32;
          this.et = this.escPos(this.eh, distance);
          if (this.et == null) {
@@ -1056,8 +1056,8 @@ public final class AutoWarden extends Module {
 
          if (this.et == null) {
             this.et = mc.player
-               .getBlockPos()
-               .add((int)Math.round(-Math.sin(this.eh) * (double)distance), 0, (int)Math.round(Math.cos(this.eh) * (double)distance));
+               .blockPosition()
+               .offset((int)Math.round(-Math.sin(this.eh) * (double)distance), 0, (int)Math.round(Math.cos(this.eh) * (double)distance));
          }
 
          this.pr = tick + 200;
@@ -1067,7 +1067,7 @@ public final class AutoWarden extends Module {
    }
 
    private BlockPos escPos(double heading, int distance) {
-      BlockPos current = mc.player.getBlockPos();
+      BlockPos current = mc.player.blockPosition();
       int targetX = current.getX() + (int)Math.round(-Math.sin(heading) * (double)distance);
       int targetZ = current.getZ() + (int)Math.round(Math.cos(heading) * (double)distance);
 
@@ -1090,7 +1090,7 @@ public final class AutoWarden extends Module {
    }
 
    private boolean walk(BlockPos pos) {
-      return mc.world.getBlockState(pos).isAir() && mc.world.getBlockState(pos.up()).isAir() && !mc.world.getBlockState(pos.down()).isAir();
+      return mc.level.getBlockState(pos).isAir() && mc.level.getBlockState(pos.above()).isAir() && !mc.level.getBlockState(pos.below()).isAir();
    }
 
    private void escEnd() {
@@ -1119,10 +1119,10 @@ public final class AutoWarden extends Module {
       boolean hasCarrot = false;
 
       for (int i = 0; i < 36; i++) {
-         ItemStack stack = mc.player.getInventory().getStack(i);
+         ItemStack stack = mc.player.getInventory().getItem(i);
          hasInvisPotion |= this.invPot(stack);
          hasSpeedPotion |= this.spdPot(stack);
-         hasCarrot |= stack.isOf(Items.GOLDEN_CARROT);
+         hasCarrot |= stack.is(Items.GOLDEN_CARROT);
       }
 
       this.ni = this.invis.getValue() && !hasInvisPotion;
@@ -1132,23 +1132,23 @@ public final class AutoWarden extends Module {
 
    private void anGo() {
       String anName = this.an.getValue().trim();
-      mc.player.networkHandler.sendChatCommand("an" + anName);
+      mc.player.connection.sendCommand("an" + anName);
    }
 
    private void barCfg() {
       if (mc.player != null) {
-         mc.player.networkHandler.sendChatMessage("#set allowSprint true");
-         mc.player.networkHandler.sendChatMessage("#set allowParkour true");
-         mc.player.networkHandler.sendChatMessage("#set allowParkourAscend true");
-         mc.player.networkHandler.sendChatMessage("#set allowDiagonalAscend true");
-         mc.player.networkHandler.sendChatMessage("#set allowJumpAt256 true");
-         mc.player.networkHandler.sendChatMessage("#set assumeStep true");
+         mc.player.connection.sendChat("#set allowSprint true");
+         mc.player.connection.sendChat("#set allowParkour true");
+         mc.player.connection.sendChat("#set allowParkourAscend true");
+         mc.player.connection.sendChat("#set allowDiagonalAscend true");
+         mc.player.connection.sendChat("#set allowJumpAt256 true");
+         mc.player.connection.sendChat("#set assumeStep true");
       }
    }
 
    private void barJump() {
-      if (this.bm && mc.player.horizontalCollision && mc.player.isOnGround()) {
-         mc.player.jump();
+      if (this.bm && mc.player.horizontalCollision && mc.player.onGround()) {
+         mc.player.jumpFromGround();
       }
    }
 
@@ -1157,16 +1157,16 @@ public final class AutoWarden extends Module {
          this.stop();
       } else if (!this.bm || !destination.equals(this.bt)) {
          this.stop();
-         this.bt = destination.toImmutable();
+         this.bt = destination.immutable();
          this.bm = true;
-         mc.player.networkHandler.sendChatMessage("#goto " + destination.getX() + " " + destination.getY() + " " + destination.getZ());
+         mc.player.connection.sendChat("#goto " + destination.getX() + " " + destination.getY() + " " + destination.getZ());
       }
    }
 
    private void stop() {
       if (this.bm && mc.player != null) {
-         mc.player.networkHandler.sendChatMessage("#stop");
-         mc.player.networkHandler.sendChatMessage("#cancel");
+         mc.player.connection.sendChat("#stop");
+         mc.player.connection.sendChat("#cancel");
       }
 
       this.bm = false;
@@ -1176,8 +1176,8 @@ public final class AutoWarden extends Module {
    private void farm() {
       this.stop();
       this.keys();
-      if (mc.player.currentScreenHandler != mc.player.playerScreenHandler) {
-         mc.player.closeHandledScreen();
+      if (mc.player.containerMenu != mc.player.inventoryMenu) {
+         mc.player.closeContainer();
       }
 
       this.all();
@@ -1198,7 +1198,7 @@ public final class AutoWarden extends Module {
             this.fd = 5;
          } else {
             String homeName = this.home.getValue().trim();
-            mc.player.networkHandler.sendChatCommand("home " + homeName);
+            mc.player.connection.sendCommand("home " + homeName);
             this.fs = 2;
             this.fd = 60;
             this.fw = 0;
@@ -1222,7 +1222,7 @@ public final class AutoWarden extends Module {
    }
 
    private BlockPos labelBox(String label) {
-      BlockPos me = mc.player.getBlockPos();
+      BlockPos me = mc.player.blockPosition();
       BlockPos best = null;
       double bestDistance = Double.MAX_VALUE;
       int radius = 64;
@@ -1230,9 +1230,9 @@ public final class AutoWarden extends Module {
       for (int x = -radius; x <= radius; x++) {
          for (int y = -radius; y <= radius; y++) {
             for (int z = -radius; z <= radius; z++) {
-               BlockPos chest = me.add(x, y, z);
+               BlockPos chest = me.offset(x, y, z);
                if (this.box(chest) && this.stand(chest) != null && this.label(chest, label)) {
-                  double distance = mc.player.squaredDistanceTo(Vec3d.ofCenter(chest));
+                  double distance = mc.player.distanceToSqr(Vec3.atCenterOf(chest));
                   if (distance < bestDistance) {
                      best = chest;
                      bestDistance = distance;
@@ -1251,8 +1251,8 @@ public final class AutoWarden extends Module {
       for (int x = -2; x <= 2; x++) {
          for (int y = -2; y <= 2; y++) {
             for (int z = -2; z <= 2; z++) {
-               BlockPos signPos = chest.add(x, y, z);
-               if (mc.world.getBlockEntity(signPos) instanceof SignBlockEntity sign && this.sign(sign, expected) && this.nearSign(chest, signPos)) {
+               BlockPos signPos = chest.offset(x, y, z);
+               if (mc.level.getBlockEntity(signPos) instanceof SignBlockEntity sign && this.sign(sign, expected) && this.nearSign(chest, signPos)) {
                   return true;
                }
             }
@@ -1264,7 +1264,7 @@ public final class AutoWarden extends Module {
 
    private boolean sign(SignBlockEntity sign, String expected) {
       for (boolean front : new boolean[]{true, false}) {
-         for (Text line : sign.getText(front).getMessages(false)) {
+         for (Component line : sign.getText(front).getMessages(false)) {
             if (this.norm(line.getString()).equals(expected)) {
                return true;
             }
@@ -1275,13 +1275,13 @@ public final class AutoWarden extends Module {
    }
 
    private boolean nearSign(BlockPos chest, BlockPos signPos) {
-      double chestDistance = signPos.getSquaredDistance(chest);
+      double chestDistance = signPos.distSqr(chest);
 
       for (int x = -2; x <= 2; x++) {
          for (int y = -2; y <= 2; y++) {
             for (int z = -2; z <= 2; z++) {
-               BlockPos other = signPos.add(x, y, z);
-               if (!other.equals(chest) && this.box(other) && signPos.getSquaredDistance(other) < chestDistance) {
+               BlockPos other = signPos.offset(x, y, z);
+               if (!other.equals(chest) && this.box(other) && signPos.distSqr(other) < chestDistance) {
                   return false;
                }
             }
@@ -1296,7 +1296,7 @@ public final class AutoWarden extends Module {
    }
 
    private BlockPos bestBox() {
-      BlockPos me = mc.player.getBlockPos();
+      BlockPos me = mc.player.blockPosition();
       BlockPos best = null;
       int bestScore = Integer.MAX_VALUE;
       double bestDistance = Double.MAX_VALUE;
@@ -1305,7 +1305,7 @@ public final class AutoWarden extends Module {
       for (int x = -radius; x <= radius; x++) {
          for (int y = -radius; y <= radius; y++) {
             for (int z = -radius; z <= radius; z++) {
-               BlockPos pos = me.add(x, y, z);
+               BlockPos pos = me.offset(x, y, z);
                if (this.box(pos) && this.stand(pos) != null) {
                   int timerSeconds = this.timer(pos);
                   if (this.dt.contains(pos)) {
@@ -1318,7 +1318,7 @@ public final class AutoWarden extends Module {
 
                   if ((!this.ig.contains(pos) || timerSeconds > 0) && timerSeconds <= 20) {
                      int score = timerSeconds == 0 ? 0 : timerSeconds;
-                     double distance = mc.player.squaredDistanceTo(Vec3d.ofCenter(pos));
+                     double distance = mc.player.distanceToSqr(Vec3.atCenterOf(pos));
                      if (score < bestScore || score == bestScore && distance < bestDistance) {
                         best = pos;
                         bestScore = score;
@@ -1337,10 +1337,10 @@ public final class AutoWarden extends Module {
       BlockPos best = null;
       double bestDistance = Double.MAX_VALUE;
 
-      for (Direction direction : Type.HORIZONTAL) {
-         BlockPos pos = box.offset(direction);
-         if (mc.world.getBlockState(pos).isAir() && mc.world.getBlockState(pos.up()).isAir() && !mc.world.getBlockState(pos.down()).isAir()) {
-            double distance = mc.player.squaredDistanceTo(Vec3d.ofCenter(pos));
+      for (Direction direction : Plane.HORIZONTAL) {
+         BlockPos pos = box.relative(direction);
+         if (mc.level.getBlockState(pos).isAir() && mc.level.getBlockState(pos.above()).isAir() && !mc.level.getBlockState(pos.below()).isAir()) {
+            double distance = mc.player.distanceToSqr(Vec3.atCenterOf(pos));
             if (distance < bestDistance) {
                best = pos;
                bestDistance = distance;
@@ -1360,8 +1360,8 @@ public final class AutoWarden extends Module {
    }
 
    private boolean box(BlockPos pos) {
-      BlockState state = mc.world.getBlockState(pos);
-      return state.isOf(Blocks.CHEST) || state.isOf(Blocks.TRAPPED_CHEST);
+      BlockState state = mc.level.getBlockState(pos);
+      return state.is(Blocks.CHEST) || state.is(Blocks.TRAPPED_CHEST);
    }
 
    private boolean skip(BlockPos pos) {
@@ -1372,7 +1372,7 @@ public final class AutoWarden extends Module {
       int closestTimer = 0;
 
       for (WardenHelper.SavedTimer timer : WardenHelper.getTimers().values()) {
-         if (!(timer.pos().squaredDistanceTo(Vec3d.ofCenter(pos)) > 100.0) && this.nearTimer(pos, timer.pos())) {
+         if (!(timer.pos().distanceToSqr(Vec3.atCenterOf(pos)) > 100.0) && this.nearTimer(pos, timer.pos())) {
             int left = timer.leftSeconds();
             if (left > 0 && (closestTimer == 0 || left < closestTimer)) {
                closestTimer = left;
@@ -1383,15 +1383,15 @@ public final class AutoWarden extends Module {
       return closestTimer;
    }
 
-   private boolean nearTimer(BlockPos candidate, Vec3d timerPos) {
-      double candidateDistance = timerPos.squaredDistanceTo(Vec3d.ofCenter(candidate));
-      BlockPos center = BlockPos.ofFloored(timerPos);
+   private boolean nearTimer(BlockPos candidate, Vec3 timerPos) {
+      double candidateDistance = timerPos.distanceToSqr(Vec3.atCenterOf(candidate));
+      BlockPos center = BlockPos.containing(timerPos);
 
       for (int x = -10; x <= 10; x++) {
          for (int y = -10; y <= 10; y++) {
             for (int z = -10; z <= 10; z++) {
-               BlockPos other = center.add(x, y, z);
-               if (!other.equals(candidate) && this.box(other) && timerPos.squaredDistanceTo(Vec3d.ofCenter(other)) < candidateDistance) {
+               BlockPos other = center.offset(x, y, z);
+               if (!other.equals(candidate) && this.box(other) && timerPos.distanceToSqr(Vec3.atCenterOf(other)) < candidateDistance) {
                   return false;
                }
             }
@@ -1413,12 +1413,12 @@ public final class AutoWarden extends Module {
 
    private void keys() {
       if (mc.options != null) {
-         mc.options.forwardKey.setPressed(false);
-         mc.options.backKey.setPressed(false);
-         mc.options.jumpKey.setPressed(false);
-         mc.options.leftKey.setPressed(false);
-         mc.options.rightKey.setPressed(false);
-         mc.options.sprintKey.setPressed(false);
+         mc.options.keyUp.setDown(false);
+         mc.options.keyDown.setDown(false);
+         mc.options.keyJump.setDown(false);
+         mc.options.keyLeft.setDown(false);
+         mc.options.keyRight.setDown(false);
+         mc.options.keySprint.setDown(false);
          if (mc.player != null) {
             mc.player.setSprinting(false);
          }
@@ -1454,7 +1454,7 @@ public final class AutoWarden extends Module {
       this.takeClr();
       this.dt.clear();
       if (mc.options != null) {
-         mc.options.useKey.setPressed(false);
+         mc.options.keyUse.setDown(false);
       }
 
       this.keys();

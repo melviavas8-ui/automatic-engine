@@ -1,8 +1,6 @@
 package daamky.ua.api.module.impl.movement;
 
-import net.minecraft.client.util.InputUtil.Type;
-import net.minecraft.item.Items;
-import net.minecraft.util.Hand;
+import com.mojang.blaze3d.platform.InputConstants.Type;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.KeyEvent;
 import daamky.ua.api.events.impl.TickEvent;
@@ -21,6 +19,8 @@ import daamky.ua.api.settings.impl.ModeSetting;
 import daamky.ua.api.settings.impl.NumberSetting;
 import daamky.ua.utils.inventory.lookup.InventoryUtils;
 import daamky.ua.utils.sounds.SoundManager;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.Items;
 
 public final class ElytraTarget extends Module {
    private static ElytraTarget instance;
@@ -93,11 +93,11 @@ public final class ElytraTarget extends Module {
          return;
       }
 
-      if (mc.player == null || mc.world == null || mc.interactionManager == null || mc.currentScreen != null) {
+      if (mc.player == null || mc.level == null || mc.gameMode == null || mc.screen != null) {
          return;
       }
 
-      if (!mc.player.isGliding()) {
+      if (!mc.player.isFallFlying()) {
          return;
       }
 
@@ -112,7 +112,7 @@ public final class ElytraTarget extends Module {
 
       boolean silent = this.fireworkSlot.is("Скрытно") || this.offhandHoldsTotem();
       if (silent) {
-         if (mc.player.getVelocity().length() < this.fireworkSpeed.getValue()) {
+         if (mc.player.getDeltaMovement().length() < this.fireworkSpeed.getValue()) {
             InventoryUtils.silentUseItem(Items.FIREWORK_ROCKET);
             this.fireworkTimer.reset();
          }
@@ -120,10 +120,10 @@ public final class ElytraTarget extends Module {
          return;
       }
 
-      if (!mc.player.getOffHandStack().isOf(Items.FIREWORK_ROCKET)) {
+      if (!mc.player.getOffhandItem().is(Items.FIREWORK_ROCKET)) {
          this.moveFireworkToOffhand();
          this.fireworkTimer.reset();
-      } else if (mc.player.getVelocity().length() < this.fireworkSpeed.getValue()) {
+      } else if (mc.player.getDeltaMovement().length() < this.fireworkSpeed.getValue()) {
          this.useOffhandFirework();
          this.fireworkTimer.reset();
       }
@@ -138,7 +138,7 @@ public final class ElytraTarget extends Module {
    }
 
    private boolean offhandHoldsTotem() {
-      return mc.player.getOffHandStack().isOf(Items.TOTEM_OF_UNDYING);
+      return mc.player.getOffhandItem().is(Items.TOTEM_OF_UNDYING);
    }
 
    private void moveFireworkToOffhand() {
@@ -157,8 +157,8 @@ public final class ElytraTarget extends Module {
          rotation = MathAngle.cameraAngle();
       }
 
-      InventoryUtils.sendUsePacket(Hand.OFF_HAND, rotation.getYaw(), rotation.getPitch());
-      mc.player.swingHand(Hand.OFF_HAND);
+      InventoryUtils.sendUsePacket(InteractionHand.OFF_HAND, rotation.getYaw(), rotation.getPitch());
+      mc.player.swing(InteractionHand.OFF_HAND);
    }
 
    private boolean isKeyDown(KeyEvent event, BindSetting setting) {

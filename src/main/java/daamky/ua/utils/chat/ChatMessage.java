@@ -1,25 +1,25 @@
 package daamky.ua.utils.chat;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 
 public final class ChatMessage {
    private ChatMessage() {
    }
 
-   public static MutableText brandmessage() {
-      return Text.literal("[daamky] ");
+   public static MutableComponent brandmessage() {
+      return Component.literal("[daamky] ");
    }
 
    public static void brandmessage(String message) {
-      brandmessage(Text.literal(message));
+      brandmessage(Component.literal(message));
    }
 
-   public static void brandmessage(Text message) {
-      MinecraftClient mc = MinecraftClient.getInstance();
+   public static void brandmessage(Component message) {
+      Minecraft mc = Minecraft.getInstance();
       if (mc.player != null && message != null) {
-         mc.player.sendMessage(brandmessage().append(message), false);
+         mc.player.displayClientMessage(brandmessage().append(message), false);
       }
    }
 }

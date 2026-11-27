@@ -1,19 +1,19 @@
 package daamky.ua.api.events.impl;
 
-import net.minecraft.client.MinecraftClient;
 import daamky.ua.api.events.Event;
 import daamky.ua.api.events.types.EventPhase;
+import net.minecraft.client.Minecraft;
 
 public abstract class TickEvent implements Event {
-   private final MinecraftClient client;
+   private final Minecraft client;
    private final EventPhase phase;
 
-   private TickEvent(MinecraftClient client, EventPhase phase) {
+   private TickEvent(Minecraft client, EventPhase phase) {
       this.client = client;
       this.phase = phase;
    }
 
-   public MinecraftClient getClient() {
+   public Minecraft getClient() {
       return this.client;
    }
 
@@ -30,13 +30,13 @@ public abstract class TickEvent implements Event {
    }
 
    public static final class Post extends TickEvent {
-      public Post(MinecraftClient client) {
+      public Post(Minecraft client) {
          super(client, EventPhase.POST);
       }
    }
 
    public static final class Pre extends TickEvent {
-      public Pre(MinecraftClient client) {
+      public Pre(Minecraft client) {
          super(client, EventPhase.PRE);
       }
    }

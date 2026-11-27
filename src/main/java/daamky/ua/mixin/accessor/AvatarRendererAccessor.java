@@ -1,17 +1,17 @@
 package daamky.ua.mixin.accessor;
 
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.entity.PlayerEntityRenderer;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.Identifier;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.entity.player.AvatarRenderer;
+import net.minecraft.resources.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
-@Mixin({PlayerEntityRenderer.class})
+@Mixin({AvatarRenderer.class})
 public interface AvatarRendererAccessor {
-   @Invoker("renderRightArm")
-   void daamky$renderRightHand(MatrixStack var1, OrderedRenderCommandQueue var2, int var3, Identifier var4, boolean var5);
+   @Invoker("renderRightHand")
+   void daamky$renderRightHand(PoseStack var1, SubmitNodeCollector var2, int var3, Identifier var4, boolean var5);
 
-   @Invoker("renderLeftArm")
-   void daamky$renderLeftHand(MatrixStack var1, OrderedRenderCommandQueue var2, int var3, Identifier var4, boolean var5);
+   @Invoker("renderLeftHand")
+   void daamky$renderLeftHand(PoseStack var1, SubmitNodeCollector var2, int var3, Identifier var4, boolean var5);
 }

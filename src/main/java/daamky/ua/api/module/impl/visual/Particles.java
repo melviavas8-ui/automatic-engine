@@ -10,22 +10,22 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.function.Supplier;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider.Immediate;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.util.math.MatrixStack.Entry;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.network.packet.s2c.play.EntityStatusS2CPacket;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.Heightmap.Type;
+import net.minecraft.client.Camera;
+import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.levelgen.Heightmap.Types;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix3f;
 import org.joml.Vector3f;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.PoseStack.Pose;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.AttackEvent;
 import daamky.ua.api.events.impl.PacketEvent;
@@ -43,8 +43,8 @@ import daamky.ua.utils.render.particles.WireMesh;
 import daamky.ua.utils.render.pipeline.ClientPipelines;
 
 public final class Particles extends Module {
-   private static final Identifier GLOWBOOST = Identifier.of("daamky", "textures/particles/glow.png");
-   private static final Identifier DASH_BLOOM = Identifier.of("daamky", "textures/world/dashbloom.png");
+   private static final Identifier GLOWBOOST = Identifier.fromNamespaceAndPath("daamky", "textures/particles/glow.png");
+   private static final Identifier DASH_BLOOM = Identifier.fromNamespaceAndPath("daamky", "textures/world/dashbloom.png");
    private static final int[] CUBE_EDGES = new int[]{0, 1, 1, 2, 2, 3, 3, 0, 0, 4, 1, 5, 2, 6, 3, 7, 4, 5, 5, 6, 6, 7, 7, 4};
    private static Particles instance;
    private final MultiModeSetting effects = this.register(new MultiModeSetting("Effects", "", effectOptions(), "Meteor", "Cubes", "Stars"));
@@ -71,7 +71,7 @@ public final class Particles extends Module {
    private final Map<Particles.MeshEffect, List<Particles.OrbitP>> orbits = new EnumMap<>(Particles.MeshEffect.class);
    private final Map<Particles.MeshEffect, WireMesh> meshes = new EnumMap<>(Particles.MeshEffect.class);
    private final List<Particles.HitP> hits = new ArrayList<>();
-   private final Set<RenderLayer> used = new HashSet<>();
+   private final Set<RenderType> used = new HashSet<>();
    private final Random rng = new Random();
    private final Matrix3f rot = new Matrix3f();
    private final Vector3f tmpA = new Vector3f();
@@ -152,10 +152,10 @@ public final class Particles extends Module {
    @SubscribeEvent
    private void onAttack(AttackEvent e) {
       if (this.hit.getValue() && mc.player != null) {
-         if (!this.hitOnlyCrit.getValue() || !(mc.player.fallDistance <= 0.0) && !mc.player.isOnGround()) {
+         if (!this.hitOnlyCrit.getValue() || !(mc.player.fallDistance <= 0.0) && !mc.player.onGround()) {
             Entity target = e.getTarget();
             if (target instanceof LivingEntity && target != mc.player) {
-               Vec3d hitPos = target.getBoundingBox().getCenter();
+               Vec3 hitPos = target.getBoundingBox().getCenter();
                List<Particles.HitKind> kinds = new ArrayList<>();
                if (this.hitTypes.isSelected("Cubes")) {
                   kinds.add(Particles.HitKind.CUBE);
@@ -179,13 +179,13 @@ public final class Particles extends Module {
                   for (int i = 0; i < n; i++) {
                      Particles.HitKind kind = kinds.get(i % kinds.size());
                      boolean drop = this.hitPhysics.is("Drop") || this.hitPhysics.is("Both") && this.rng.nextBoolean();
-                     Vec3d vel;
+                     Vec3 vel;
                      if (drop) {
-                        vel = new Vec3d(this.rand(-1.0, 1.0), 0.2 + this.rng.nextDouble() * 0.8, this.rand(-1.0, 1.0))
+                        vel = new Vec3(this.rand(-1.0, 1.0), 0.2 + this.rng.nextDouble() * 0.8, this.rand(-1.0, 1.0))
                            .normalize()
-                           .multiply((double)speed * 0.08);
+                           .scale((double)speed * 0.08);
                      } else {
-                        vel = new Vec3d(this.rand(-1.0, 1.0), this.rand(-0.75, 0.75), this.rand(-1.0, 1.0)).normalize().multiply((double)speed * 0.08);
+                        vel = new Vec3(this.rand(-1.0, 1.0), this.rand(-0.75, 0.75), this.rand(-1.0, 1.0)).normalize().scale((double)speed * 0.08);
                      }
 
                      this.hits
@@ -213,12 +213,12 @@ public final class Particles extends Module {
 
    @SubscribeEvent
    private void onPacket(PacketEvent e) {
-      if (e.isReceive() && e.getPacket() instanceof EntityStatusS2CPacket packet && packet.getStatus() == 35) {
+      if (e.isReceive() && e.getPacket() instanceof ClientboundEntityEventPacket packet && packet.getEventId() == 35) {
          mc.execute(() -> {
-            if (this.isEnabled() && mc.world != null && this.isSelected(Particles.MeshEffect.TOTEM)) {
-               if (packet.getEntity(mc.world) instanceof LivingEntity living) {
+            if (this.isEnabled() && mc.level != null && this.isSelected(Particles.MeshEffect.TOTEM)) {
+               if (packet.getEntity(mc.level) instanceof LivingEntity living) {
                   long now = System.currentTimeMillis();
-                  Vec3d c = living.getEntityPos().add(0.0, (double)living.getHeight() * 0.5, 0.0);
+                  Vec3 c = living.position().add(0.0, (double)living.getBbHeight() * 0.5, 0.0);
                   List list = this.orbitsFor(Particles.MeshEffect.TOTEM);
 
                   for (int i = 0; i < 12; i++) {
@@ -232,15 +232,15 @@ public final class Particles extends Module {
 
    @SubscribeEvent
    private void onWorldRender(WorldRenderEvent e) {
-      if (this.isEnabled() && mc.player != null && mc.world != null) {
+      if (this.isEnabled() && mc.player != null && mc.level != null) {
          this.ensureMeshes();
          long now = System.currentTimeMillis();
          this.maintainAmbient(now);
          this.updateHits(now);
-         Camera camera = mc.gameRenderer.getCamera();
-         Vec3d cam = Render3D.lastCameraPos;
-         MatrixStack stack = e.getStack();
-         Immediate buf = mc.getBufferBuilders().getEntityVertexConsumers();
+         Camera camera = mc.gameRenderer.getMainCamera();
+         Vec3 cam = Render3D.lastCameraPos;
+         PoseStack stack = e.getStack();
+         BufferSource buf = mc.renderBuffers().bufferSource();
          if (this.glow.getFloat() > 0.01F) {
             this.renderWireframeGlows(stack, buf, camera, cam, now);
          }
@@ -264,11 +264,11 @@ public final class Particles extends Module {
       }
    }
 
-   private void renderWireframeGlows(MatrixStack stack, Immediate buf, Camera camera, Vec3d cam, long now) {
+   private void renderWireframeGlows(PoseStack stack, BufferSource buf, Camera camera, Vec3 cam, long now) {
       if (!(this.glow.getFloat() <= 0.01F)) {
          float s = this.size.getFloat();
-         float intensity = MathHelper.clamp(this.glow.getFloat(), 0.0F, 3.0F);
-         RenderLayer bloomType = ClientPipelines.BLOOM_ESP.apply(DASH_BLOOM);
+         float intensity = Mth.clamp(this.glow.getFloat(), 0.0F, 3.0F);
+         RenderType bloomType = ClientPipelines.BLOOM_ESP.apply(DASH_BLOOM);
          VertexConsumer bloom = buf.getBuffer(bloomType);
 
          for (Particles.MeshEffect effect : Particles.MeshEffect.VALUES) {
@@ -277,19 +277,19 @@ public final class Particles extends Module {
             }
          }
 
-         buf.draw(bloomType);
+         buf.endBatch(bloomType);
       }
    }
 
    private void glowOrbitList(
-      MatrixStack stack, VertexConsumer vc, Camera camera, Vec3d cam, List<Particles.OrbitP> list, long now, float baseScale, float intensity
+      PoseStack stack, VertexConsumer vc, Camera camera, Vec3 cam, List<Particles.OrbitP> list, long now, float baseScale, float intensity
    ) {
       for (Particles.OrbitP p : list) {
          float age = (float)(now - p.born) / (float)p.life;
          if (!(age >= 1.0F)) {
             float fade = ageFade(age);
             if (!(fade <= 0.01F)) {
-               Vec3d pos = this.aboveGround(p.posAt(age), 0.25);
+               Vec3 pos = this.aboveGround(p.posAt(age), 0.25);
                float particleSize = baseScale * (0.55F + age * 0.15F);
                float bloomSize = 4.0F * particleSize;
                int alphaI = clampByte(Math.round(255.0F * fade * 0.4F * Math.min(1.0F, intensity)));
@@ -302,18 +302,18 @@ public final class Particles extends Module {
       }
    }
 
-   private static void drawCamBillboard(MatrixStack stack, VertexConsumer vc, Camera camera, Vec3d cam, Vec3d world, float size, int color) {
+   private static void drawCamBillboard(PoseStack stack, VertexConsumer vc, Camera camera, Vec3 cam, Vec3 world, float size, int color) {
       if (ColorUtil.getAlpha(color) > 0 && !(size <= 0.001F)) {
-         stack.push();
+         stack.pushPose();
          stack.translate((float)(world.x - cam.x), (float)(world.y - cam.y), (float)(world.z - cam.z));
-         stack.multiply(camera.getRotation());
-         Entry pose = stack.peek();
+         stack.mulPose(camera.rotation());
+         Pose pose = stack.last();
          float h = size * 0.5F;
-         vc.vertex(pose, -h, -h, 0.0F).texture(0.0F, 0.0F).color(color);
-         vc.vertex(pose, h, -h, 0.0F).texture(1.0F, 0.0F).color(color);
-         vc.vertex(pose, h, h, 0.0F).texture(1.0F, 1.0F).color(color);
-         vc.vertex(pose, -h, h, 0.0F).texture(0.0F, 1.0F).color(color);
-         stack.pop();
+         vc.addVertex(pose, -h, -h, 0.0F).setUv(0.0F, 0.0F).setColor(color);
+         vc.addVertex(pose, h, -h, 0.0F).setUv(1.0F, 0.0F).setColor(color);
+         vc.addVertex(pose, h, h, 0.0F).setUv(1.0F, 1.0F).setColor(color);
+         vc.addVertex(pose, -h, h, 0.0F).setUv(0.0F, 1.0F).setColor(color);
+         stack.popPose();
       }
    }
 
@@ -322,7 +322,7 @@ public final class Particles extends Module {
    }
 
    private void maintainAmbient(long now) {
-      Vec3d player = mc.player.getEntityPos();
+      Vec3 player = mc.player.position();
       double r = Math.max(1.5, (double)this.radius.getFloat());
       int n = Math.max(1, this.count.getValue().intValue());
       long lifeBase = this.lifetime.getValue().longValue();
@@ -341,7 +341,7 @@ public final class Particles extends Module {
       }
    }
 
-   private void maintainOrbit(List<Particles.OrbitP> list, boolean on, Vec3d center, double r, int n, long now, float rx, float ry, float rz) {
+   private void maintainOrbit(List<Particles.OrbitP> list, boolean on, Vec3 center, double r, int n, long now, float rx, float ry, float rz) {
       if (!on) {
          list.clear();
       } else {
@@ -365,35 +365,35 @@ public final class Particles extends Module {
       }
    }
 
-   private Particles.MeteorP spawnMeteor(Vec3d center, double rMax, long now, long lifeBase) {
+   private Particles.MeteorP spawnMeteor(Vec3 center, double rMax, long now, long lifeBase) {
       double a = this.rng.nextDouble() * Math.PI * 2.0;
       double p = Math.acos(2.0 * this.rng.nextDouble() - 1.0);
       double rr = 1.5 + this.rng.nextDouble() * Math.max(0.5, rMax - 1.5);
       double sp = Math.sin(p);
-      Vec3d start = this.aboveGround(new Vec3d(center.x + sp * Math.cos(a) * rr, center.y + 1.0 + Math.cos(p) * rr, center.z + sp * Math.sin(a) * rr), 0.35);
+      Vec3 start = this.aboveGround(new Vec3(center.x + sp * Math.cos(a) * rr, center.y + 1.0 + Math.cos(p) * rr, center.z + sp * Math.sin(a) * rr), 0.35);
       double va = this.rng.nextDouble() * Math.PI * 2.0;
       double vp = Math.acos(2.0 * this.rng.nextDouble() - 1.0);
       double speed = 4.0 + this.rng.nextDouble() * 7.0;
       double sv = Math.sin(vp);
-      Vec3d vel = new Vec3d(sv * Math.cos(va) * speed, Math.cos(vp) * speed * 0.55 - 1.2, sv * Math.sin(va) * speed);
+      Vec3 vel = new Vec3(sv * Math.cos(va) * speed, Math.cos(vp) * speed * 0.55 - 1.2, sv * Math.sin(va) * speed);
       long life = Math.max(80L, Math.round((double)lifeBase * (0.75 + (double)this.rng.nextFloat() * 0.5)));
       return new Particles.MeteorP(start, vel, now, life, this.color(this.rng.nextInt(180)));
    }
 
-   private Particles.OrbitP spawnOrbit(Vec3d center, long now, float rx, float ry, float rz) {
+   private Particles.OrbitP spawnOrbit(Vec3 center, long now, float rx, float ry, float rz) {
       double a = this.rng.nextDouble() * Math.PI * 2.0;
       double p = Math.acos(2.0 * this.rng.nextDouble() - 1.0);
       double rMin = 1.5;
       double rMax = Math.max(1.6, (double)this.radius.getFloat());
       double rr = rMin + this.rng.nextDouble() * (rMax - rMin);
       double sp = Math.sin(p);
-      Vec3d start = this.aboveGround(new Vec3d(center.x + sp * Math.cos(a) * rr, center.y + 1.0 + Math.cos(p) * rr, center.z + sp * Math.sin(a) * rr), 0.35);
+      Vec3 start = this.aboveGround(new Vec3(center.x + sp * Math.cos(a) * rr, center.y + 1.0 + Math.cos(p) * rr, center.z + sp * Math.sin(a) * rr), 0.35);
       double va = this.rng.nextDouble() * Math.PI * 2.0;
       double vp = Math.acos(2.0 * this.rng.nextDouble() - 1.0);
       double speed = 1.6 + this.rng.nextDouble() * 1.8;
       double sv = Math.sin(vp);
       double vy = Math.abs(Math.cos(vp) * speed) * 0.85 + 0.4;
-      Vec3d vel = new Vec3d(sv * Math.cos(va) * speed, vy, sv * Math.sin(va) * speed);
+      Vec3 vel = new Vec3(sv * Math.cos(va) * speed, vy, sv * Math.sin(va) * speed);
       long life = Math.max(50L, Math.round((double)this.lifetime.getFloat() * (0.75 + (double)this.rng.nextFloat() * 0.5)));
       return new Particles.OrbitP(
          start,
@@ -408,9 +408,9 @@ public final class Particles extends Module {
    }
 
    private double groundY(double x, double z) {
-      if (mc.world != null && mc.player != null) {
+      if (mc.level != null && mc.player != null) {
          try {
-            BlockPos top = mc.world.getTopPosition(Type.MOTION_BLOCKING, BlockPos.ofFloored(x, 0.0, z));
+            BlockPos top = mc.level.getHeightmapPos(Types.MOTION_BLOCKING, BlockPos.containing(x, 0.0, z));
             return (double)top.getY();
          } catch (Throwable var6) {
             return mc.player.getY();
@@ -420,22 +420,22 @@ public final class Particles extends Module {
       }
    }
 
-   private Vec3d aboveGround(Vec3d p, double pad) {
+   private Vec3 aboveGround(Vec3 p, double pad) {
       double minY = this.groundY(p.x, p.z) + pad;
-      return p.y < minY ? new Vec3d(p.x, minY, p.z) : p;
+      return p.y < minY ? new Vec3(p.x, minY, p.z) : p;
    }
 
-   private void renderMeteors(MatrixStack stack, Immediate buf, Camera camera, Vec3d cam, long now) {
+   private void renderMeteors(PoseStack stack, BufferSource buf, Camera camera, Vec3 cam, long now) {
       float baseSize = this.size.getFloat();
       float step = Math.max(0.025F, baseSize * 0.24F);
       float tailFactor = Math.max(0.05F, this.tailLength.getFloat());
-      RenderLayer type = ClientPipelines.BLOOM_ESP.apply(GLOWBOOST);
+      RenderType type = ClientPipelines.BLOOM_ESP.apply(GLOWBOOST);
       VertexConsumer vc = buf.getBuffer(type);
 
       for (Particles.MeteorP m : this.meteors) {
          float age = (float)(now - m.born) / (float)m.life;
          if (!(age >= 1.0F)) {
-            Vec3d pos = m.start.add(m.vel.multiply((double)age));
+            Vec3 pos = m.start.add(m.vel.scale((double)age));
             m.pushHistory(pos, now);
             float fade = ageFade(age);
             long trailMs = Math.max(1L, (long)((float)m.life * tailFactor));
@@ -461,28 +461,28 @@ public final class Particles extends Module {
                for (int s = 0; s < steps; s++) {
                   float t = (float)s / (float)steps;
                   long ts = m.histTime[i] + (long)((double)(m.histTime[i - 1] - m.histTime[i]) * (double)t);
-                  float trailAge = MathHelper.clamp((float)(now - ts) / (float)trailMs, 0.0F, 1.0F);
+                  float trailAge = Mth.clamp((float)(now - ts) / (float)trailMs, 0.0F, 1.0F);
                   float ta = (1.0F - trailAge) * (1.0F - trailAge);
                   if (!(ta <= 0.0F)) {
                      float sz = baseSize * (0.34F + (float)Math.sqrt((double)ta) * 0.86F);
                      int col = ColorUtil.withAlpha(m.color, clampByte(Math.round(255.0F * fade * ta * 0.5F)));
-                     drawMeteorQuad(stack, vc, camera, cam, new Vec3d(x0 + dx * (double)t, y0 + dy * (double)t, z0 + dz * (double)t), sz, col, false);
+                     drawMeteorQuad(stack, vc, camera, cam, new Vec3(x0 + dx * (double)t, y0 + dy * (double)t, z0 + dz * (double)t), sz, col, false);
                   }
                }
             }
 
             if (m.histCount > 0) {
-               Vec3d head = new Vec3d(m.histX[0], m.histY[0], m.histZ[0]);
+               Vec3 head = new Vec3(m.histX[0], m.histY[0], m.histZ[0]);
                int col = ColorUtil.withAlpha(m.color, clampByte(Math.round(255.0F * fade)));
                drawMeteorQuad(stack, vc, camera, cam, head, baseSize, col, true);
             }
          }
       }
 
-      buf.draw(type);
+      buf.endBatch(type);
    }
 
-   private static void drawMeteorQuad(MatrixStack stack, VertexConsumer vc, Camera camera, Vec3d cam, Vec3d world, float size, int color, boolean head) {
+   private static void drawMeteorQuad(PoseStack stack, VertexConsumer vc, Camera camera, Vec3 cam, Vec3 world, float size, int color, boolean head) {
       int outerColor = head ? ColorUtil.multAlpha(color, 0.45F) : color;
       drawCamBillboard(stack, vc, camera, cam, world, size * 1.9F, outerColor);
       if (head) {
@@ -496,7 +496,7 @@ public final class Particles extends Module {
          for (Particles.OrbitP p : list) {
             float age = (float)(now - p.born) / (float)p.life;
             if (!(age >= 1.0F)) {
-               Vec3d pos = this.aboveGround(p.posAt(age), 0.25);
+               Vec3 pos = this.aboveGround(p.posAt(age), 0.25);
                float fade = ageFade(age);
                float s = baseScale * (growBase + age * growAge);
                this.rot.identity().rotateY(p.ry * age).rotateX(p.rx * age).rotateZ(p.rz * age);
@@ -510,8 +510,8 @@ public final class Particles extends Module {
                   this.rot.transform(this.tmpA);
                   this.rot.transform(this.tmpB);
                   Render3D.drawLine(
-                     new Vec3d(pos.x + (double)this.tmpA.x, pos.y + (double)this.tmpA.y, pos.z + (double)this.tmpA.z),
-                     new Vec3d(pos.x + (double)this.tmpB.x, pos.y + (double)this.tmpB.y, pos.z + (double)this.tmpB.z),
+                     new Vec3(pos.x + (double)this.tmpA.x, pos.y + (double)this.tmpA.y, pos.z + (double)this.tmpA.z),
+                     new Vec3(pos.x + (double)this.tmpB.x, pos.y + (double)this.tmpB.y, pos.z + (double)this.tmpB.z),
                      col,
                      width,
                      true
@@ -522,10 +522,10 @@ public final class Particles extends Module {
       }
    }
 
-   private void line(Vector3f a, Vector3f b, Vec3d origin, int color) {
+   private void line(Vector3f a, Vector3f b, Vec3 origin, int color) {
       Render3D.drawLine(
-         new Vec3d(origin.x + (double)a.x, origin.y + (double)a.y, origin.z + (double)a.z),
-         new Vec3d(origin.x + (double)b.x, origin.y + (double)b.y, origin.z + (double)b.z),
+         new Vec3(origin.x + (double)a.x, origin.y + (double)a.y, origin.z + (double)a.z),
+         new Vec3(origin.x + (double)b.x, origin.y + (double)b.y, origin.z + (double)b.z),
          color,
          1.6F,
          true
@@ -543,28 +543,28 @@ public final class Particles extends Module {
             h.prev = h.pos;
             if (h.bounce) {
                if (this.solid(h.pos.x, h.pos.y, h.pos.z + h.vel.z)) {
-                  h.vel = new Vec3d(h.vel.x, h.vel.y, -h.vel.z * 0.7);
+                  h.vel = new Vec3(h.vel.x, h.vel.y, -h.vel.z * 0.7);
                }
 
                if (this.solid(h.pos.x, h.pos.y + h.vel.y, h.pos.z)) {
-                  h.vel = new Vec3d(h.vel.x * 0.95, -h.vel.y * 0.55, h.vel.z * 0.95);
+                  h.vel = new Vec3(h.vel.x * 0.95, -h.vel.y * 0.55, h.vel.z * 0.95);
                }
 
                if (this.solid(h.pos.x + h.vel.x, h.pos.y, h.pos.z)) {
-                  h.vel = new Vec3d(-h.vel.x * 0.7, h.vel.y, h.vel.z);
+                  h.vel = new Vec3(-h.vel.x * 0.7, h.vel.y, h.vel.z);
                }
 
-               h.vel = h.vel.multiply(0.98).add(0.0, -0.003, 0.0);
+               h.vel = h.vel.scale(0.98).add(0.0, -0.003, 0.0);
             } else {
-               h.vel = h.vel.multiply(0.985).add(0.0, -0.0015, 0.0);
+               h.vel = h.vel.scale(0.985).add(0.0, -0.0015, 0.0);
             }
 
             h.pos = h.pos.add(h.vel);
             double minY = this.groundY(h.pos.x, h.pos.z) + 0.2;
             if (h.pos.y < minY) {
-               h.pos = new Vec3d(h.pos.x, minY, h.pos.z);
+               h.pos = new Vec3(h.pos.x, minY, h.pos.z);
                if (h.vel.y < 0.0) {
-                  h.vel = new Vec3d(h.vel.x * 0.9, h.bounce ? -h.vel.y * 0.45 : 0.0, h.vel.z * 0.9);
+                  h.vel = new Vec3(h.vel.x * 0.9, h.bounce ? -h.vel.y * 0.45 : 0.0, h.vel.z * 0.9);
                }
             }
 
@@ -573,10 +573,10 @@ public final class Particles extends Module {
       }
    }
 
-   private void renderHits(MatrixStack stack, Immediate buf, Camera camera, Vec3d cam, long now) {
+   private void renderHits(PoseStack stack, BufferSource buf, Camera camera, Vec3 cam, long now) {
       float g = this.glow.getFloat();
       if (g > 0.01F) {
-         RenderLayer bloomType = ClientPipelines.BLOOM_ESP.apply(DASH_BLOOM);
+         RenderType bloomType = ClientPipelines.BLOOM_ESP.apply(DASH_BLOOM);
          VertexConsumer bloom = buf.getBuffer(bloomType);
 
          for (Particles.HitP h : this.hits) {
@@ -589,7 +589,7 @@ public final class Particles extends Module {
             }
          }
 
-         buf.draw(bloomType);
+         buf.endBatch(bloomType);
       }
 
       for (Particles.HitP hx : this.hits) {
@@ -657,11 +657,11 @@ public final class Particles extends Module {
    }
 
    private boolean solid(double x, double y, double z) {
-      if (mc.world == null) {
+      if (mc.level == null) {
          return false;
       } else {
-         BlockPos p = BlockPos.ofFloored(x, y, z);
-         return !mc.world.getBlockState(p).getCollisionShape(mc.world, p).isEmpty();
+         BlockPos p = BlockPos.containing(x, y, z);
+         return !mc.level.getBlockState(p).getCollisionShape(mc.level, p).isEmpty();
       }
    }
 
@@ -696,9 +696,9 @@ public final class Particles extends Module {
    }
 
    private static final class HitP {
-      Vec3d pos;
-      Vec3d prev;
-      Vec3d vel;
+      Vec3 pos;
+      Vec3 prev;
+      Vec3 vel;
       final Particles.HitKind kind;
       final int color;
       final float scale;
@@ -710,7 +710,7 @@ public final class Particles extends Module {
       final float rz;
       float spin;
 
-      HitP(Vec3d pos, Vec3d vel, Particles.HitKind kind, int color, float scale, long born, long life, boolean bounce, float rx, float ry, float rz) {
+      HitP(Vec3 pos, Vec3 vel, Particles.HitKind kind, int color, float scale, long born, long life, boolean bounce, float rx, float ry, float rz) {
          this.pos = pos;
          this.prev = pos;
          this.vel = vel;
@@ -780,8 +780,8 @@ public final class Particles extends Module {
    }
 
    private static final class MeteorP {
-      final Vec3d start;
-      final Vec3d vel;
+      final Vec3 start;
+      final Vec3 vel;
       final long born;
       final long life;
       final int color;
@@ -792,7 +792,7 @@ public final class Particles extends Module {
       final long[] histTime = new long[48];
       int histCount;
 
-      MeteorP(Vec3d start, Vec3d vel, long born, long life, int color) {
+      MeteorP(Vec3 start, Vec3 vel, long born, long life, int color) {
          this.start = start;
          this.vel = vel;
          this.born = born;
@@ -800,7 +800,7 @@ public final class Particles extends Module {
          this.color = color;
       }
 
-      void pushHistory(Vec3d p, long t) {
+      void pushHistory(Vec3 p, long t) {
          for (int i = Math.min(this.histCount, 47); i > 0; i--) {
             this.histX[i] = this.histX[i - 1];
             this.histY[i] = this.histY[i - 1];
@@ -819,8 +819,8 @@ public final class Particles extends Module {
    }
 
    private static final class OrbitP {
-      final Vec3d start;
-      final Vec3d vel;
+      final Vec3 start;
+      final Vec3 vel;
       final long born;
       final long life;
       final int color;
@@ -828,7 +828,7 @@ public final class Particles extends Module {
       final float ry;
       final float rz;
 
-      OrbitP(Vec3d start, Vec3d vel, long born, long life, int color, float rx, float ry, float rz) {
+      OrbitP(Vec3 start, Vec3 vel, long born, long life, int color, float rx, float ry, float rz) {
          this.start = start;
          this.vel = vel;
          this.born = born;
@@ -839,8 +839,8 @@ public final class Particles extends Module {
          this.rz = rz;
       }
 
-      Vec3d posAt(float age) {
-         return this.start.add(this.vel.multiply((double)age));
+      Vec3 posAt(float age) {
+         return this.start.add(this.vel.scale((double)age));
       }
    }
 }

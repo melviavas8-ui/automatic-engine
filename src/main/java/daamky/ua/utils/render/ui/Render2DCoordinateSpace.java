@@ -1,10 +1,10 @@
 package daamky.ua.utils.render.ui;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.util.Window;
 import org.joml.Matrix3x2f;
+import com.mojang.blaze3d.platform.Window;
 import daamky.ua.screens.mainmenu.VanillaMenuTheme;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
 
 public final class Render2DCoordinateSpace {
    private static final float DESIGN_GUI_SCALE = 2.0F;
@@ -13,8 +13,8 @@ public final class Render2DCoordinateSpace {
    private Render2DCoordinateSpace() {
    }
 
-   public static Matrix3x2f pose(DrawContext graphics) {
-      Matrix3x2f source = graphics.getMatrices();
+   public static Matrix3x2f pose(GuiGraphics graphics) {
+      Matrix3x2f source = graphics.pose();
       float scale = guiIndependentScale();
       Render2DCoordinateSpace.PoseCache cache = POSE_CACHE.get();
       if (cache.matches(graphics, source, scale)) {
@@ -64,17 +64,17 @@ public final class Render2DCoordinateSpace {
    }
 
    public static int guiScale() {
-      MinecraftClient minecraft = MinecraftClient.getInstance();
+      Minecraft minecraft = Minecraft.getInstance();
       if (minecraft == null) {
          return 1;
       } else {
          Window window = minecraft.getWindow();
-         return window == null ? 1 : Math.max(1, window.getScaleFactor());
+         return window == null ? 1 : Math.max(1, window.getGuiScale());
       }
    }
 
    private static final class PoseCache {
-      private DrawContext graphics;
+      private GuiGraphics graphics;
       private Matrix3x2f pose;
       private float scale;
       private float m00;
@@ -87,7 +87,7 @@ public final class Render2DCoordinateSpace {
       private PoseCache() {
       }
 
-      private boolean matches(DrawContext graphics, Matrix3x2f source, float scale) {
+      private boolean matches(GuiGraphics graphics, Matrix3x2f source, float scale) {
          return this.graphics == graphics
             && this.pose != null
             && this.scale == scale
@@ -99,7 +99,7 @@ public final class Render2DCoordinateSpace {
             && this.m21 == source.m21();
       }
 
-      private void set(DrawContext graphics, Matrix3x2f source, float scale, Matrix3x2f pose) {
+      private void set(GuiGraphics graphics, Matrix3x2f source, float scale, Matrix3x2f pose) {
          this.graphics = graphics;
          this.pose = pose;
          this.scale = scale;

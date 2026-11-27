@@ -4,21 +4,21 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider.Immediate;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.util.math.MatrixStack.Entry;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RotationAxis;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
+import net.minecraft.world.phys.Vec3;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.PoseStack.Pose;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.math.Axis;
 import daamky.ua.utils.render.WorldVertex;
 import daamky.ua.utils.render.color.ColorUtil;
 import daamky.ua.utils.render.pipeline.ClientPipelines;
 
 public final class CircleTargetEspRenderer {
-   private static final Identifier GLOW_TEXTURE = Identifier.of("daamky", "textures/particles/glow.png");
+   private static final Identifier GLOW_TEXTURE = Identifier.fromNamespaceAndPath("daamky", "textures/particles/glow.png");
    private static final int RING_SEGMENTS = 160;
    private static final int MAX_PARTICLES = 1200;
    private static final float RING_SPEED_FRAME_SCALE = 2.0F;
@@ -34,21 +34,21 @@ public final class CircleTargetEspRenderer {
    private CircleTargetEspRenderer() {
    }
 
-   public static void render(MatrixStack stack, Immediate provider, TargetEspRenderContext context, CircleTargetEspRenderer.Settings settings) {
+   public static void render(PoseStack stack, BufferSource provider, TargetEspRenderContext context, CircleTargetEspRenderer.Settings settings) {
       update(context, settings);
-      float ringAngle = MathHelper.lerp(context.partialTicks(), prevAngle, angle);
+      float ringAngle = Mth.lerp(context.partialTicks(), prevAngle, angle);
       float animationScale = 0.72F + 0.28F * context.alpha();
-      float radius = (context.target().getWidth() * 0.86F + 0.18F) * settings.size() * animationScale;
-      float y = context.target().getHeight() * verticalProgress(ringAngle);
+      float radius = (context.target().getBbWidth() * 0.86F + 0.18F) * settings.size() * animationScale;
+      float y = context.target().getBbHeight() * verticalProgress(ringAngle);
       renderRing(stack, provider, context, settings, y, radius, ringAngle, context.alpha());
       if (settings.particles()) {
          renderParticles(stack, provider, context, settings);
       }
    }
 
-   public static void endBatch(Immediate provider) {
-      provider.draw(ClientPipelines.WORLD_PARTICLES_QUADS);
-      provider.draw(ClientPipelines.WORLD_PARTICLES_GLOW.apply(GLOW_TEXTURE));
+   public static void endBatch(BufferSource provider) {
+      provider.endBatch(ClientPipelines.WORLD_PARTICLES_QUADS);
+      provider.endBatch(ClientPipelines.WORLD_PARTICLES_GLOW.apply(GLOW_TEXTURE));
    }
 
    public static void reset() {
@@ -71,7 +71,7 @@ public final class CircleTargetEspRenderer {
       }
 
       long now = context.frameTimeMs();
-      float deltaTicks = lastUpdateMs == 0L ? 1.0F : MathHelper.clamp((float)(now - lastUpdateMs) / 16.666666F, 0.25F, 3.0F);
+      float deltaTicks = lastUpdateMs == 0L ? 1.0F : Mth.clamp((float)(now - lastUpdateMs) / 16.666666F, 0.25F, 3.0F);
       lastUpdateMs = now;
       prevAngle = angle;
       angle = angle + Math.max(0.1F, settings.speed()) * 2.0F * deltaTicks;
@@ -117,9 +117,9 @@ public final class CircleTargetEspRenderer {
       while (iterator.hasNext()) {
          CircleTargetEspRenderer.RingParticle particle = iterator.next();
          particle.prevPos = particle.pos;
-         particle.pos = particle.pos.add(particle.velocity.multiply((double)deltaTicks));
+         particle.pos = particle.pos.add(particle.velocity.scale((double)deltaTicks));
          double friction = Math.pow(0.96, (double)deltaTicks);
-         particle.velocity = new Vec3d(particle.velocity.x * friction, particle.velocity.y - 0.0022 * (double)deltaTicks, particle.velocity.z * friction);
+         particle.velocity = new Vec3(particle.velocity.x * friction, particle.velocity.y - 0.0022 * (double)deltaTicks, particle.velocity.z * friction);
          particle.age += deltaTicks;
          if (particle.age >= particle.maxAge || particle.pos.y < particle.groundY) {
             iterator.remove();
@@ -129,17 +129,17 @@ public final class CircleTargetEspRenderer {
 
    private static void spawnParticle(TargetEspRenderContext context, CircleTargetEspRenderer.Settings settings) {
       float animationScale = 0.72F + 0.28F * context.alpha();
-      float radius = (context.target().getWidth() * 0.86F + 0.18F) * settings.size() * animationScale;
+      float radius = (context.target().getBbWidth() * 0.86F + 0.18F) * settings.size() * animationScale;
       float verticalProgress = verticalProgress(angle);
       double centerX = context.targetPos().x;
       double minY = context.targetPos().y + 0.03;
-      double maxY = context.targetPos().y + (double)context.target().getHeight() - 0.03;
+      double maxY = context.targetPos().y + (double)context.target().getBbHeight() - 0.03;
       double centerY = minY + (maxY - minY) * (double)verticalProgress;
       double centerZ = context.targetPos().z;
       double particleAngle = RANDOM.nextDouble() * (float) (Math.PI * 2);
       double spread = (double)radius * (0.88 + RANDOM.nextDouble() * 0.22);
       float particleHeight = settings.particleHeight();
-      double heightLimit = (double)(context.target().getHeight() * particleHeight);
+      double heightLimit = (double)(context.target().getBbHeight() * particleHeight);
       double y;
       if (particleHeight >= 0.98F) {
          y = minY + RANDOM.nextDouble() * (maxY - minY);
@@ -155,17 +155,17 @@ public final class CircleTargetEspRenderer {
 
       y += (RANDOM.nextDouble() - 0.5) * 0.025;
       y = Math.max(minY, Math.min(maxY, y));
-      Vec3d pos = new Vec3d(centerX + Math.cos(particleAngle) * spread, y, centerZ + Math.sin(particleAngle) * spread);
-      Vec3d outward = new Vec3d(Math.cos(particleAngle), 0.0, Math.sin(particleAngle));
-      Vec3d velocity = outward.multiply((RANDOM.nextDouble() - 0.5) * 0.01).add(0.0, -8.0E-4 - RANDOM.nextDouble() * 0.006, 0.0);
+      Vec3 pos = new Vec3(centerX + Math.cos(particleAngle) * spread, y, centerZ + Math.sin(particleAngle) * spread);
+      Vec3 outward = new Vec3(Math.cos(particleAngle), 0.0, Math.sin(particleAngle));
+      Vec3 velocity = outward.scale((RANDOM.nextDouble() - 0.5) * 0.01).add(0.0, -8.0E-4 - RANDOM.nextDouble() * 0.006, 0.0);
       float maxAge = Math.max(1.0F, (float)(34 + RANDOM.nextInt(28)) * settings.particleLife());
       float size = (0.0065F + RANDOM.nextFloat() * 0.014F) * settings.size() * animationScale;
       PARTICLES.add(new CircleTargetEspRenderer.RingParticle(pos, velocity, minY - 0.08, maxAge, size, RANDOM.nextInt(360)));
    }
 
    private static void renderRing(
-      MatrixStack stack,
-      Immediate provider,
+      PoseStack stack,
+      BufferSource provider,
       TargetEspRenderContext context,
       CircleTargetEspRenderer.Settings settings,
       float y,
@@ -179,7 +179,7 @@ public final class CircleTargetEspRenderer {
    }
 
    private static void renderRingBand(
-      MatrixStack stack,
+      PoseStack stack,
       VertexConsumer consumer,
       TargetEspRenderContext context,
       CircleTargetEspRenderer.Settings settings,
@@ -190,7 +190,7 @@ public final class CircleTargetEspRenderer {
       float alpha
    ) {
       if (!(alpha <= 0.01F) && !(radius <= 0.01F)) {
-         Entry pose = stack.peek();
+         Pose pose = stack.last();
          float halfThickness = thickness * 0.5F;
          float innerRadius = Math.max(0.01F, radius - halfThickness);
          float outerRadius = radius + halfThickness;
@@ -202,33 +202,33 @@ public final class CircleTargetEspRenderer {
             float degrees1 = progress1 * 360.0F;
             float radians0 = degrees0 * (float) (Math.PI / 180.0);
             float radians1 = degrees1 * (float) (Math.PI / 180.0);
-            float sin0 = MathHelper.sin((double)radians0);
-            float cos0 = MathHelper.cos((double)radians0);
-            float sin1 = MathHelper.sin((double)radians1);
-            float cos1 = MathHelper.cos((double)radians1);
+            float sin0 = Mth.sin((double)radians0);
+            float cos0 = Mth.cos((double)radians0);
+            float sin1 = Mth.sin((double)radians1);
+            float cos1 = Mth.cos((double)radians1);
             int color0 = circleColor(context, settings, (int)(degrees0 + moving), alpha);
             int color1 = circleColor(context, settings, (int)(degrees1 + moving), alpha);
-            consumer.vertex(pose, cos0 * outerRadius, y, sin0 * outerRadius).color(color0);
-            consumer.vertex(pose, cos1 * outerRadius, y, sin1 * outerRadius).color(color1);
-            consumer.vertex(pose, cos1 * innerRadius, y, sin1 * innerRadius).color(color1);
-            consumer.vertex(pose, cos0 * innerRadius, y, sin0 * innerRadius).color(color0);
+            consumer.addVertex(pose, cos0 * outerRadius, y, sin0 * outerRadius).setColor(color0);
+            consumer.addVertex(pose, cos1 * outerRadius, y, sin1 * outerRadius).setColor(color1);
+            consumer.addVertex(pose, cos1 * innerRadius, y, sin1 * innerRadius).setColor(color1);
+            consumer.addVertex(pose, cos0 * innerRadius, y, sin0 * innerRadius).setColor(color0);
          }
       }
    }
 
-   private static void renderParticles(MatrixStack stack, Immediate provider, TargetEspRenderContext context, CircleTargetEspRenderer.Settings settings) {
-      RenderLayer renderType = ClientPipelines.WORLD_PARTICLES_GLOW.apply(GLOW_TEXTURE);
+   private static void renderParticles(PoseStack stack, BufferSource provider, TargetEspRenderContext context, CircleTargetEspRenderer.Settings settings) {
+      RenderType renderType = ClientPipelines.WORLD_PARTICLES_GLOW.apply(GLOW_TEXTURE);
       VertexConsumer consumer = provider.getBuffer(renderType);
 
       for (CircleTargetEspRenderer.RingParticle particle : PARTICLES) {
          float life = 1.0F - particle.age / Math.max(1.0F, particle.maxAge);
          if (!(life <= 0.0F)) {
-            Vec3d pos = new Vec3d(
-               MathHelper.lerp((double)context.partialTicks(), particle.prevPos.x, particle.pos.x),
-               MathHelper.lerp((double)context.partialTicks(), particle.prevPos.y, particle.pos.y),
-               MathHelper.lerp((double)context.partialTicks(), particle.prevPos.z, particle.pos.z)
+            Vec3 pos = new Vec3(
+               Mth.lerp((double)context.partialTicks(), particle.prevPos.x, particle.pos.x),
+               Mth.lerp((double)context.partialTicks(), particle.prevPos.y, particle.pos.y),
+               Mth.lerp((double)context.partialTicks(), particle.prevPos.z, particle.pos.z)
             );
-            float pulse = 0.72F + 0.28F * MathHelper.sin((double)((particle.age + (float)particle.seed) * 0.7F));
+            float pulse = 0.72F + 0.28F * Mth.sin((double)((particle.age + (float)particle.seed) * 0.7F));
             float particleAlpha = context.alpha() * life * pulse * 0.82F;
             float size = particle.size * (0.75F + life * 0.45F);
             appendParticle(stack, consumer, context, pos, size * 5.4F, circleColor(context, settings, particle.seed, particleAlpha * 0.24F));
@@ -237,26 +237,26 @@ public final class CircleTargetEspRenderer {
       }
    }
 
-   private static void appendParticle(MatrixStack stack, VertexConsumer consumer, TargetEspRenderContext context, Vec3d pos, float size, int color) {
+   private static void appendParticle(PoseStack stack, VertexConsumer consumer, TargetEspRenderContext context, Vec3 pos, float size, int color) {
       if (!(size <= 0.001F) && ColorUtil.getAlpha(color) > 0) {
-         stack.push();
+         stack.pushPose();
          stack.translate(pos.x - context.targetPos().x, pos.y - context.targetPos().y, pos.z - context.targetPos().z);
-         stack.multiply(context.cameraRotation());
-         stack.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(0.0F));
-         Entry pose = stack.peek();
+         stack.mulPose(context.cameraRotation());
+         stack.mulPose(Axis.ZP.rotationDegrees(0.0F));
+         Pose pose = stack.last();
          float half = size * 0.5F;
          WorldVertex.textured(consumer, pose, -half, -half, 0.0F, 0.0F, 0.0F, color);
          WorldVertex.textured(consumer, pose, half, -half, 0.0F, 1.0F, 0.0F, color);
          WorldVertex.textured(consumer, pose, half, half, 0.0F, 1.0F, 1.0F, color);
          WorldVertex.textured(consumer, pose, -half, half, 0.0F, 0.0F, 1.0F, color);
-         stack.pop();
+         stack.popPose();
       }
    }
 
    private static int circleColor(TargetEspRenderContext context, CircleTargetEspRenderer.Settings settings, int hueOffset, float alpha) {
       int primary = context.primaryColor();
       int secondary = context.secondaryColor();
-      float blend = 0.5F + 0.5F * MathHelper.sin((double)((float)hueOffset * (float) (Math.PI / 180.0)));
+      float blend = 0.5F + 0.5F * Mth.sin((double)((float)hueOffset * (float) (Math.PI / 180.0)));
       int base = ColorUtil.lerpColor(primary, secondary, blend);
       if (settings.redOnImpact() && impactProgress > 0.0F) {
          float impact = TargetEspMath.easeOutCubic(impactProgress);
@@ -268,20 +268,20 @@ public final class CircleTargetEspRenderer {
    }
 
    private static float verticalProgress(float value) {
-      return (MathHelper.sin((double)(value * (float) (Math.PI / 180.0))) + 1.0F) * 0.5F;
+      return (Mth.sin((double)(value * (float) (Math.PI / 180.0))) + 1.0F) * 0.5F;
    }
 
    private static final class RingParticle {
-      private Vec3d prevPos;
-      private Vec3d pos;
-      private Vec3d velocity;
+      private Vec3 prevPos;
+      private Vec3 pos;
+      private Vec3 velocity;
       private final double groundY;
       private final float maxAge;
       private final float size;
       private final int seed;
       private float age;
 
-      private RingParticle(Vec3d pos, Vec3d velocity, double groundY, float maxAge, float size, int seed) {
+      private RingParticle(Vec3 pos, Vec3 velocity, double groundY, float maxAge, float size, int seed) {
          this.prevPos = pos;
          this.pos = pos;
          this.velocity = velocity;

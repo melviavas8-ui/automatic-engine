@@ -2,13 +2,7 @@ package daamky.ua.mixin;
 
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.Mouse;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.input.MouseInput;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.util.InputUtil.Type;
+import com.mojang.blaze3d.platform.InputConstants.Type;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -26,43 +20,49 @@ import daamky.ua.screens.clickgui.ClickGui;
 import daamky.ua.screens.clickgui.impl.ClickGuiController;
 import daamky.ua.utils.modules.warden.rotation.FreeLookController;
 import daamky.ua.utils.render.ui.Render2DCoordinateSpace;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.MouseHandler;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.MouseButtonInfo;
+import net.minecraft.client.player.LocalPlayer;
 
-@Mixin({Mouse.class})
+@Mixin({MouseHandler.class})
 public class MouseMixin {
    @Shadow
    @Final
-   private MinecraftClient client;
+   private Minecraft minecraft;
 
    public MouseMixin() {
    }
 
    @Inject(
-      method = {"onMouseButton"},
+      method = {"onButton"},
       at = {@At("HEAD")}
    )
-   private void daamky$onMouseButton(long window, MouseInput buttonInfo, int action, CallbackInfo ci) {
+   private void daamky$onMouseButton(long window, MouseButtonInfo buttonInfo, int action, CallbackInfo ci) {
       int button = buttonInfo.button();
-      if (button != -1 && window == this.client.getWindow().getHandle()) {
-         Manager.postEvent(new KeyEvent(this.client.currentScreen, Type.MOUSE, button, action));
-         if (action == 0 && this.client.currentScreen instanceof ChatScreen) {
-            Click event = new Click(this.client.mouse.getScaledX(this.client.getWindow()), this.client.mouse.getScaledY(this.client.getWindow()), buttonInfo);
+      if (button != -1 && window == this.minecraft.getWindow().handle()) {
+         Manager.postEvent(new KeyEvent(this.minecraft.screen, Type.MOUSE, button, action));
+         if (action == 0 && this.minecraft.screen instanceof ChatScreen) {
+            MouseButtonEvent event = new MouseButtonEvent(this.minecraft.mouseHandler.getScaledXPos(this.minecraft.getWindow()), this.minecraft.mouseHandler.getScaledYPos(this.minecraft.getWindow()), buttonInfo);
             ElementManager.getInstance().handleMouseReleased(daamky$toDragEvent(event));
          }
       }
    }
 
    @Inject(
-      method = {"onMouseScroll"},
+      method = {"onScroll"},
       at = {@At("HEAD")},
       cancellable = true
    )
    private void daamky$onMouseScroll(long window, double horizontal, double vertical, CallbackInfo ci) {
-      if (window == this.client.getWindow().getHandle() && this.client.currentScreen instanceof ClickGui) {
+      if (window == this.minecraft.getWindow().handle() && this.minecraft.screen instanceof ClickGui) {
          ClickGuiController.mouseScrolled(
-            this.client.mouse.getScaledX(this.client.getWindow()), this.client.mouse.getScaledY(this.client.getWindow()), horizontal, vertical
+            this.minecraft.mouseHandler.getScaledXPos(this.minecraft.getWindow()), this.minecraft.mouseHandler.getScaledYPos(this.minecraft.getWindow()), horizontal, vertical
          );
          ci.cancel();
-      } else if (window != this.client.getWindow().getHandle() || this.client.currentScreen == null) {
+      } else if (window != this.minecraft.getWindow().handle() || this.minecraft.screen == null) {
          HotBarScrollEvent event = Manager.postEvent(new HotBarScrollEvent(horizontal, vertical));
          if (event.isCancelled()) {
             ci.cancel();
@@ -71,16 +71,16 @@ public class MouseMixin {
    }
 
    @WrapOperation(
-      method = {"updateMouse"},
+      method = {"turnPlayer"},
       at = {@At(
          value = "INVOKE",
-         target = "Lnet/minecraft/client/network/ClientPlayerEntity;changeLookDirection(DD)V"
+         target = "Lnet/minecraft/client/player/LocalPlayer;turn(DD)V"
       )},
       require = 0
    )
-   private void daamky$modifyMouseRotationInput(ClientPlayerEntity player, double cursorDeltaX, double cursorDeltaY, Operation<Void> original) {
-      float beforeYaw = player.getYaw();
-      float beforePitch = player.getPitch();
+   private void daamky$modifyMouseRotationInput(LocalPlayer player, double cursorDeltaX, double cursorDeltaY, Operation<Void> original) {
+      float beforeYaw = player.getYRot();
+      float beforePitch = player.getXRot();
       MouseRotationEvent event = Manager.postEvent(new MouseRotationEvent((float)cursorDeltaX, (float)cursorDeltaY));
       if (!event.isCancelled()) {
          double deltaX = (double)event.getCursorDeltaX();
@@ -90,20 +90,20 @@ public class MouseMixin {
          } else {
             original.call(new Object[]{player, deltaX, deltaY});
             Manager.postEvent(
-               new MouseAppliedRotationEvent(event.getCursorDeltaX(), event.getCursorDeltaY(), beforeYaw, beforePitch, player.getYaw(), player.getPitch())
+               new MouseAppliedRotationEvent(event.getCursorDeltaX(), event.getCursorDeltaY(), beforeYaw, beforePitch, player.getYRot(), player.getXRot())
             );
          }
       }
    }
 
    @Unique
-   private static Click daamky$toDragEvent(Click event) {
+   private static MouseButtonEvent daamky$toDragEvent(MouseButtonEvent event) {
       float scale = Render2DCoordinateSpace.guiIndependentScale();
       if (Math.abs(scale - 1.0F) <= 1.0E-4F) {
          return event;
       } else {
-         MouseInput info = new MouseInput(event.button(), event.modifiers());
-         return new Click(event.x() / (double)scale, event.y() / (double)scale, info);
+         MouseButtonInfo info = new MouseButtonInfo(event.button(), event.modifiers());
+         return new MouseButtonEvent(event.x() / (double)scale, event.y() / (double)scale, info);
       }
    }
 }

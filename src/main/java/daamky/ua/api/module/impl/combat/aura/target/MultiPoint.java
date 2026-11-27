@@ -5,15 +5,15 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.Pair;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.hit.HitResult.Type;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.RaycastContext.ShapeType;
+import net.minecraft.util.Mth;
+import net.minecraft.util.Tuple;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.ClipContext.Block;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.HitResult.Type;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.IMinecraft;
 import daamky.ua.api.module.impl.combat.AuraModule;
 import daamky.ua.api.module.impl.combat.AutoSwap;
@@ -63,11 +63,11 @@ public class MultiPoint implements IMinecraft {
       new MultiPoint.PointDataset(0.58, 0.98, 0.74, 7, 0.24, true, 0.3, 0.04, 0.18, 0.18, 0.66)
    };
    final Random random = new SecureRandom();
-   Vec3d offset = Vec3d.ZERO;
+   Vec3 offset = Vec3.ZERO;
    int datasetIndex = 0;
    int lockedCandidateIndex = -1;
-   Vec3d lockedPointOffset = null;
-   Vec3d smoothedPoint = null;
+   Vec3 lockedPointOffset = null;
+   Vec3 smoothedPoint = null;
    long lastSmoothedPointTick = -1L;
    int lockedDatasetIndex = -1;
    int lockedEntityId = -1;
@@ -136,25 +136,25 @@ public class MultiPoint implements IMinecraft {
       p.add(new MultiPoint.AimPoint(-r, y, -r));
    }
 
-   public Pair<Vec3d, Box> computeVector(LivingEntity entity, float maxDistance, Angle initialAngle, Vec3d velocity, boolean ignoreWalls) {
+   public Tuple<Vec3, AABB> computeVector(LivingEntity entity, float maxDistance, Angle initialAngle, Vec3 velocity, boolean ignoreWalls) {
       if (this.isFunTimeMode()) {
-         Pair<List<Vec3d>, Box> cp = this.generateFunTimeCandidatePoints(entity, maxDistance, ignoreWalls);
-         Vec3d best = this.findTeleportVector(entity, (List<Vec3d>)cp.getLeft(), (Box)cp.getRight(), initialAngle, this.currentDataset());
-         this.offset = Vec3d.ZERO;
-         Vec3d fallback = entity.getEyePos();
-         return new Pair((best == null ? fallback : best).add(this.offset), (Box)cp.getRight());
+         Tuple<List<Vec3>, AABB> cp = this.generateFunTimeCandidatePoints(entity, maxDistance, ignoreWalls);
+         Vec3 best = this.findTeleportVector(entity, (List<Vec3>)cp.getA(), (AABB)cp.getB(), initialAngle, this.currentDataset());
+         this.offset = Vec3.ZERO;
+         Vec3 fallback = entity.getEyePosition();
+         return new Tuple((best == null ? fallback : best).add(this.offset), (AABB)cp.getB());
       } else {
          MultiPoint.PointDataset dataset = this.currentDataset();
-         Pair<List<Vec3d>, Box> cp = this.isNeuroMode()
+         Tuple<List<Vec3>, AABB> cp = this.isNeuroMode()
             ? this.generateNeuroCandidatePoints(entity, maxDistance, ignoreWalls, this.currentPreset(), dataset)
             : this.generatePresetCandidatePoints(entity, maxDistance, ignoreWalls, this.currentPreset());
-         Vec3d best = this.findTeleportVector(entity, (List<Vec3d>)cp.getLeft(), (Box)cp.getRight(), initialAngle, dataset);
-         Vec3d fallback = entity.getEyePos();
-         return new Pair(best == null ? fallback : best, (Box)cp.getRight());
+         Vec3 best = this.findTeleportVector(entity, (List<Vec3>)cp.getA(), (AABB)cp.getB(), initialAngle, dataset);
+         Vec3 fallback = entity.getEyePosition();
+         return new Tuple(best == null ? fallback : best, (AABB)cp.getB());
       }
    }
 
-   public Pair<List<Vec3d>, Box> generateCandidatePoints(LivingEntity entity, float maxDistance, boolean ignoreWalls) {
+   public Tuple<List<Vec3>, AABB> generateCandidatePoints(LivingEntity entity, float maxDistance, boolean ignoreWalls) {
       if (this.isFunTimeMode()) {
          return this.generateFunTimeCandidatePoints(entity, maxDistance, ignoreWalls);
       } else {
@@ -168,127 +168,127 @@ public class MultiPoint implements IMinecraft {
       if (mc.player == null) {
          return false;
       } else if (this.isFunTimeMode()) {
-         return !((List)this.generateFunTimeCandidatePoints(entity, maxDistance, ignoreWalls).getLeft()).isEmpty();
+         return !((List)this.generateFunTimeCandidatePoints(entity, maxDistance, ignoreWalls).getA()).isEmpty();
       } else {
          return this.isNeuroMode()
-            ? !((List)this.generateNeuroCandidatePoints(entity, maxDistance, ignoreWalls, this.currentPreset(), this.currentDataset()).getLeft()).isEmpty()
-            : !((List)this.generatePresetCandidatePoints(entity, maxDistance, ignoreWalls, this.currentPreset()).getLeft()).isEmpty();
+            ? !((List)this.generateNeuroCandidatePoints(entity, maxDistance, ignoreWalls, this.currentPreset(), this.currentDataset()).getA()).isEmpty()
+            : !((List)this.generatePresetCandidatePoints(entity, maxDistance, ignoreWalls, this.currentPreset()).getA()).isEmpty();
       }
    }
 
-   public static Vec3d distance(Entity entity, float min, float max) {
-      double dist = mc.player.getLerpedPos(1.0F).distanceTo(entity.getLerpedPos(1.0F));
-      double normalized = MathHelper.clamp((dist - (double)min) / (double)(max - min), 0.0, 1.0);
-      double targetY = entity.getY() + (double)entity.getHeight() * normalized;
-      return new Vec3d(entity.getX(), targetY, entity.getZ());
+   public static Vec3 distance(Entity entity, float min, float max) {
+      double dist = mc.player.getPosition(1.0F).distanceTo(entity.getPosition(1.0F));
+      double normalized = Mth.clamp((dist - (double)min) / (double)(max - min), 0.0, 1.0);
+      double targetY = entity.getY() + (double)entity.getBbHeight() * normalized;
+      return new Vec3(entity.getX(), targetY, entity.getZ());
    }
 
-   private Pair<List<Vec3d>, Box> generateFunTimeCandidatePoints(LivingEntity entity, float maxDistance, boolean ignoreWalls) {
-      Box box = this.targetBox(entity);
-      double rawStep = box.getLengthY() / 10.0;
+   private Tuple<List<Vec3>, AABB> generateFunTimeCandidatePoints(LivingEntity entity, float maxDistance, boolean ignoreWalls) {
+      AABB box = this.targetBox(entity);
+      double rawStep = box.getYsize() / 10.0;
       double stepY = rawStep <= 0.0 ? 0.1 : rawStep;
-      List<Vec3d> list = new ArrayList<>();
-      Vec3d center = box.getCenter();
-      if (!this.isEntityInReach(mc.player.getEyePos(), box, maxDistance)) {
-         return new Pair(list, box);
+      List<Vec3> list = new ArrayList<>();
+      Vec3 center = box.getCenter();
+      if (!this.isEntityInReach(mc.player.getEyePosition(), box, maxDistance)) {
+         return new Tuple(list, box);
       } else {
          for (double y = box.minY; y <= box.maxY + 1.0E-4; y += stepY) {
-            Vec3d point = new Vec3d(center.x, y, center.z);
-            if (this.hasLineOfSight(mc.player.getEyePos(), point, ignoreWalls)) {
+            Vec3 point = new Vec3(center.x, y, center.z);
+            if (this.hasLineOfSight(mc.player.getEyePosition(), point, ignoreWalls)) {
                list.add(point);
             }
          }
 
-         return new Pair(list, box);
+         return new Tuple(list, box);
       }
    }
 
-   private Pair<List<Vec3d>, Box> generatePresetCandidatePoints(LivingEntity entity, float maxDistance, boolean ignoreWalls, MultiPoint.PointPreset preset) {
-      Box box = this.targetBox(entity);
-      Vec3d center = box.getCenter();
-      double height = Math.max(box.getLengthY(), 0.1);
-      double halfX = box.getLengthX() * 0.5;
-      double halfZ = box.getLengthZ() * 0.5;
-      List<Vec3d> list = new ArrayList<>();
-      Vec3d eye = mc.player.getEyePos();
+   private Tuple<List<Vec3>, AABB> generatePresetCandidatePoints(LivingEntity entity, float maxDistance, boolean ignoreWalls, MultiPoint.PointPreset preset) {
+      AABB box = this.targetBox(entity);
+      Vec3 center = box.getCenter();
+      double height = Math.max(box.getYsize(), 0.1);
+      double halfX = box.getXsize() * 0.5;
+      double halfZ = box.getZsize() * 0.5;
+      List<Vec3> list = new ArrayList<>();
+      Vec3 eye = mc.player.getEyePosition();
       if (!this.isEntityInReach(eye, box, maxDistance)) {
-         return new Pair(list, box);
+         return new Tuple(list, box);
       } else {
          for (MultiPoint.AimPoint ap : preset.points) {
-            Vec3d point = new Vec3d(center.x + halfX * ap.x, box.minY + height * ap.y, center.z + halfZ * ap.z);
+            Vec3 point = new Vec3(center.x + halfX * ap.x, box.minY + height * ap.y, center.z + halfZ * ap.z);
             this.addValidPoint(list, eye, point, ignoreWalls);
          }
 
-         return new Pair(list, box);
+         return new Tuple(list, box);
       }
    }
 
-   private Pair<List<Vec3d>, Box> generateNeuroCandidatePoints(
+   private Tuple<List<Vec3>, AABB> generateNeuroCandidatePoints(
       LivingEntity entity, float maxDistance, boolean ignoreWalls, MultiPoint.PointPreset preset, MultiPoint.PointDataset dataset
    ) {
-      Pair<List<Vec3d>, Box> datasetPoints = this.generateDatasetCandidatePoints(entity, maxDistance, ignoreWalls, dataset);
-      Pair<List<Vec3d>, Box> presetPoints = this.generatePresetCandidatePoints(entity, maxDistance, ignoreWalls, preset);
-      List<Vec3d> merged = new ArrayList<>(((List)datasetPoints.getLeft()).size() + ((List)presetPoints.getLeft()).size());
+      Tuple<List<Vec3>, AABB> datasetPoints = this.generateDatasetCandidatePoints(entity, maxDistance, ignoreWalls, dataset);
+      Tuple<List<Vec3>, AABB> presetPoints = this.generatePresetCandidatePoints(entity, maxDistance, ignoreWalls, preset);
+      List<Vec3> merged = new ArrayList<>(((List)datasetPoints.getA()).size() + ((List)presetPoints.getA()).size());
 
-      for (Vec3d point : (List<Vec3d>)datasetPoints.getLeft()) {
+      for (Vec3 point : (List<Vec3>)datasetPoints.getA()) {
          this.addUniquePoint(merged, point, 0.025);
       }
 
-      for (Vec3d point : (List<Vec3d>)presetPoints.getLeft()) {
+      for (Vec3 point : (List<Vec3>)presetPoints.getA()) {
          this.addUniquePoint(merged, point, 0.025);
       }
 
-      return new Pair(merged, (Box)datasetPoints.getRight());
+      return new Tuple(merged, (AABB)datasetPoints.getB());
    }
 
-   private Pair<List<Vec3d>, Box> generateDatasetCandidatePoints(LivingEntity entity, float maxDistance, boolean ignoreWalls, MultiPoint.PointDataset dataset) {
-      Box box = this.targetBox(entity);
-      Vec3d center = box.getCenter();
-      double height = Math.max(box.getLengthY(), 0.1);
+   private Tuple<List<Vec3>, AABB> generateDatasetCandidatePoints(LivingEntity entity, float maxDistance, boolean ignoreWalls, MultiPoint.PointDataset dataset) {
+      AABB box = this.targetBox(entity);
+      Vec3 center = box.getCenter();
+      double height = Math.max(box.getYsize(), 0.1);
       double minY = box.minY + height * dataset.minHeight;
       double maxY = box.minY + height * dataset.maxHeight;
       double stepY = Math.max((maxY - minY) / (double)Math.max(dataset.verticalSamples, 1), 0.05);
-      double lr = Math.min(box.getLengthX(), box.getLengthZ()) * dataset.lateralRadius;
-      List<Vec3d> list = new ArrayList<>();
-      Vec3d eye = mc.player.getEyePos();
+      double lr = Math.min(box.getXsize(), box.getZsize()) * dataset.lateralRadius;
+      List<Vec3> list = new ArrayList<>();
+      Vec3 eye = mc.player.getEyePosition();
       if (!this.isEntityInReach(eye, box, maxDistance)) {
-         return new Pair(list, box);
+         return new Tuple(list, box);
       } else {
          for (double y = minY; y <= maxY + 1.0E-4; y += stepY) {
-            this.addValidPoint(list, eye, new Vec3d(center.x, y, center.z), ignoreWalls);
+            this.addValidPoint(list, eye, new Vec3(center.x, y, center.z), ignoreWalls);
             if (!(lr <= 0.0)) {
-               this.addValidPoint(list, eye, new Vec3d(center.x + lr, y, center.z), ignoreWalls);
-               this.addValidPoint(list, eye, new Vec3d(center.x - lr, y, center.z), ignoreWalls);
-               this.addValidPoint(list, eye, new Vec3d(center.x, y, center.z + lr), ignoreWalls);
-               this.addValidPoint(list, eye, new Vec3d(center.x, y, center.z - lr), ignoreWalls);
+               this.addValidPoint(list, eye, new Vec3(center.x + lr, y, center.z), ignoreWalls);
+               this.addValidPoint(list, eye, new Vec3(center.x - lr, y, center.z), ignoreWalls);
+               this.addValidPoint(list, eye, new Vec3(center.x, y, center.z + lr), ignoreWalls);
+               this.addValidPoint(list, eye, new Vec3(center.x, y, center.z - lr), ignoreWalls);
                if (dataset.diagonalPoints) {
                   double d = lr * 0.70710678118;
-                  this.addValidPoint(list, eye, new Vec3d(center.x + d, y, center.z + d), ignoreWalls);
-                  this.addValidPoint(list, eye, new Vec3d(center.x + d, y, center.z - d), ignoreWalls);
-                  this.addValidPoint(list, eye, new Vec3d(center.x - d, y, center.z + d), ignoreWalls);
-                  this.addValidPoint(list, eye, new Vec3d(center.x - d, y, center.z - d), ignoreWalls);
+                  this.addValidPoint(list, eye, new Vec3(center.x + d, y, center.z + d), ignoreWalls);
+                  this.addValidPoint(list, eye, new Vec3(center.x + d, y, center.z - d), ignoreWalls);
+                  this.addValidPoint(list, eye, new Vec3(center.x - d, y, center.z + d), ignoreWalls);
+                  this.addValidPoint(list, eye, new Vec3(center.x - d, y, center.z - d), ignoreWalls);
                }
             }
          }
 
-         return new Pair(list, box);
+         return new Tuple(list, box);
       }
    }
 
-   private Vec3d findTeleportVector(LivingEntity entity, List<Vec3d> candidates, Box box, Angle initialAngle, MultiPoint.PointDataset dataset) {
+   private Vec3 findTeleportVector(LivingEntity entity, List<Vec3> candidates, AABB box, Angle initialAngle, MultiPoint.PointDataset dataset) {
       if (candidates.isEmpty()) {
          this.resetLockedPoint();
          return null;
       } else {
-         long gameTick = mc.world == null ? 0L : mc.world.getTime();
-         Vec3d boxCenter = box.getCenter();
+         long gameTick = mc.level == null ? 0L : mc.level.getGameTime();
+         Vec3 boxCenter = box.getCenter();
          int currentIndex = this.findMatchingCandidateIndex(candidates, boxCenter, this.lockedPointOffset);
          boolean entityChanged = this.lockedEntityId != entity.getId();
          boolean shouldSwitch = this.nextPointSwitchTick < 0L || gameTick >= this.nextPointSwitchTick;
          if (!entityChanged && this.lockedDatasetIndex == this.datasetIndex && currentIndex >= 0 && !shouldSwitch) {
             this.lockedCandidateIndex = currentIndex;
          } else {
-            Vec3d previousPoint = currentIndex < 0 ? null : candidates.get(currentIndex);
+            Vec3 previousPoint = currentIndex < 0 ? null : candidates.get(currentIndex);
             this.lockedCandidateIndex = this.findTeleportVectorIndex(candidates, box, initialAngle, dataset, currentIndex, previousPoint);
             this.lockedPointOffset = candidates.get(this.lockedCandidateIndex).subtract(boxCenter);
             this.lockedDatasetIndex = this.datasetIndex;
@@ -305,10 +305,10 @@ public class MultiPoint implements IMinecraft {
    }
 
    private int findTeleportVectorIndex(
-      List<Vec3d> candidates, Box box, Angle initialAngle, MultiPoint.PointDataset dataset, int previousIndex, Vec3d previousPoint
+      List<Vec3> candidates, AABB box, Angle initialAngle, MultiPoint.PointDataset dataset, int previousIndex, Vec3 previousPoint
    ) {
       List<MultiPoint.PointScore> scores = new ArrayList<>();
-      Vec3d eye = mc.player.getEyePos();
+      Vec3 eye = mc.player.getEyePosition();
 
       for (int i = 0; i < candidates.size(); i++) {
          scores.add(new MultiPoint.PointScore(i, this.calculatePointScore(eye, candidates.get(i), box, initialAngle, dataset)));
@@ -356,12 +356,12 @@ public class MultiPoint implements IMinecraft {
       }
    }
 
-   private int findMatchingCandidateIndex(List<Vec3d> candidates, Vec3d boxCenter, Vec3d pointOffset) {
+   private int findMatchingCandidateIndex(List<Vec3> candidates, Vec3 boxCenter, Vec3 pointOffset) {
       if (pointOffset == null) {
          return -1;
       } else {
          for (int i = 0; i < candidates.size(); i++) {
-            if (candidates.get(i).subtract(boxCenter).squaredDistanceTo(pointOffset) <= 1.0E-6) {
+            if (candidates.get(i).subtract(boxCenter).distanceToSqr(pointOffset) <= 1.0E-6) {
                return i;
             }
          }
@@ -370,7 +370,7 @@ public class MultiPoint implements IMinecraft {
       }
    }
 
-   private Vec3d smoothPoint(Vec3d targetPoint, long gameTick) {
+   private Vec3 smoothPoint(Vec3 targetPoint, long gameTick) {
       if (this.smoothedPoint == null) {
          this.smoothedPoint = targetPoint;
       } else if (gameTick > this.lastSmoothedPointTick) {
@@ -383,9 +383,9 @@ public class MultiPoint implements IMinecraft {
       return this.smoothedPoint;
    }
 
-   private double calculatePointScore(Vec3d eye, Vec3d point, Box box, Angle initialAngle, MultiPoint.PointDataset dataset) {
+   private double calculatePointScore(Vec3 eye, Vec3 point, AABB box, Angle initialAngle, MultiPoint.PointDataset dataset) {
       double rotDiff = this.calculateRotationDifference(eye, point, initialAngle);
-      double height = Math.max(box.getLengthY(), 0.1);
+      double height = Math.max(box.getYsize(), 0.1);
       double heightFactor = (point.y - box.minY) / height;
       double heightPenalty = Math.abs(heightFactor - dataset.preferredHeight) * dataset.heightBias;
       double lateral = Math.hypot(point.x - box.getCenter().x, point.z - box.getCenter().z);
@@ -394,21 +394,21 @@ public class MultiPoint implements IMinecraft {
       return rotDiff + heightPenalty + lateralPenalty + noise;
    }
 
-   private double calculateRotationDifference(Vec3d eye, Vec3d point, Angle initialAngle) {
+   private double calculateRotationDifference(Vec3 eye, Vec3 point, Angle initialAngle) {
       Angle target = MathAngle.fromVec3d(point.subtract(eye));
       Angle delta = MathAngle.calculateDelta(initialAngle, target);
       return Math.hypot((double)delta.getYaw(), (double)delta.getPitch());
    }
 
-   private void addValidPoint(List<Vec3d> list, Vec3d eye, Vec3d point, boolean ignoreWalls) {
+   private void addValidPoint(List<Vec3> list, Vec3 eye, Vec3 point, boolean ignoreWalls) {
       if (this.hasLineOfSight(eye, point, ignoreWalls)) {
          list.add(point);
       }
    }
 
-   private void addUniquePoint(List<Vec3d> list, Vec3d point, double minDistance) {
-      for (Vec3d existing : list) {
-         if (existing.squaredDistanceTo(point) <= minDistance * minDistance) {
+   private void addUniquePoint(List<Vec3> list, Vec3 point, double minDistance) {
+      for (Vec3 existing : list) {
+         if (existing.distanceToSqr(point) <= minDistance * minDistance) {
             return;
          }
       }
@@ -416,34 +416,34 @@ public class MultiPoint implements IMinecraft {
       list.add(point);
    }
 
-   private boolean isValidPoint(Vec3d eye, Vec3d point, float maxDistance, boolean ignoreWalls) {
-      return eye.squaredDistanceTo(point) > (double)maxDistance * (double)maxDistance ? false : this.hasLineOfSight(eye, point, ignoreWalls);
+   private boolean isValidPoint(Vec3 eye, Vec3 point, float maxDistance, boolean ignoreWalls) {
+      return eye.distanceToSqr(point) > (double)maxDistance * (double)maxDistance ? false : this.hasLineOfSight(eye, point, ignoreWalls);
    }
 
-   private boolean isEntityInReach(Vec3d eye, Box box, float maxDistance) {
-      Vec3d closest = new Vec3d(
-         MathHelper.clamp(eye.x, box.minX, box.maxX), MathHelper.clamp(eye.y, box.minY, box.maxY), MathHelper.clamp(eye.z, box.minZ, box.maxZ)
+   private boolean isEntityInReach(Vec3 eye, AABB box, float maxDistance) {
+      Vec3 closest = new Vec3(
+         Mth.clamp(eye.x, box.minX, box.maxX), Mth.clamp(eye.y, box.minY, box.maxY), Mth.clamp(eye.z, box.minZ, box.maxZ)
       );
-      return eye.squaredDistanceTo(closest) <= (double)maxDistance * (double)maxDistance;
+      return eye.distanceToSqr(closest) <= (double)maxDistance * (double)maxDistance;
    }
 
-   private Box targetBox(LivingEntity entity) {
+   private AABB targetBox(LivingEntity entity) {
       AutoSwap autoSwap = AutoSwap.getInstance();
       return autoSwap != null && autoSwap.shouldUseVanillaAuraHitbox() ? HitBoxModule.withoutExpansion(entity::getBoundingBox) : entity.getBoundingBox();
    }
 
-   private boolean hasLineOfSight(Vec3d eye, Vec3d point, boolean ignoreWalls) {
+   private boolean hasLineOfSight(Vec3 eye, Vec3 point, boolean ignoreWalls) {
       if (ignoreWalls) {
          return true;
       } else {
-         HitResult result = RaycastAngle.raycast(eye, point, ShapeType.COLLIDER);
+         HitResult result = RaycastAngle.raycast(eye, point, Block.COLLIDER);
          return result == null || result.getType() != Type.BLOCK;
       }
    }
 
-   private Vec3d clampOffset(Vec3d value) {
+   private Vec3 clampOffset(Vec3 value) {
       double len = value.length();
-      return !(len <= 0.5) && len != 0.0 ? value.multiply(0.5 / len) : value;
+      return !(len <= 0.5) && len != 0.0 ? value.scale(0.5 / len) : value;
    }
 
    private boolean isFunTimeMode() {

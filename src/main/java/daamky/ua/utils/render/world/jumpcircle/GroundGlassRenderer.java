@@ -4,9 +4,11 @@ import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.DepthTestFunction;
 import com.mojang.blaze3d.platform.DestFactor;
 import com.mojang.blaze3d.platform.SourceFactor;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.GpuDevice;
 import com.mojang.blaze3d.systems.RenderPass;
@@ -15,30 +17,28 @@ import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.textures.TextureFormat;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import com.mojang.blaze3d.vertex.VertexFormatElement;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
 import java.nio.ByteBuffer;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.lwjgl.system.MemoryStack;
 import daamky.ua.utils.render.Render3D;
 import daamky.ua.utils.render.RenderSampler;
 
 public final class GroundGlassRenderer {
-   private static final MinecraftClient MC = MinecraftClient.getInstance();
+   private static final Minecraft MC = Minecraft.getInstance();
    private static final int MATRIX_DATA_SIZE = 128;
    private static final int EFFECT_DATA_SIZE = 48;
    private static final int VERTEX_COUNT = 6;
    private static final int VERTEX_SIZE = 24;
-   private static final Identifier VERTEX_SHADER = Identifier.of("daamky", "world/jump_circle/ground_glass");
-   private static final Identifier FRAGMENT_SHADER = Identifier.of("daamky", "world/jump_circle/ground_glass");
+   private static final Identifier VERTEX_SHADER = Identifier.fromNamespaceAndPath("daamky", "world/jump_circle/ground_glass");
+   private static final Identifier FRAGMENT_SHADER = Identifier.fromNamespaceAndPath("daamky", "world/jump_circle/ground_glass");
    private static final BlendFunction REPLACE_BLEND = new BlendFunction(SourceFactor.ONE, DestFactor.ZERO, SourceFactor.ONE, DestFactor.ZERO);
    private static RenderPipeline pipeline;
    private static GpuBuffer matrixBuffer;
@@ -53,22 +53,22 @@ public final class GroundGlassRenderer {
    private GroundGlassRenderer() {
    }
 
-   public static void render(Vec3d center, float radius, int color, float alpha, float progress) {
+   public static void render(Vec3 center, float radius, int color, float alpha, float progress) {
       if (!disabledAfterError && center != null && !(radius <= 0.01F) && !(alpha <= 0.01F)) {
-         Framebuffer target = MC.getFramebuffer();
+         RenderTarget target = MC.getMainRenderTarget();
          if (target != null
-            && target.getColorAttachment() != null
-            && target.getColorAttachmentView() != null
-            && target.getDepthAttachmentView() != null
-            && target.textureWidth > 0
-            && target.textureHeight > 0) {
+            && target.getColorTexture() != null
+            && target.getColorTextureView() != null
+            && target.getDepthTextureView() != null
+            && target.width > 0
+            && target.height > 0) {
             try {
                init();
-               if (!ensureSceneTexture(target.textureWidth, target.textureHeight)) {
+               if (!ensureSceneTexture(target.width, target.height)) {
                   return;
                }
 
-               Vec3d camera = MC.gameRenderer.getCamera().getCameraPos();
+               Vec3 camera = MC.gameRenderer.getMainCamera().position();
                float x = (float)(center.x - camera.x);
                float y = (float)(center.y - camera.y + 0.012);
                float z = (float)(center.z - camera.z);
@@ -81,8 +81,8 @@ public final class GroundGlassRenderer {
                   putMatrix(matrices, new Matrix4f());
                   matrices.flip();
                   ByteBuffer effect = stack.calloc(48);
-                  effect.putFloat(0, (float)target.textureWidth);
-                  effect.putFloat(4, (float)target.textureHeight);
+                  effect.putFloat(0, (float)target.width);
+                  effect.putFloat(4, (float)target.height);
                   effect.putFloat(8, time);
                   effect.putFloat(12, Math.clamp(progress, 0.0F, 1.0F));
                   effect.putFloat(16, (float)(color >> 16 & 0xFF) / 255.0F);
@@ -103,15 +103,15 @@ public final class GroundGlassRenderer {
                   vertex(vertices, x - radius, y, z + radius, 0.0F, 1.0F);
                   vertices.flip();
                   CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
-                  encoder.copyTextureToTexture(target.getColorAttachment(), sceneTexture, 0, 0, 0, 0, 0, target.textureWidth, target.textureHeight);
+                  encoder.copyTextureToTexture(target.getColorTexture(), sceneTexture, 0, 0, 0, 0, 0, target.width, target.height);
                   encoder.writeToBuffer(matrixBuffer.slice(0L, 128L), matrices);
                   encoder.writeToBuffer(effectBuffer.slice(0L, 48L), effect);
                   encoder.writeToBuffer(vertexBuffer.slice(0L, 144L), vertices);
                   RenderPass pass = encoder.createRenderPass(
                      () -> "daamky:jump_circle_ground_glass",
-                     target.getColorAttachmentView(),
+                     target.getColorTextureView(),
                      OptionalInt.empty(),
-                     target.getDepthAttachmentView(),
+                     target.getDepthTextureView(),
                      OptionalDouble.empty()
                   );
 
@@ -169,10 +169,10 @@ public final class GroundGlassRenderer {
             .build();
          pipeline = RenderPipelines.register(
             RenderPipeline.builder(new Snippet[0])
-               .withLocation(Identifier.of("daamky", "pipeline/world/jump_circle_ground_glass"))
+               .withLocation(Identifier.fromNamespaceAndPath("daamky", "pipeline/world/jump_circle_ground_glass"))
                .withVertexShader(VERTEX_SHADER)
                .withFragmentShader(FRAGMENT_SHADER)
-               .withVertexFormat(format, DrawMode.TRIANGLES)
+               .withVertexFormat(format, Mode.TRIANGLES)
                .withUniform("Uniforms", UniformType.UNIFORM_BUFFER)
                .withUniform("GlassData", UniformType.UNIFORM_BUFFER)
                .withSampler("SceneSampler")

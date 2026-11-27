@@ -5,9 +5,9 @@ import java.util.Arrays;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.item.ItemStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.world.item.ItemStack;
 import daamky.ua.api.module.impl.player.AutoBuy;
 import daamky.ua.api.settings.impl.NumberSetting;
 import daamky.ua.manager.Manager;
@@ -194,7 +194,7 @@ public final class CsAutoBuyPanel {
       return this.editingPriceItem != null;
    }
 
-   public void render(DrawContext g, float x, float y, float w, float h, float alpha, float scale, int accent, int mx, int my) {
+   public void render(GuiGraphics g, float x, float y, float w, float h, float alpha, float scale, int accent, int mx, int my) {
       this.s = Math.max(0.5F, Math.min(2.0F, scale));
       this.beginAnimationFrame();
       this.panelAnimation = this.animate(this.panelAnimation, 1.0F, 9.0F);
@@ -1151,12 +1151,12 @@ public final class CsAutoBuyPanel {
       }
    }
 
-   private void drawIcon(DrawContext g, AutoBuyItem item, float x, float y, float size, float alpha) {
+   private void drawIcon(GuiGraphics g, AutoBuyItem item, float x, float y, float size, float alpha) {
       try {
          ItemStack stack = item.createIcon();
          if (g != null) {
             try {
-               g.drawItem(stack, (int)x, (int)y);
+               g.renderItem(stack, (int)x, (int)y);
                return;
             } catch (Throwable var9) {
             }
@@ -1495,8 +1495,8 @@ public final class CsAutoBuyPanel {
 
    private static String clipboard() {
       try {
-         MinecraftClient client = MinecraftClient.getInstance();
-         return client != null && client.keyboard != null ? client.keyboard.getClipboard() : "";
+         Minecraft client = Minecraft.getInstance();
+         return client != null && client.keyboardHandler != null ? client.keyboardHandler.getClipboard() : "";
       } catch (Throwable var1) {
          return "";
       }
@@ -1629,8 +1629,8 @@ public final class CsAutoBuyPanel {
 
    private static boolean hasWorld() {
       try {
-         MinecraftClient client = MinecraftClient.getInstance();
-         return client != null && client.world != null && client.player != null;
+         Minecraft client = Minecraft.getInstance();
+         return client != null && client.level != null && client.player != null;
       } catch (Throwable var1) {
          return false;
       }

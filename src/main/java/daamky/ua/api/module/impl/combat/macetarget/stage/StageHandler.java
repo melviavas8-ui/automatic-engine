@@ -1,16 +1,16 @@
 package daamky.ua.api.module.impl.combat.macetarget.stage;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.LivingEntity;
 import daamky.ua.api.module.impl.combat.aura.util.StopWatch;
 import daamky.ua.api.module.impl.combat.macetarget.armor.ArmorSwapHandler;
 import daamky.ua.api.module.impl.combat.macetarget.armor.FireworkHandler;
 import daamky.ua.api.module.impl.combat.macetarget.attack.AttackHandler;
 import daamky.ua.api.module.impl.combat.macetarget.state.MaceState;
 import daamky.ua.utils.inventory.lookup.InventoryUtils;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.LivingEntity;
 
 public class StageHandler {
-   private static final MinecraftClient MC = MinecraftClient.getInstance();
+   private static final Minecraft MC = Minecraft.getInstance();
    private final ArmorSwapHandler armorSwapHandler;
    private final FireworkHandler fireworkHandler;
    private final AttackHandler attackHandler;
@@ -68,7 +68,7 @@ public class StageHandler {
          if (!hasElytra) {
             this.stage = MaceState.Stage.PREPARE;
          } else {
-            if (MC.player.isGliding() && this.fireworkTimer.finished(300.0)) {
+            if (MC.player.isFallFlying() && this.fireworkTimer.finished(300.0)) {
                this.fireworkHandler.useFirework(this.silentMode);
                this.fireworkTimer.reset();
             }
@@ -122,7 +122,7 @@ public class StageHandler {
 
    public void handleFallAttack(LivingEntity target) {
       if (MC.player != null) {
-         if (!MC.player.isOnGround()) {
+         if (!MC.player.onGround()) {
             if (this.attackHandler.hasMaceInHotbar() && this.isLandingMaceWindow()) {
                this.attackHandler.prepareMaceSwap();
             }
@@ -131,9 +131,9 @@ public class StageHandler {
    }
 
    private boolean isLandingMaceWindow() {
-      if (MC.player != null && !MC.player.isOnGround()) {
+      if (MC.player != null && !MC.player.onGround()) {
          double fallDistance = MC.player.fallDistance;
-         return fallDistance >= (double)this.minAttackFallDistance && MC.player.getVelocity().y < -0.08;
+         return fallDistance >= (double)this.minAttackFallDistance && MC.player.getDeltaMovement().y < -0.08;
       } else {
          return false;
       }

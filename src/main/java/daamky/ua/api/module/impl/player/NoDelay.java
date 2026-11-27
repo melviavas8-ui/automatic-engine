@@ -1,13 +1,13 @@
 package daamky.ua.api.module.impl.player;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.item.Items;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.settings.impl.MultiModeSetting;
 import daamky.ua.mixin.accessor.LivingEntityAccessor;
 import daamky.ua.mixin.accessor.MinecraftAccessor;
 import daamky.ua.mixin.accessor.MultiPlayerGameModeAccessor;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.item.Items;
 
 public final class NoDelay extends Module {
    private static NoDelay instance;
@@ -27,10 +27,10 @@ public final class NoDelay extends Module {
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
+   public void onTick(Minecraft client) {
       if (client.player != null) {
-         if (this.ignoreSetting.isSelected("Break Delay") && client.interactionManager != null) {
-            ((MultiPlayerGameModeAccessor)client.interactionManager).daamky$setDestroyDelay(0);
+         if (this.ignoreSetting.isSelected("Break Delay") && client.gameMode != null) {
+            ((MultiPlayerGameModeAccessor)client.gameMode).daamky$setDestroyDelay(0);
          }
 
          if (this.ignoreSetting.isSelected("Jump")) {
@@ -44,7 +44,7 @@ public final class NoDelay extends Module {
    }
 
    public boolean shouldBypassItemUseCooldown() {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (!this.isEnabled() || client.player == null) {
          return false;
       } else {
@@ -53,10 +53,10 @@ public final class NoDelay extends Module {
    }
 
    public boolean shouldBypassExperienceBottleUse() {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       return this.isEnabled()
          && client.player != null
          && this.ignoreSetting.isSelected("Experience Bottle")
-         && (client.player.getMainHandStack().getItem() == Items.EXPERIENCE_BOTTLE || client.player.getOffHandStack().getItem() == Items.EXPERIENCE_BOTTLE);
+         && (client.player.getMainHandItem().getItem() == Items.EXPERIENCE_BOTTLE || client.player.getOffhandItem().getItem() == Items.EXPERIENCE_BOTTLE);
    }
 }

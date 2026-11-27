@@ -8,16 +8,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider.Immediate;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.util.math.MatrixStack.Entry;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4fc;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.PoseStack.Pose;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.WorldRenderEvent;
 import daamky.ua.api.module.Module;
@@ -90,11 +90,11 @@ public final class JumpCircles extends Module {
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
-      if (client != null && client.world != null && client.player != null) {
+   public void onTick(Minecraft client) {
+      if (client != null && client.level != null && client.player != null) {
          this.seenPlayers.clear();
 
-         for (PlayerEntity player : client.world.getPlayers()) {
+         for (Player player : client.level.players()) {
             if (this.shouldTrack(player, client)) {
                this.seenPlayers.add(player.getId());
                this.trackJump(player);
@@ -117,44 +117,44 @@ public final class JumpCircles extends Module {
          long duration = this.lifetimeMillis();
          this.waves.removeIf(wavex -> wavex.expired(now, duration));
          if (!this.waves.isEmpty()) {
-            MatrixStack stack = event.getStack();
-            Immediate provider = mc.getBufferBuilders().getEntityVertexConsumers();
-            Vec3d camera = mc.gameRenderer.getCamera().getCameraPos();
+            PoseStack stack = event.getStack();
+            BufferSource provider = mc.renderBuffers().bufferSource();
+            Vec3 camera = mc.gameRenderer.getMainCamera().position();
             VertexConsumer bodyConsumer = provider.getBuffer(ClientPipelines.TRAILS_ALPHA);
 
             for (JumpCircles.JumpWave wave : this.waves) {
-               float progress = MathHelper.clamp((float)(now - wave.spawnTime) / (float)duration, 0.0F, 1.0F);
+               float progress = Mth.clamp((float)(now - wave.spawnTime) / (float)duration, 0.0F, 1.0F);
                float alpha = envelope(progress) * wave.retirementAlpha(now);
                if (!(alpha <= 0.006F)) {
-                  stack.push();
+                  stack.pushPose();
                   stack.translate(wave.origin.x - camera.x, wave.origin.y - camera.y, wave.origin.z - camera.z);
                   this.renderWave(stack, bodyConsumer, wave, progress, alpha, JumpCircles.RenderPass.BODY);
-                  stack.pop();
+                  stack.popPose();
                }
             }
 
-            provider.draw(ClientPipelines.TRAILS_ALPHA);
+            provider.endBatch(ClientPipelines.TRAILS_ALPHA);
             if (!(this.glow.getFloat() <= 0.01F)) {
                VertexConsumer glowConsumer = provider.getBuffer(ClientPipelines.CRYSTAL_GLOW);
 
                for (JumpCircles.JumpWave wavex : this.waves) {
-                  float progress = MathHelper.clamp((float)(now - wavex.spawnTime) / (float)duration, 0.0F, 1.0F);
+                  float progress = Mth.clamp((float)(now - wavex.spawnTime) / (float)duration, 0.0F, 1.0F);
                   float alpha = envelope(progress) * wavex.retirementAlpha(now);
                   if (!(alpha <= 0.006F)) {
-                     stack.push();
+                     stack.pushPose();
                      stack.translate(wavex.origin.x - camera.x, wavex.origin.y - camera.y, wavex.origin.z - camera.z);
                      this.renderWave(stack, glowConsumer, wavex, progress, alpha, JumpCircles.RenderPass.GLOW);
-                     stack.pop();
+                     stack.popPose();
                   }
                }
 
-               provider.draw(ClientPipelines.CRYSTAL_GLOW);
+               provider.endBatch(ClientPipelines.CRYSTAL_GLOW);
             }
          }
       }
    }
 
-   public void onAfterWorldRender(Framebuffer target, Matrix4fc projectionMatrix, Matrix4fc viewMatrix, Vec3d cameraPosition) {
+   public void onAfterWorldRender(RenderTarget target, Matrix4fc projectionMatrix, Matrix4fc viewMatrix, Vec3 cameraPosition) {
       if (this.isEnabled() && !this.waves.isEmpty()) {
          long now = System.currentTimeMillis();
          long duration = this.lifetimeMillis();
@@ -171,7 +171,7 @@ public final class JumpCircles extends Module {
 
             for (int index = first; index < this.waves.size(); index++) {
                JumpCircles.JumpWave wave = this.waves.get(index);
-               float progress = MathHelper.clamp((float)(now - wave.spawnTime) / (float)duration, 0.0F, 1.0F);
+               float progress = Mth.clamp((float)(now - wave.spawnTime) / (float)duration, 0.0F, 1.0F);
                float alpha = envelope(progress) * wave.retirementAlpha(now);
                if (!(alpha <= 0.006F)) {
                   float thickness = this.ribbonWidth.getFloat() * (this.style.is("Refraction") ? 0.78F : 1.28F);
@@ -190,10 +190,10 @@ public final class JumpCircles extends Module {
       }
    }
 
-   private void trackJump(PlayerEntity player) {
+   private void trackJump(Player player) {
       int id = player.getId();
       JumpCircles.PlayerJumpState state = this.playerStates.get(id);
-      boolean grounded = player.isOnGround();
+      boolean grounded = player.onGround();
       double y = player.getY();
       if (state == null) {
          this.playerStates.put(id, new JumpCircles.PlayerJumpState(grounded, y, y));
@@ -201,9 +201,9 @@ public final class JumpCircles extends Module {
          if (grounded) {
             state.lastGroundY = y;
          } else if (state.grounded) {
-            double rise = Math.max(player.getVelocity().y, y - state.lastY);
+            double rise = Math.max(player.getDeltaMovement().y, y - state.lastY);
             if (rise > 0.055) {
-               this.spawnWave(new Vec3d(player.getX(), state.lastGroundY + 0.035, player.getZ()));
+               this.spawnWave(new Vec3(player.getX(), state.lastGroundY + 0.035, player.getZ()));
             }
          }
 
@@ -212,7 +212,7 @@ public final class JumpCircles extends Module {
       }
    }
 
-   private void spawnWave(Vec3d position) {
+   private void spawnWave(Vec3 position) {
       long now = System.currentTimeMillis();
       this.waves.removeIf(wavex -> wavex.expired(now, this.lifetimeMillis()));
       if (this.waves.size() >= 6) {
@@ -231,7 +231,7 @@ public final class JumpCircles extends Module {
       this.waves.add(JumpCircles.JumpWave.create(position, now, this.random));
    }
 
-   private void renderWave(MatrixStack stack, VertexConsumer consumer, JumpCircles.JumpWave wave, float progress, float alpha, JumpCircles.RenderPass pass) {
+   private void renderWave(PoseStack stack, VertexConsumer consumer, JumpCircles.JumpWave wave, float progress, float alpha, JumpCircles.RenderPass pass) {
       int ribbonCount = this.style.is("Refraction")
          ? Math.clamp((long)((int)Math.round(this.strands.getValue())), 2, 3)
          : Math.clamp((long)((int)Math.round(this.strands.getValue())), 2, 5);
@@ -247,9 +247,9 @@ public final class JumpCircles extends Module {
          float strandPhase = wave.seedPhase + (float) (Math.PI * 2) * (float)ribbon / (float)ribbonCount;
          float centeredRibbon = (float)ribbon - (float)(ribbonCount - 1) * 0.5F;
          float orbitOffset = radius * 0.018F;
-         float offsetX = MathHelper.cos((double)strandPhase) * orbitOffset;
-         float offsetZ = MathHelper.sin((double)strandPhase) * orbitOffset;
-         float strandWidth = halfWidth * (0.88F + 0.18F * MathHelper.sin((double)(strandPhase + time * 0.65F)));
+         float offsetX = Mth.cos((double)strandPhase) * orbitOffset;
+         float offsetZ = Mth.sin((double)strandPhase) * orbitOffset;
+         float strandWidth = halfWidth * (0.88F + 0.18F * Mth.sin((double)(strandPhase + time * 0.65F)));
          float radialLane = centeredRibbon * halfWidth * (this.style.is("Refraction") ? 2.35F : 1.28F);
 
          for (int segment = 0; segment < 40; segment++) {
@@ -310,58 +310,58 @@ public final class JumpCircles extends Module {
       float laneMotion = 0.0F;
       float radiusNoise;
       if (this.style.is("Refraction")) {
-         radiusNoise = 0.019F * MathHelper.sin((double)(theta * 3.0F + wave.seedPhase + time * 0.18F))
-            + 0.008F * MathHelper.sin((double)(theta * 8.0F - wave.opacityPhase - time * 0.11F));
+         radiusNoise = 0.019F * Mth.sin((double)(theta * 3.0F + wave.seedPhase + time * 0.18F))
+            + 0.008F * Mth.sin((double)(theta * 8.0F - wave.opacityPhase - time * 0.11F));
       } else if (this.style.is("Crown")) {
-         radiusNoise = 0.04F * MathHelper.sin((double)(theta * 4.0F + wave.seedPhase)) + 0.018F * MathHelper.sin((double)(theta * 9.0F - time * 0.18F));
+         radiusNoise = 0.04F * Mth.sin((double)(theta * 4.0F + wave.seedPhase)) + 0.018F * Mth.sin((double)(theta * 9.0F - time * 0.18F));
       } else if (this.style.is("Bloom")) {
-         radiusNoise = 0.125F * MathHelper.sin((double)(theta * 3.0F + wave.seedPhase + time * 0.16F))
-            + 0.032F * MathHelper.sin((double)(theta * 6.0F - strandPhase));
-         laneMotion = MathHelper.sin((double)(theta * 3.0F + strandPhase - time * 0.42F)) * radius * 0.028F;
+         radiusNoise = 0.125F * Mth.sin((double)(theta * 3.0F + wave.seedPhase + time * 0.16F))
+            + 0.032F * Mth.sin((double)(theta * 6.0F - strandPhase));
+         laneMotion = Mth.sin((double)(theta * 3.0F + strandPhase - time * 0.42F)) * radius * 0.028F;
       } else if (this.style.is("Rift")) {
-         radiusNoise = 0.058F * MathHelper.sin((double)(theta * 7.0F + strandPhase - time * 0.35F))
-            + 0.026F * MathHelper.sin((double)(theta * 13.0F + wave.seedPhase));
+         radiusNoise = 0.058F * Mth.sin((double)(theta * 7.0F + strandPhase - time * 0.35F))
+            + 0.026F * Mth.sin((double)(theta * 13.0F + wave.seedPhase));
       } else {
-         radiusNoise = 0.072F * MathHelper.sin((double)(theta * 2.0F + strandPhase + time * 0.34F))
-            + 0.034F * MathHelper.sin((double)(theta * 5.0F - strandPhase * 1.7F - time * 0.24F))
-            + 0.016F * MathHelper.sin((double)(theta * 11.0F + wave.seedPhase * 2.3F));
+         radiusNoise = 0.072F * Mth.sin((double)(theta * 2.0F + strandPhase + time * 0.34F))
+            + 0.034F * Mth.sin((double)(theta * 5.0F - strandPhase * 1.7F - time * 0.24F))
+            + 0.016F * Mth.sin((double)(theta * 11.0F + wave.seedPhase * 2.3F));
       }
 
       float centerRadius = radius * (1.0F + radiusNoise) + radiusOffset + laneMotion;
-      float cos = MathHelper.cos((double)theta);
-      float sin = MathHelper.sin((double)theta);
+      float cos = Mth.cos((double)theta);
+      float sin = Mth.sin((double)theta);
       float rollingWave;
       float crestMultiplier;
       if (this.style.is("Refraction")) {
          rollingWave = waveHeight
             * (
                0.2F
-                  + 0.08F * MathHelper.sin((double)(theta * 2.0F + strandPhase + time * 0.32F))
-                  + 0.035F * MathHelper.sin((double)(theta * 6.0F - time * 0.2F))
+                  + 0.08F * Mth.sin((double)(theta * 2.0F + strandPhase + time * 0.32F))
+                  + 0.035F * Mth.sin((double)(theta * 6.0F - time * 0.2F))
             );
          crestMultiplier = 0.0F;
       } else if (this.style.is("Crown")) {
          rollingWave = waveHeight
-            * (0.16F * MathHelper.sin((double)(theta * 4.0F + time * 0.32F)) + 0.07F * MathHelper.sin((double)(theta * 8.0F - time * 0.21F)));
+            * (0.16F * Mth.sin((double)(theta * 4.0F + time * 0.32F)) + 0.07F * Mth.sin((double)(theta * 8.0F - time * 0.21F)));
          crestMultiplier = 1.82F;
       } else if (this.style.is("Bloom")) {
          rollingWave = waveHeight
             * (
                0.38F
-                  + 0.34F * MathHelper.sin((double)(theta * 3.0F + wave.seedPhase + time * 0.38F))
-                  + 0.1F * MathHelper.sin((double)(theta * 6.0F - time * 0.17F))
+                  + 0.34F * Mth.sin((double)(theta * 3.0F + wave.seedPhase + time * 0.38F))
+                  + 0.1F * Mth.sin((double)(theta * 6.0F - time * 0.17F))
             );
          crestMultiplier = 0.52F;
       } else if (this.style.is("Rift")) {
-         float jagged = (float)Math.pow((double)Math.max(0.0F, MathHelper.sin((double)(theta * 5.0F - time * 0.48F + strandPhase))), 4.0);
-         rollingWave = waveHeight * (0.18F * MathHelper.sin((double)(theta * 3.0F + strandPhase)) + jagged * 0.62F);
+         float jagged = (float)Math.pow((double)Math.max(0.0F, Mth.sin((double)(theta * 5.0F - time * 0.48F + strandPhase))), 4.0);
+         rollingWave = waveHeight * (0.18F * Mth.sin((double)(theta * 3.0F + strandPhase)) + jagged * 0.62F);
          crestMultiplier = 1.15F;
       } else {
          rollingWave = waveHeight
             * (
-               0.3F * MathHelper.sin((double)(theta * 2.0F + strandPhase + time * 0.6F))
-                  + 0.14F * MathHelper.sin((double)(theta * 6.0F - strandPhase + time * 0.27F))
-                  + wave.bend * 0.08F * MathHelper.cos((double)(theta + time * 0.19F))
+               0.3F * Mth.sin((double)(theta * 2.0F + strandPhase + time * 0.6F))
+                  + 0.14F * Mth.sin((double)(theta * 6.0F - strandPhase + time * 0.27F))
+                  + wave.bend * 0.08F * Mth.cos((double)(theta + time * 0.19F))
             );
          crestMultiplier = 1.42F;
       }
@@ -377,7 +377,7 @@ public final class JumpCircles extends Module {
    }
 
    private void emitTube(
-      MatrixStack stack,
+      PoseStack stack,
       VertexConsumer consumer,
       JumpCircles.RibbonPoint a,
       JumpCircles.RibbonPoint b,
@@ -386,7 +386,7 @@ public final class JumpCircles extends Module {
       int colorB,
       boolean halo
    ) {
-      Entry pose = stack.peek();
+      Pose pose = stack.last();
       float centerAX = (a.outerX + a.innerX) * 0.5F;
       float centerAZ = (a.outerZ + a.innerZ) * 0.5F;
       float centerBX = (b.outerX + b.innerX) * 0.5F;
@@ -399,10 +399,10 @@ public final class JumpCircles extends Module {
       for (int side = 0; side < 6; side++) {
          float angle0 = (float) (Math.PI * 2) * (float)side / 6.0F;
          float angle1 = (float) (Math.PI * 2) * (float)(side + 1) / 6.0F;
-         float radial0 = MathHelper.cos((double)angle0);
-         float radial1 = MathHelper.cos((double)angle1);
-         float vertical0 = MathHelper.sin((double)angle0);
-         float vertical1 = MathHelper.sin((double)angle1);
+         float radial0 = Mth.cos((double)angle0);
+         float radial1 = Mth.cos((double)angle1);
+         float vertical0 = Mth.sin((double)angle0);
+         float vertical1 = Mth.sin((double)angle1);
          int a0 = halo ? colorA : shadeTubeColor(colorA, vertical0);
          int a1 = halo ? colorA : shadeTubeColor(colorA, vertical1);
          int b0 = halo ? colorB : shadeTubeColor(colorB, vertical0);
@@ -415,9 +415,9 @@ public final class JumpCircles extends Module {
    }
 
    private void emitTopAtHeight(
-      MatrixStack stack, VertexConsumer consumer, JumpCircles.RibbonPoint a, JumpCircles.RibbonPoint b, float yOffset, int colorA, int colorB
+      PoseStack stack, VertexConsumer consumer, JumpCircles.RibbonPoint a, JumpCircles.RibbonPoint b, float yOffset, int colorA, int colorB
    ) {
-      Entry pose = stack.peek();
+      Pose pose = stack.last();
       vertex(consumer, pose, a.outerX, a.outerY + yOffset, a.outerZ, colorA);
       vertex(consumer, pose, b.outerX, b.outerY + yOffset, b.outerZ, colorB);
       vertex(consumer, pose, b.innerX, b.innerY + yOffset, b.innerZ, colorB);
@@ -425,13 +425,13 @@ public final class JumpCircles extends Module {
    }
 
    private void emitCurtains(
-      MatrixStack stack, VertexConsumer consumer, JumpCircles.RibbonPoint a, JumpCircles.RibbonPoint b, float tubeRadius, int colorA, int colorB
+      PoseStack stack, VertexConsumer consumer, JumpCircles.RibbonPoint a, JumpCircles.RibbonPoint b, float tubeRadius, int colorA, int colorB
    ) {
       float floorY = 0.018F;
       float topAY = Math.max(floorY, a.outerY - tubeRadius * 0.55F);
       float topBY = Math.max(floorY, b.outerY - tubeRadius * 0.55F);
       if (!(topAY <= floorY + 0.015F) || !(topBY <= floorY + 0.015F)) {
-         Entry pose = stack.peek();
+         Pose pose = stack.last();
          int topA = ColorUtil.multAlpha(colorA, 0.48F);
          int topB = ColorUtil.multAlpha(colorB, 0.48F);
          int floorA = ColorUtil.multAlpha(colorA, 0.23F);
@@ -459,9 +459,9 @@ public final class JumpCircles extends Module {
       int red = Math.round((float)ColorUtil.getRed(color) * light);
       int green = Math.round((float)ColorUtil.getGreen(color) * light);
       int blue = Math.round((float)ColorUtil.getBlue(color) * light);
-      red = Math.round(MathHelper.lerp(whiteMix, (float)red, 255.0F));
-      green = Math.round(MathHelper.lerp(whiteMix, (float)green, 255.0F));
-      blue = Math.round(MathHelper.lerp(whiteMix, (float)blue, 255.0F));
+      red = Math.round(Mth.lerp(whiteMix, (float)red, 255.0F));
+      green = Math.round(Mth.lerp(whiteMix, (float)green, 255.0F));
+      blue = Math.round(Mth.lerp(whiteMix, (float)blue, 255.0F));
       float alphaScale = 0.72F + (vertical + 1.0F) * 0.14F;
       return ColorUtil.rgba(
          Math.clamp((long)red, 0, 255),
@@ -471,23 +471,23 @@ public final class JumpCircles extends Module {
       );
    }
 
-   private static void vertex(VertexConsumer consumer, Entry pose, float x, float y, float z, int color) {
-      consumer.vertex(pose, x, y, z).color(color);
+   private static void vertex(VertexConsumer consumer, Pose pose, float x, float y, float z, int color) {
+      consumer.addVertex(pose, x, y, z).setColor(color);
    }
 
    private int ribbonColor(int ribbon, float theta, float time, float alpha) {
-      float flow = (MathHelper.sin((double)(theta * 1.35F - time * 1.3F + (float)ribbon * 1.7F)) + 1.0F) * 0.5F;
+      float flow = (Mth.sin((double)(theta * 1.35F - time * 1.3F + (float)ribbon * 1.7F)) + 1.0F) * 0.5F;
       flow = 0.12F + flow * 0.82F;
       Color first = this.primaryColor.getValue();
       Color second = this.secondaryColor.getValue();
-      int red = Math.round(MathHelper.lerp(flow, (float)first.getRed(), (float)second.getRed()));
-      int green = Math.round(MathHelper.lerp(flow, (float)first.getGreen(), (float)second.getGreen()));
-      int blue = Math.round(MathHelper.lerp(flow, (float)first.getBlue(), (float)second.getBlue()));
+      int red = Math.round(Mth.lerp(flow, (float)first.getRed(), (float)second.getRed()));
+      int green = Math.round(Mth.lerp(flow, (float)first.getGreen(), (float)second.getGreen()));
+      int blue = Math.round(Mth.lerp(flow, (float)first.getBlue(), (float)second.getBlue()));
       if (this.style.is("Refraction")) {
          float pearl = 0.69F + 0.12F * flowingPulse(theta, (float)ribbon * 1.7F, time);
-         red = Math.round(MathHelper.lerp(pearl, (float)red, 255.0F));
-         green = Math.round(MathHelper.lerp(pearl, (float)green, 255.0F));
-         blue = Math.round(MathHelper.lerp(pearl, (float)blue, 255.0F));
+         red = Math.round(Mth.lerp(pearl, (float)red, 255.0F));
+         green = Math.round(Mth.lerp(pearl, (float)green, 255.0F));
+         blue = Math.round(Mth.lerp(pearl, (float)blue, 255.0F));
       }
 
       int baseAlpha = Math.min(first.getAlpha(), second.getAlpha());
@@ -495,43 +495,43 @@ public final class JumpCircles extends Module {
          Math.clamp((long)red, 0, 255),
          Math.clamp((long)green, 0, 255),
          Math.clamp((long)blue, 0, 255),
-         Math.clamp((long)Math.round((float)baseAlpha * MathHelper.clamp(alpha, 0.0F, 1.0F)), 0, 255)
+         Math.clamp((long)Math.round((float)baseAlpha * Mth.clamp(alpha, 0.0F, 1.0F)), 0, 255)
       );
    }
 
    private float animatedRadius(float progress) {
       float exponent = this.style.is("Refraction") ? 3.7F : 3.0F;
       float eased = 1.0F - (float)Math.pow((double)(1.0F - progress), (double)exponent);
-      float settle = 1.0F + 0.035F * MathHelper.sin((double)(progress * (float) Math.PI));
+      float settle = 1.0F + 0.035F * Mth.sin((double)(progress * (float) Math.PI));
       return (0.035F + this.size.getFloat() * eased) * settle;
    }
 
    private static float envelope(float progress) {
       float appear = smoothStep(0.0F, 0.11F, progress);
       float disappear = 1.0F - smoothStep(0.58F, 1.0F, progress);
-      return MathHelper.clamp(appear * disappear, 0.0F, 1.0F);
+      return Mth.clamp(appear * disappear, 0.0F, 1.0F);
    }
 
    private static float flowingPulse(float theta, float phase, float time) {
-      return (MathHelper.sin((double)(theta * 3.0F - time * 2.0F + phase)) + 1.0F) * 0.5F;
+      return (Mth.sin((double)(theta * 3.0F - time * 2.0F + phase)) + 1.0F) * 0.5F;
    }
 
    private float organicOpacity(JumpCircles.JumpWave wave, int ribbon, float theta, float time) {
-      float slow = MathHelper.sin((double)(theta * 3.0F + wave.opacityPhase + (float)ribbon * 1.41F - time * 0.52F));
-      float detail = MathHelper.sin((double)(theta * 8.0F - wave.opacityPhase * 0.67F + (float)ribbon * 2.07F + time * 0.21F));
-      float drifting = MathHelper.sin((double)(theta * 1.35F + wave.seedPhase - time * 0.88F));
+      float slow = Mth.sin((double)(theta * 3.0F + wave.opacityPhase + (float)ribbon * 1.41F - time * 0.52F));
+      float detail = Mth.sin((double)(theta * 8.0F - wave.opacityPhase * 0.67F + (float)ribbon * 2.07F + time * 0.21F));
+      float drifting = Mth.sin((double)(theta * 1.35F + wave.seedPhase - time * 0.88F));
       float noise = slow * 0.5F + detail * 0.27F + drifting * 0.23F;
       if (this.style.is("Refraction")) {
-         return MathHelper.clamp(0.88F + noise * 0.12F, 0.7F, 1.0F);
+         return Mth.clamp(0.88F + noise * 0.12F, 0.7F, 1.0F);
       } else if (this.style.is("Crown")) {
-         return MathHelper.clamp(0.82F + noise * 0.18F, 0.58F, 1.0F);
+         return Mth.clamp(0.82F + noise * 0.18F, 0.58F, 1.0F);
       } else if (this.style.is("Bloom")) {
-         return MathHelper.clamp(0.74F + noise * 0.22F, 0.46F, 1.0F);
+         return Mth.clamp(0.74F + noise * 0.22F, 0.46F, 1.0F);
       } else if (this.style.is("Rift")) {
-         float fracture = (float)Math.pow((double)Math.abs(MathHelper.sin((double)(theta * 4.5F + wave.opacityPhase - time * 0.34F))), 2.6);
-         return MathHelper.clamp(0.24F + fracture * 0.76F + noise * 0.16F, 0.12F, 1.0F);
+         float fracture = (float)Math.pow((double)Math.abs(Mth.sin((double)(theta * 4.5F + wave.opacityPhase - time * 0.34F))), 2.6);
+         return Mth.clamp(0.24F + fracture * 0.76F + noise * 0.16F, 0.12F, 1.0F);
       } else {
-         return MathHelper.clamp(0.7F + noise * 0.3F, 0.3F, 1.0F);
+         return Mth.clamp(0.7F + noise * 0.3F, 0.3F, 1.0F);
       }
    }
 
@@ -568,16 +568,16 @@ public final class JumpCircles extends Module {
    }
 
    private static float angularDistance(float first, float second) {
-      float delta = Math.abs(MathHelper.wrapDegrees((first - second) * (180.0F / (float)Math.PI))) * (float) (Math.PI / 180.0);
+      float delta = Math.abs(Mth.wrapDegrees((first - second) * (180.0F / (float)Math.PI))) * (float) (Math.PI / 180.0);
       return Math.min(delta, (float) Math.PI);
    }
 
    private static float smoothStep(float edge0, float edge1, float value) {
-      float t = MathHelper.clamp((value - edge0) / Math.max(1.0E-4F, edge1 - edge0), 0.0F, 1.0F);
+      float t = Mth.clamp((value - edge0) / Math.max(1.0E-4F, edge1 - edge0), 0.0F, 1.0F);
       return t * t * (3.0F - 2.0F * t);
    }
 
-   private boolean shouldTrack(PlayerEntity player, MinecraftClient client) {
+   private boolean shouldTrack(Player player, Minecraft client) {
       return player != null && player.isAlive() ? player == client.player ? this.self.getValue() : this.players.getValue() : false;
    }
 
@@ -587,7 +587,7 @@ public final class JumpCircles extends Module {
 
    private static final class JumpWave {
       private static final int SPIKE_COUNT = 4;
-      private final Vec3d origin;
+      private final Vec3 origin;
       private final long spawnTime;
       private final float seedPhase;
       private final float bend;
@@ -598,7 +598,7 @@ public final class JumpCircles extends Module {
       private long retirementStarted = -1L;
 
       private JumpWave(
-         Vec3d origin, long spawnTime, float seedPhase, float bend, float opacityPhase, float[] spikeAngles, float[] spikeHeights, float[] spikeWidths
+         Vec3 origin, long spawnTime, float seedPhase, float bend, float opacityPhase, float[] spikeAngles, float[] spikeHeights, float[] spikeWidths
       ) {
          this.origin = origin;
          this.spawnTime = spawnTime;
@@ -610,7 +610,7 @@ public final class JumpCircles extends Module {
          this.spikeWidths = spikeWidths;
       }
 
-      private static JumpCircles.JumpWave create(Vec3d origin, long spawnTime, Random random) {
+      private static JumpCircles.JumpWave create(Vec3 origin, long spawnTime, Random random) {
          float[] spikeAngles = new float[4];
          float[] spikeHeights = new float[4];
          float[] spikeWidths = new float[4];
@@ -653,7 +653,7 @@ public final class JumpCircles extends Module {
          if (this.retirementStarted < 0L) {
             return 1.0F;
          } else {
-            float progress = MathHelper.clamp((float)(now - this.retirementStarted) / 280.0F, 0.0F, 1.0F);
+            float progress = Mth.clamp((float)(now - this.retirementStarted) / 280.0F, 0.0F, 1.0F);
             return 1.0F - JumpCircles.smoothStep(0.0F, 1.0F, progress);
          }
       }

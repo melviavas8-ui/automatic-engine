@@ -1,10 +1,10 @@
 package daamky.ua.api.module.impl.combat.aura.rotations;
 
 import java.util.Random;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.module.impl.combat.AuraModule;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.api.module.impl.combat.aura.MathAngle;
@@ -13,7 +13,7 @@ import daamky.ua.api.module.impl.combat.aura.impl.RotateConstructor;
 import daamky.ua.api.module.impl.combat.aura.util.MathUtils;
 
 public class FTAngle extends RotateConstructor {
-   private final MinecraftClient mc = MinecraftClient.getInstance();
+   private final Minecraft mc = Minecraft.getInstance();
    private final Random random;
    private final float baseYawStep;
    private final float basePitchStep;
@@ -35,7 +35,7 @@ public class FTAngle extends RotateConstructor {
    }
 
    @Override
-   public Angle limitAngleChange(Angle currentTurns, Angle targetTurns, Vec3d vec3d, Entity entity) {
+   public Angle limitAngleChange(Angle currentTurns, Angle targetTurns, Vec3 vec3d, Entity entity) {
       if (this.mc.player == null) {
          return targetTurns;
       } else {
@@ -48,8 +48,8 @@ public class FTAngle extends RotateConstructor {
             }
 
             Angle delta = MathAngle.calculateDelta(currentTurns, targetTurns);
-            float yawStep = MathHelper.clamp(delta.getYaw(), -this.baseYawStep, this.baseYawStep);
-            float pitchStep = MathHelper.clamp(delta.getPitch(), -this.basePitchStep, this.basePitchStep);
+            float yawStep = Mth.clamp(delta.getYaw(), -this.baseYawStep, this.baseYawStep);
+            float pitchStep = Mth.clamp(delta.getPitch(), -this.basePitchStep, this.basePitchStep);
             float distance = entity == null ? Float.MAX_VALUE : this.mc.player.distanceTo(entity);
             if (distance < 4.5F) {
                yawStep *= 0.62F;
@@ -92,7 +92,7 @@ public class FTAngle extends RotateConstructor {
                nextPitch = (float)Math.round(nextPitch / gcd) * gcd;
             }
 
-            nextPitch = MathHelper.clamp(nextPitch, -89.0F, 89.0F);
+            nextPitch = Mth.clamp(nextPitch, -89.0F, 89.0F);
             if (this.canAttack(entity)) {
                this.lockUntil = now + 132L + (long)this.random.nextInt(148);
             }
@@ -121,7 +121,7 @@ public class FTAngle extends RotateConstructor {
    }
 
    @Override
-   public Vec3d randomValue() {
-      return Vec3d.ZERO;
+   public Vec3 randomValue() {
+      return Vec3.ZERO;
    }
 }

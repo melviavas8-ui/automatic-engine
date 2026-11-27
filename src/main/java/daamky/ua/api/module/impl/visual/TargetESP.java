@@ -1,14 +1,14 @@
 package daamky.ua.api.module.impl.visual;
 
 import java.awt.Color;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.VertexConsumerProvider.Immediate;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Camera;
+import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Quaternionf;
+import com.mojang.blaze3d.vertex.PoseStack;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.WorldRenderEvent;
 import daamky.ua.api.module.Module;
@@ -65,7 +65,7 @@ public class TargetESP extends Module {
    private final NumberSetting ringImpactIntensity = this.register(
       new NumberSetting("Ring Impact Intensity", "Circle target ESP impact red intensity.", 1.0, 0.1, 1.0, 0.05)
    );
-   private Vec3d smoothedPos;
+   private Vec3 smoothedPos;
    private LivingEntity lastTarget;
    private float hurtProgress;
    private float chainImpactProgress;
@@ -116,7 +116,7 @@ public class TargetESP extends Module {
             this.smoothToTarget(target, event.getPartialTicks());
          } else {
             this.lastTarget = target;
-            this.smoothedPos = target.getLerpedPos(event.getPartialTicks());
+            this.smoothedPos = target.getPosition(event.getPartialTicks());
          }
 
          this.alphaAnimation.run(1.0, 0.25, Easings.CUBIC_OUT, true);
@@ -125,21 +125,21 @@ public class TargetESP extends Module {
       }
 
       this.alphaAnimation.update();
-      float alpha = MathHelper.clamp(this.alphaAnimation.get(), 0.0F, 1.0F);
+      float alpha = Mth.clamp(this.alphaAnimation.get(), 0.0F, 1.0F);
       if (!(alpha <= 0.01F) && this.lastTarget != null && this.smoothedPos != null) {
          this.hurtProgress = this.lastTarget.hurtTime > 0 ? (float)this.lastTarget.hurtTime / 10.0F : Math.max(0.0F, this.hurtProgress - 0.1F * deltaTime);
          float impactTarget = this.lastTarget.hurtTime > 0 ? 1.0F : 0.0F;
          float impactStep = (impactTarget > this.chainImpactProgress ? 0.3F : 0.1F) * deltaTime;
          this.chainImpactProgress = TargetEspMath.approach(this.chainImpactProgress, impactTarget, impactStep);
-         Camera camera = mc.gameRenderer.getCamera();
-         Vec3d cameraPos = camera.getCameraPos();
-         Quaternionf cameraRotation = new Quaternionf(camera.getRotation());
+         Camera camera = mc.gameRenderer.getMainCamera();
+         Vec3 cameraPos = camera.position();
+         Quaternionf cameraRotation = new Quaternionf(camera.rotation());
          float cameraFade = this.computeCameraFade(this.lastTarget, cameraPos);
          float renderAlpha = alpha * cameraFade;
          if (!(renderAlpha <= 0.01F)) {
-            MatrixStack stack = event.getStack();
-            Immediate provider = mc.getBufferBuilders().getEntityVertexConsumers();
-            stack.push();
+            PoseStack stack = event.getStack();
+            BufferSource provider = mc.renderBuffers().bufferSource();
+            stack.pushPose();
             stack.translate(this.smoothedPos.x - cameraPos.x, this.smoothedPos.y - cameraPos.y, this.smoothedPos.z - cameraPos.z);
             TargetEspRenderContext context = new TargetEspRenderContext(
                this.lastTarget,
@@ -203,15 +203,15 @@ public class TargetESP extends Module {
                }
             }
 
-            stack.pop();
+            stack.popPose();
          }
       }
    }
 
    private void smoothToTarget(LivingEntity target, float partialTicks) {
-      Vec3d targetPos = target.getLerpedPos(partialTicks);
+      Vec3 targetPos = target.getPosition(partialTicks);
       float smoothing = Math.min(1.0F, Math.max(0.12F, partialTicks * 1.5F));
-      this.smoothedPos = new Vec3d(
+      this.smoothedPos = new Vec3(
          this.smoothedPos.x + (targetPos.x - this.smoothedPos.x) * (double)smoothing,
          this.smoothedPos.y + (targetPos.y - this.smoothedPos.y) * (double)smoothing,
          this.smoothedPos.z + (targetPos.z - this.smoothedPos.z) * (double)smoothing
@@ -230,11 +230,11 @@ public class TargetESP extends Module {
       return this.mode.is("Circle") || this.mode.is("Crystal") || this.mode.is("Vortex");
    }
 
-   private float computeCameraFade(LivingEntity target, Vec3d cameraPos) {
-      Box fadeZone = target.getBoundingBox().expand(0.1F);
-      double distanceToBounds = Math.sqrt(fadeZone.squaredMagnitude(cameraPos));
-      float fadeRange = Math.max(0.55F, target.getWidth() * 0.85F);
-      float fade = MathHelper.clamp((float)(distanceToBounds / (double)fadeRange), 0.0F, 1.0F);
+   private float computeCameraFade(LivingEntity target, Vec3 cameraPos) {
+      AABB fadeZone = target.getBoundingBox().inflate(0.1F);
+      double distanceToBounds = Math.sqrt(fadeZone.distanceToSqr(cameraPos));
+      float fadeRange = Math.max(0.55F, target.getBbWidth() * 0.85F);
+      float fade = Mth.clamp((float)(distanceToBounds / (double)fadeRange), 0.0F, 1.0F);
       return 0.35F + fade * 0.65F;
    }
 }

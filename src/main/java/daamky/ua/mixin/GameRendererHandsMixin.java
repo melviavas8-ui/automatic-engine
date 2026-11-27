@@ -1,9 +1,5 @@
 package daamky.ua.mixin;
 
-import net.minecraft.client.render.BufferBuilderStorage;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.client.render.command.RenderDispatcher;
 import org.joml.Matrix4f;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -14,24 +10,28 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import daamky.ua.utils.render.hands.GlassHandsRenderer;
 import daamky.ua.utils.render.hands.HandsFlameRenderer;
 import daamky.ua.utils.render.hands.ShaderHandMaterialRenderer;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.RenderBuffers;
+import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
 
 @Mixin({GameRenderer.class})
 public abstract class GameRendererHandsMixin {
    @Shadow
    @Final
-   private RenderDispatcher entityRenderDispatcher;
+   private FeatureRenderDispatcher featureRenderDispatcher;
    @Shadow
    @Final
-   private BufferBuilderStorage buffers;
+   private RenderBuffers renderBuffers;
 
    public GameRendererHandsMixin() {
    }
 
    @Inject(
-      method = {"renderHand"},
+      method = {"renderItemInHand"},
       at = {@At(
          value = "INVOKE",
-         target = "Lnet/minecraft/client/render/item/HeldItemRenderer;renderItem(FLnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/command/OrderedRenderCommandQueue;Lnet/minecraft/client/network/ClientPlayerEntity;I)V"
+         target = "Lnet/minecraft/client/renderer/ItemInHandRenderer;renderHandsWithItems(FLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/player/LocalPlayer;I)V"
       )},
       require = 0
    )
@@ -42,17 +42,17 @@ public abstract class GameRendererHandsMixin {
    }
 
    @Inject(
-      method = {"renderWorld"},
+      method = {"renderLevel"},
       at = {@At(
          value = "INVOKE",
-         target = "Lnet/minecraft/client/gui/hud/InGameOverlayRenderer;renderOverlays(ZFLnet/minecraft/client/render/command/OrderedRenderCommandQueue;)V"
+         target = "Lnet/minecraft/client/renderer/ScreenEffectRenderer;renderScreenEffect(ZFLnet/minecraft/client/renderer/SubmitNodeCollector;)V"
       )},
       require = 0
    )
-   private void daamky$renderHandsFlameBeforeScreenEffects(RenderTickCounter deltaTracker, CallbackInfo ci) {
+   private void daamky$renderHandsFlameBeforeScreenEffects(DeltaTracker deltaTracker, CallbackInfo ci) {
       if (GlassHandsRenderer.hasCapturedHands() || HandsFlameRenderer.hasCapturedHands()) {
-         this.entityRenderDispatcher.render();
-         this.buffers.getEntityVertexConsumers().draw();
+         this.featureRenderDispatcher.renderAllFeatures();
+         this.renderBuffers.bufferSource().endBatch();
          GlassHandsRenderer.renderCapturedGlass();
          HandsFlameRenderer.renderCapturedHandsFlame();
       }

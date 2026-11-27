@@ -5,26 +5,26 @@ import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.network.SequencedPacketCreator;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil.Type;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityPose;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket.Full;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.multiplayer.prediction.PredictiveAction;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.PosRot;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Pose;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants.Type;
 import daamky.ua.IMinecraft;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.api.module.impl.combat.aura.MathAngle;
@@ -36,17 +36,17 @@ public final class PlayerInteractionHelper implements IMinecraft {
    private PlayerInteractionHelper() {
    }
 
-   public static void sendSequencedPacket(SequencedPacketCreator packetCreator) {
-      if (mc.world != null && mc.getNetworkHandler() != null) {
-         mc.getNetworkHandler().sendPacket(packetCreator.predict(0));
+   public static void sendSequencedPacket(PredictiveAction packetCreator) {
+      if (mc.level != null && mc.getConnection() != null) {
+         mc.getConnection().send(packetCreator.predict(0));
       }
    }
 
-   public static void interactItem(Hand hand) {
+   public static void interactItem(InteractionHand hand) {
       interactItem(hand, MathAngle.cameraAngle());
    }
 
-   public static void interactItem(Hand hand, Angle angle) {
+   public static void interactItem(InteractionHand hand, Angle angle) {
       if (angle == null) {
          interactItem(hand);
       } else {
@@ -55,26 +55,26 @@ public final class PlayerInteractionHelper implements IMinecraft {
    }
 
    public static void interactEntity(Entity entity) {
-      if (mc.interactionManager != null && mc.player != null && entity != null) {
-         mc.interactionManager.interactEntity(mc.player, entity, Hand.MAIN_HAND);
+      if (mc.gameMode != null && mc.player != null && entity != null) {
+         mc.gameMode.interact(mc.player, entity, InteractionHand.MAIN_HAND);
       }
    }
 
    public static void sendPacketWithOutEvent(Packet<?> packet) {
-      mc.getNetworkHandler().getConnection().send(packet, null);
+      mc.getConnection().getConnection().send(packet, null);
    }
 
    public static void grimSuperBypass$$$(double y, Angle angle) {
       mc.player
-         .networkHandler
-         .sendPacket(
-            new Full(
+         .connection
+         .send(
+            new PosRot(
                mc.player.getX(),
                mc.player.getY() + y,
                mc.player.getZ(),
                angle.getYaw(),
                angle.getPitch(),
-               mc.player.isOnGround(),
+               mc.player.onGround(),
                mc.player.horizontalCollision
             )
          );
@@ -86,11 +86,11 @@ public final class PlayerInteractionHelper implements IMinecraft {
 
    public static void jump() {
       if (mc.player.isSprinting()) {
-         float g = mc.player.getYaw() * (float) (Math.PI / 180.0);
-         mc.player.addVelocityInternal(new Vec3d((double)(-MathHelper.sin((double)g) * 0.2F), 0.0, (double)(MathHelper.cos((double)g) * 0.2F)));
+         float g = mc.player.getYRot() * (float) (Math.PI / 180.0);
+         mc.player.addDeltaMovement(new Vec3((double)(-Mth.sin((double)g) * 0.2F), 0.0, (double)(Mth.cos((double)g) * 0.2F)));
       }
 
-      mc.player.knockedBack = true;
+      mc.player.hurtMarked = true;
    }
 
    public static List<BlockPos> getCube(BlockPos center, float radius) {
@@ -138,49 +138,49 @@ public final class PlayerInteractionHelper implements IMinecraft {
    }
 
    public static Stream<Entity> streamEntities() {
-      return StreamSupport.stream(mc.world.getEntities().spliterator(), false);
+      return StreamSupport.stream(mc.level.entitiesForRendering().spliterator(), false);
    }
 
-   public static boolean canChangeIntoPose(EntityPose pose, Vec3d pos) {
-      return mc.player.getEntityWorld().isSpaceEmpty(mc.player, mc.player.getDimensions(pose).getBoxAt(pos).contract(1.0E-7));
+   public static boolean canChangeIntoPose(Pose pose, Vec3 pos) {
+      return mc.player.level().noCollision(mc.player, mc.player.getDimensions(pose).makeBoundingBox(pos).deflate(1.0E-7));
    }
 
-   public static boolean isPotionActive(RegistryEntry<StatusEffect> statusEffect) {
-      return mc.player.getActiveStatusEffects().containsKey(statusEffect);
+   public static boolean isPotionActive(Holder<MobEffect> statusEffect) {
+      return mc.player.getActiveEffectsMap().containsKey(statusEffect);
    }
 
    public static boolean isPlayerInBlock(Block block) {
-      return isBoxInBlock(mc.player.getBoundingBox().expand(-0.001), block);
+      return isBoxInBlock(mc.player.getBoundingBox().inflate(-0.001), block);
    }
 
-   public static boolean isBoxInBlock(Box box, Block block) {
-      return isBox(box, pos -> mc.world.getBlockState(pos).getBlock().equals(block));
+   public static boolean isBoxInBlock(AABB box, Block block) {
+      return isBox(box, pos -> mc.level.getBlockState(pos).getBlock().equals(block));
    }
 
-   public static boolean isBoxInBlocks(Box box, List<Block> blocks) {
-      return isBox(box, pos -> blocks.contains(mc.world.getBlockState(pos).getBlock()));
+   public static boolean isBoxInBlocks(AABB box, List<Block> blocks) {
+      return isBox(box, pos -> blocks.contains(mc.level.getBlockState(pos).getBlock()));
    }
 
-   public static boolean isBox(Box box, Predicate<BlockPos> pos) {
-      return BlockPos.stream(box).anyMatch(pos);
+   public static boolean isBox(AABB box, Predicate<BlockPos> pos) {
+      return BlockPos.betweenClosedStream(box).anyMatch(pos);
    }
 
    public static boolean isKey(BindSetting setting) {
       KeyBind bind = setting.getValue();
-      return mc.currentScreen == null && setting.isVisible() && bind != null && mc.getWindow() != null && bind.isDown(mc.getWindow().getHandle());
+      return mc.screen == null && setting.isVisible() && bind != null && mc.getWindow() != null && bind.isDown(mc.getWindow().handle());
    }
 
-   public static boolean isKey(KeyBinding key) {
-      return isKey(key.getDefaultKey().getCategory(), key.getDefaultKey().getCode());
+   public static boolean isKey(KeyMapping key) {
+      return isKey(key.getDefaultKey().getType(), key.getDefaultKey().getValue());
    }
 
    public static boolean isKey(Type type, int keyCode) {
       if (keyCode != -1) {
          switch (type) {
             case KEYSYM:
-               return GLFW.glfwGetKey(mc.getWindow().getHandle(), keyCode) == 1;
+               return GLFW.glfwGetKey(mc.getWindow().handle(), keyCode) == 1;
             case MOUSE:
-               return GLFW.glfwGetMouseButton(mc.getWindow().getHandle(), keyCode) == 1;
+               return GLFW.glfwGetMouseButton(mc.getWindow().handle(), keyCode) == 1;
          }
       }
 
@@ -188,7 +188,7 @@ public final class PlayerInteractionHelper implements IMinecraft {
    }
 
    public static boolean isAir(BlockPos blockPos) {
-      return isAir(mc.world.getBlockState(blockPos));
+      return isAir(mc.level.getBlockState(blockPos));
    }
 
    public static boolean isAir(BlockState state) {
@@ -200,6 +200,6 @@ public final class PlayerInteractionHelper implements IMinecraft {
    }
 
    public static boolean nullCheck() {
-      return mc.player == null || mc.world == null;
+      return mc.player == null || mc.level == null;
    }
 }

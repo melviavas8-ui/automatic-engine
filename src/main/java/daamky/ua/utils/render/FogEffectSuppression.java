@@ -1,12 +1,12 @@
 package daamky.ua.utils.render;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.registry.entry.RegistryEntry;
 import daamky.ua.api.module.impl.visual.NoRender;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.Holder;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 
 public final class FogEffectSuppression {
    private static int depth;
@@ -24,12 +24,12 @@ public final class FogEffectSuppression {
       }
    }
 
-   public static boolean hidesEffect(LivingEntity entity, RegistryEntry<StatusEffect> effect) {
-      if (depth <= 0 || effect != StatusEffects.DARKNESS || !NoRender.isActive("Darkness")) {
+   public static boolean hidesEffect(LivingEntity entity, Holder<MobEffect> effect) {
+      if (depth <= 0 || effect != MobEffects.DARKNESS || !NoRender.isActive("Darkness")) {
          return false;
       }
 
-      Entity camera = MinecraftClient.getInstance().getCameraEntity();
+      Entity camera = Minecraft.getInstance().getCameraEntity();
       return camera == null || entity == camera;
    }
 }

@@ -1,27 +1,27 @@
 package daamky.hud;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import daamky.gui.Modules;
 import daamky.gui.Modules.Mod;
 import daamky.render.MsdfText;
 import daamky.render.SdfRect;
 import daamky.render.Txt;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.PlayerSkinDrawer;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.item.ItemStack;
-import net.minecraft.scoreboard.Team;
 import org.joml.Matrix3x2f;
 import org.lwjgl.glfw.GLFW;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.PlayerFaceRenderer;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.scores.PlayerTeam;
 
 
 
@@ -37,8 +37,8 @@ public final class DaamkyHud {
     static final float HEAD = 19, ROW = 14, PANEL_W = 130, R = 7;
 
 
-    private static MinecraftClient mc;
-    private static DrawContext ctx;
+    private static Minecraft mc;
+    private static GuiGraphics ctx;
     private static Matrix3x2f base, m;
     private static float alpha = 1f, dt, time, sw, sh;
     private static long lastNs;
@@ -83,7 +83,7 @@ public final class DaamkyHud {
     }
 
 
-    private interface HeadDraw { void draw(DrawContext c, int x, int y, int size); }
+    private interface HeadDraw { void draw(GuiGraphics c, int x, int y, int size); }
     private record Row(String id, String label, String tag, int tagC, String value, int valC) {}
 
     private abstract static class El {
@@ -106,7 +106,7 @@ public final class DaamkyHud {
         boolean enabled() { return Modules.WM_ON.value; }
         boolean want(boolean chat) { return true; }
         void layout() {
-            String s = "DAAMKY 1.0 RELEASE  »  " + mc.getSession().getUsername() + "  »  " + LocalTime.now().format(TIME);
+            String s = "DAAMKY 1.0 RELEASE  »  " + mc.getUser().getName() + "  »  " + LocalTime.now().format(TIME);
             text = Modules.WM_LOWER.value ? s.toLowerCase() : s.toUpperCase(Locale.ROOT);
             w = wb(text, Modules.WM_SIZE.value) + 12;
             h = Modules.WM_SIZE.value + 8;
@@ -196,13 +196,13 @@ public final class DaamkyHud {
         List<Row> collect() {
             List<Row> out = new ArrayList<>();
             if (mc.player == null) return out;
-            for (StatusEffectInstance e : mc.player.getStatusEffects()) {
-                String name = e.getEffectType().value().getName().getString();
+            for (MobEffectInstance e : mc.player.getActiveEffects()) {
+                String name = e.getEffect().value().getDisplayName().getString();
                 String tag = e.getAmplifier() > 0 ? String.valueOf(e.getAmplifier() + 1) : null;
                 String val;
-                if (e.isInfinite()) val = "**:**";
+                if (e.isInfiniteDuration()) val = "**:**";
                 else { int s = e.getDuration() / 20; val = (s / 60) + ":" + String.format("%02d", s % 60); }
-                out.add(new Row(e.getTranslationKey(), name, tag, RED, val, 0xFFFFFFFF));
+                out.add(new Row(e.getDescriptionId(), name, tag, RED, val, 0xFFFFFFFF));
             }
             return out;
         }
@@ -216,11 +216,11 @@ public final class DaamkyHud {
             if (mc.player == null) return out;
             Set<String> seen = new HashSet<>();
             for (int i = 0; i < 10; i++) {
-                ItemStack st = i < 9 ? mc.player.getInventory().getStack(i) : mc.player.getOffHandStack();
+                ItemStack st = i < 9 ? mc.player.getInventory().getItem(i) : mc.player.getOffhandItem();
                 if (st.isEmpty()) continue;
-                String id = st.getItem().getTranslationKey();
+                String id = st.getItem().getDescriptionId();
                 if (!seen.add(id)) continue;
-                float p = mc.player.getItemCooldownManager().getCooldownProgress(st, 0f);
+                float p = mc.player.getCooldowns().getCooldownPercent(st, 0f);
                 if (p <= 0f) { CD.remove(id); continue; }
                 float[] s = CD.computeIfAbsent(id, k -> new float[]{p, 0f, time});
                 float el = time - s[2];
@@ -230,7 +230,7 @@ public final class DaamkyHud {
                     s[0] = p; s[2] = time;
                 }
                 String val = s[1] > 0.001f ? String.format(Locale.ROOT, "%.1fs", p / s[1]) : Math.round(p * 100) + "%";
-                out.add(new Row(id, st.getName().getString(), null, 0, val, 0xFFFFFFFF));
+                out.add(new Row(id, st.getHoverName().getString(), null, 0, val, 0xFFFFFFFF));
             }
             return out;
         }
@@ -256,17 +256,17 @@ public final class DaamkyHud {
         Row preview() { return new Row("p", "Preview Staff", null, 0, "Status", YELLOW); }
         List<Row> collect() {
             List<Row> out = new ArrayList<>();
-            if (mc.getNetworkHandler() == null || mc.world == null) return out;
-            for (PlayerListEntry e : mc.getNetworkHandler().getPlayerList()) {
+            if (mc.getConnection() == null || mc.level == null) return out;
+            for (PlayerInfo e : mc.getConnection().getOnlinePlayers()) {
                 String name = e.getProfile().name();
                 if (mc.player != null && name.equals(mc.player.getGameProfile().name())) continue;
-                Team t = mc.world.getScoreboard().getScoreHolderTeam(name);
-                String tag = (t == null ? "" : t.getPrefix().getString()) + (e.getDisplayName() == null ? "" : e.getDisplayName().getString());
+                PlayerTeam t = mc.level.getScoreboard().getPlayersTeam(name);
+                String tag = (t == null ? "" : t.getPlayerPrefix().getString()) + (e.getTabListDisplayName() == null ? "" : e.getTabListDisplayName().getString());
                 tag = tag.toLowerCase(Locale.ROOT);
                 boolean staff = false;
                 for (String wd : STAFF_WORDS) if (tag.contains(wd)) { staff = true; break; }
                 if (!staff) continue;
-                boolean near = mc.world.getPlayerByUuid(e.getProfile().id()) != null;
+                boolean near = mc.level.getPlayerByUUID(e.getProfile().id()) != null;
                 out.add(new Row(name, name, null, 0, near ? "Near" : "Online", near ? GREEN : YELLOW));
             }
             return out;
@@ -285,14 +285,14 @@ public final class DaamkyHud {
 
         boolean want(boolean chat) {
             if (mc.player == null) return false;
-            if (mc.targetedEntity instanceof LivingEntity le && le.isAlive()) { target = le; lastSeen = time; }
+            if (mc.crosshairPickEntity instanceof LivingEntity le && le.isAlive()) { target = le; lastSeen = time; }
             if (target != null && time - lastSeen < 1.5f) {
                 snapshot(target);
                 return true;
             }
             if (chat || Modules.TH_TEST.value) {
                 name = "Player"; hpText = "HP: 20.0"; frac = 1f;
-                head = (c, x, y, s) -> PlayerSkinDrawer.draw(c, mc.player.getSkin(), x, y, s);
+                head = (c, x, y, s) -> PlayerFaceRenderer.draw(c, mc.player.getSkin(), x, y, s);
                 headLetter = null;
                 return true;
             }
@@ -304,7 +304,7 @@ public final class DaamkyHud {
             float hp = le.getHealth() + le.getAbsorptionAmount();
             hpText = String.format(Locale.ROOT, "HP: %.1f", hp);
             frac = clamp01(le.getHealth() / Math.max(1f, le.getMaxHealth()));
-            if (le instanceof AbstractClientPlayerEntity pl) head = (c, x, y, s) -> PlayerSkinDrawer.draw(c, pl.getSkin(), x, y, s);
+            if (le instanceof AbstractClientPlayer pl) head = (c, x, y, s) -> PlayerFaceRenderer.draw(c, pl.getSkin(), x, y, s);
             else {
                 final String letter = name.isEmpty() ? "?" : name.substring(0, 1).toUpperCase(Locale.ROOT);
                 head = (c, x, y, s) -> {};
@@ -334,7 +334,7 @@ public final class DaamkyHud {
                 float lw = wb(headLetter, 16);
                 tb(headLetter, hx + (hs - lw) / 2f, ty(hy + hs / 2f, 16), 16, WHITE);
             } else if (head != null) {
-                var ms = ctx.getMatrices();
+                var ms = ctx.pose();
                 ms.pushMatrix();
                 ms.translate(0, curDy);
                 ms.translate(curCx, curCy);
@@ -447,7 +447,7 @@ public final class DaamkyHud {
         if (!chat) { dragEl = null; arrDrag = false; wasDown = false; return; }
         var win = mc.getWindow();
         float mx = mouseX(), my = mouseY();
-        boolean down = GLFW.glfwGetMouseButton(win.getHandle(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+        boolean down = GLFW.glfwGetMouseButton(win.handle(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
         if (down && !wasDown && !ARR.isEmpty() && arrBw > 0 && mx >= arrBx && mx < arrBx + arrBw && my >= arrBy && my < arrBy + arrBh) {
             arrDrag = true; arrGx = mx - arrFx * sw; arrGy = my - arrBy;
         }
@@ -474,43 +474,43 @@ public final class DaamkyHud {
         wasDown = down;
     }
 
-    static float mouseX() { return (float) (mc.mouse.getX() * sw / mc.getWindow().getWidth()); }
-    static float mouseY() { return (float) (mc.mouse.getY() * sh / mc.getWindow().getHeight()); }
+    static float mouseX() { return (float) (mc.mouseHandler.xpos() * sw / mc.getWindow().getScreenWidth()); }
+    static float mouseY() { return (float) (mc.mouseHandler.ypos() * sh / mc.getWindow().getScreenHeight()); }
 
     static boolean hovered(El e) {
         var win = mc.getWindow();
-        float mx = (float) (mc.mouse.getX() * sw / win.getWidth()), my = (float) (mc.mouse.getY() * sh / win.getHeight());
+        float mx = (float) (mc.mouseHandler.xpos() * sw / win.getScreenWidth()), my = (float) (mc.mouseHandler.ypos() * sh / win.getScreenHeight());
         return mx >= e.x && mx < e.x + e.w && my >= e.y && my < e.y + e.h;
     }
 
 
     static String keyName(int key) {
-        try { return InputUtil.Type.KEYSYM.createFromCode(key).getLocalizedText().getString(); }
+        try { return InputConstants.Type.KEYSYM.getOrCreate(key).getDisplayName().getString(); }
         catch (Exception ex) { return "?"; }
     }
 
 
-    public static void render(DrawContext c) {
+    public static void render(GuiGraphics c) {
         Modules.refreshFromTarget();
-        mc = MinecraftClient.getInstance();
-        if (Modules.HUD == null || !Modules.HUD.enabled || mc.player == null || mc.world == null
-                || mc.options.hudHidden || daamky.render.Fonts.regular() == null) return;
+        mc = Minecraft.getInstance();
+        if (Modules.HUD == null || !Modules.HUD.enabled || mc.player == null || mc.level == null
+                || mc.options.hideGui || daamky.render.Fonts.regular() == null) return;
         ctx = c;
         daamky.render.Gfx.ctx = c;
         long now = System.nanoTime();
         dt = lastNs == 0 ? 0.016f : Math.min(0.05f, (now - lastNs) / 1e9f);
         lastNs = now;
         time += dt;
-        sw = mc.getWindow().getScaledWidth();
-        sh = mc.getWindow().getScaledHeight();
+        sw = mc.getWindow().getGuiScaledWidth();
+        sh = mc.getWindow().getGuiScaledHeight();
         MsdfText.msdfMode = Modules.useMsdf();
         MsdfText.baseWeight = Modules.weight();
 
-        base = new Matrix3x2f(c.getMatrices());
+        base = new Matrix3x2f(c.pose());
         m = base;
         alpha = 1f;
 
-        boolean chat = mc.currentScreen instanceof ChatScreen;
+        boolean chat = mc.screen instanceof ChatScreen;
         handleDrag(chat);
 
         chatNow = chat;

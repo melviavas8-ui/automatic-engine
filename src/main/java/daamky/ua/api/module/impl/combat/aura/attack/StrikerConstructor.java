@@ -1,9 +1,9 @@
 package daamky.ua.api.module.impl.combat.aura.attack;
 
 import java.util.Set;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.IMinecraft;
 import daamky.ua.api.events.impl.PacketEvent;
 import daamky.ua.api.events.impl.UsingItemEvent;
@@ -57,22 +57,22 @@ public class StrikerConstructor implements IMinecraft {
       private final boolean ignoreWalls;
       private final boolean tpsSync;
       private final boolean legacyPvp;
-      private final Box box;
-      private final Vec3d aimPoint;
+      private final AABB box;
+      private final Vec3 aimPoint;
       private final ModeSetting aimMode;
 
-      public AttackPerpetratorConfigurable(LivingEntity target, Angle angle, float maximumRange, Set<String> options, ModeSetting aimMode, Box box) {
+      public AttackPerpetratorConfigurable(LivingEntity target, Angle angle, float maximumRange, Set<String> options, ModeSetting aimMode, AABB box) {
          this(target, angle, maximumRange, options, aimMode, box, null, options.contains("Only Crits"), false, false);
       }
 
       public AttackPerpetratorConfigurable(
-         LivingEntity target, Angle angle, float maximumRange, Set<String> options, ModeSetting aimMode, Box box, boolean onlyCritical
+         LivingEntity target, Angle angle, float maximumRange, Set<String> options, ModeSetting aimMode, AABB box, boolean onlyCritical
       ) {
          this(target, angle, maximumRange, options, aimMode, box, null, onlyCritical, false, false);
       }
 
       public AttackPerpetratorConfigurable(
-         LivingEntity target, Angle angle, float maximumRange, Set<String> options, ModeSetting aimMode, Box box, Vec3d aimPoint, boolean onlyCritical
+         LivingEntity target, Angle angle, float maximumRange, Set<String> options, ModeSetting aimMode, AABB box, Vec3 aimPoint, boolean onlyCritical
       ) {
          this(target, angle, maximumRange, options, aimMode, box, aimPoint, onlyCritical, false, false);
       }
@@ -83,7 +83,7 @@ public class StrikerConstructor implements IMinecraft {
          float maximumRange,
          Set<String> options,
          ModeSetting aimMode,
-         Box box,
+         AABB box,
          boolean onlyCritical,
          boolean tpsSync,
          boolean legacyPvp
@@ -97,8 +97,8 @@ public class StrikerConstructor implements IMinecraft {
          float maximumRange,
          Set<String> options,
          ModeSetting aimMode,
-         Box box,
-         Vec3d aimPoint,
+         AABB box,
+         Vec3 aimPoint,
          boolean onlyCritical,
          boolean tpsSync,
          boolean legacyPvp
@@ -164,11 +164,11 @@ public class StrikerConstructor implements IMinecraft {
          return this.legacyPvp;
       }
 
-      public Box getBox() {
+      public AABB getBox() {
          return this.box;
       }
 
-      public Vec3d getAimPoint() {
+      public Vec3 getAimPoint() {
          return this.aimPoint;
       }
 

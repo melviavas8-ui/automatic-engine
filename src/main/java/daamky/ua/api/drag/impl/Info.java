@@ -31,7 +31,7 @@ public final class Info extends HudPanel {
       } else {
          this.updateSpeed();
          this.rows.clear();
-         this.rows.add("FPS: " + this.mc.getCurrentFps());
+         this.rows.add("FPS: " + this.mc.getFps());
          this.rows.add("XYZ: " + Math.round(this.mc.player.getX()) + " " + Math.round(this.mc.player.getY()) + " " + Math.round(this.mc.player.getZ()));
          this.rows.add("BPS: " + this.formatBps(this.blocksPerSecond));
          float width = 92.0F;

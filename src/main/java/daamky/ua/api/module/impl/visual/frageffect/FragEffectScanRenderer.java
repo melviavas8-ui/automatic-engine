@@ -4,7 +4,9 @@ import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.GpuDevice;
 import com.mojang.blaze3d.systems.RenderPass;
@@ -12,17 +14,15 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.textures.TextureFormat;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.Iterator;
 import java.util.OptionalInt;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.lwjgl.system.MemoryUtil;
 import daamky.ua.utils.render.FullscreenQuadBuffer;
@@ -35,10 +35,10 @@ public final class FragEffectScanRenderer {
    private static final float INITIAL_RADIUS = 1.0F;
    private static final float BASE_GROWTH_DURATION = 6400.0F;
    private static final float FLICK_DURATION_MULTIPLIER = 0.5F;
-   private static final Identifier PIPELINE_ID = Identifier.of("daamky", "pipeline/effects/frag_effect_scan");
-   private static final Identifier VERTEX_SHADER = Identifier.of("daamky", "effects/frag_effect_scan/frag_effect_scan");
-   private static final Identifier FRAGMENT_SHADER = Identifier.of("daamky", "effects/frag_effect_scan/frag_effect_scan");
-   private static final MinecraftClient MINECRAFT = MinecraftClient.getInstance();
+   private static final Identifier PIPELINE_ID = Identifier.fromNamespaceAndPath("daamky", "pipeline/effects/frag_effect_scan");
+   private static final Identifier VERTEX_SHADER = Identifier.fromNamespaceAndPath("daamky", "effects/frag_effect_scan/frag_effect_scan");
+   private static final Identifier FRAGMENT_SHADER = Identifier.fromNamespaceAndPath("daamky", "effects/frag_effect_scan/frag_effect_scan");
+   private static final Minecraft MINECRAFT = Minecraft.getInstance();
    private static RenderPipeline pipeline;
    private static GpuBuffer uniformBuffer;
    private static GpuTexture depthCopyTexture;
@@ -55,7 +55,7 @@ public final class FragEffectScanRenderer {
    private FragEffectScanRenderer() {
    }
 
-   public static void ping(Vec3d position, float speedMultiplier) {
+   public static void ping(Vec3 position, float speedMultiplier) {
       if (position != null) {
          while (activeWaves.size() >= 4) {
             activeWaves.removeFirst();
@@ -75,10 +75,10 @@ public final class FragEffectScanRenderer {
    }
 
    public static void render(
-      Framebuffer renderTarget,
+      RenderTarget renderTarget,
       Matrix4f projectionMatrix,
       Matrix4f positionMatrix,
-      Vec3d cameraPos,
+      Vec3 cameraPos,
       float speedMultiplier,
       int baseOuterColor,
       int baseMidColor,
@@ -96,8 +96,8 @@ public final class FragEffectScanRenderer {
             }
 
             if (pipeline != null && uniformBuffer != null) {
-               if (renderTarget != null && renderTarget.getColorAttachmentView() != null && renderTarget.getDepthAttachment() != null) {
-                  if (ensureDepthCopyTexture(renderTarget.textureWidth, renderTarget.textureHeight)) {
+               if (renderTarget != null && renderTarget.getColorTextureView() != null && renderTarget.getDepthTexture() != null) {
+                  if (ensureDepthCopyTexture(renderTarget.width, renderTarget.height)) {
                      try {
                         Matrix4f projection = projectionScratch.set(projectionMatrix);
                         Matrix4f view = viewScratch.set(positionMatrix);
@@ -105,7 +105,7 @@ public final class FragEffectScanRenderer {
                         Matrix4f inverseView = inverseViewScratch.set(view).invert();
                         CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
                         encoder.copyTextureToTexture(
-                           renderTarget.getDepthAttachment(), depthCopyTexture, 0, 0, 0, 0, 0, renderTarget.textureWidth, renderTarget.textureHeight
+                           renderTarget.getDepthTexture(), depthCopyTexture, 0, 0, 0, 0, 0, renderTarget.width, renderTarget.height
                         );
 
                         for (FragEffectScanRenderer.WavePulse wavePulse : activeWaves) {
@@ -117,7 +117,7 @@ public final class FragEffectScanRenderer {
                            float baseWave = Math.min(wave(baseAlphaProgress) * 1.75F, 1.0F);
                            renderWave(
                               encoder,
-                              renderTarget.getColorAttachmentView(),
+                              renderTarget.getColorTextureView(),
                               depthCopyTextureView,
                               inverseProjection,
                               inverseView,
@@ -138,7 +138,7 @@ public final class FragEffectScanRenderer {
                            float flickWave = Math.min(wave(flickAlphaProgress) * 2.0F, 1.0F);
                            renderWave(
                               encoder,
-                              renderTarget.getColorAttachmentView(),
+                              renderTarget.getColorTextureView(),
                               depthCopyTextureView,
                               inverseProjection,
                               inverseView,
@@ -173,7 +173,7 @@ public final class FragEffectScanRenderer {
             .withLocation(PIPELINE_ID)
             .withVertexShader(VERTEX_SHADER)
             .withFragmentShader(FRAGMENT_SHADER)
-            .withVertexFormat(VertexFormats.EMPTY, DrawMode.TRIANGLES)
+            .withVertexFormat(DefaultVertexFormat.EMPTY, Mode.TRIANGLES)
             .withUniform("Uniforms", UniformType.UNIFORM_BUFFER)
             .withSampler("DepthSampler")
             .withBlend(BlendFunction.ADDITIVE)
@@ -196,8 +196,8 @@ public final class FragEffectScanRenderer {
       GpuTextureView depthTexture,
       Matrix4f inverseProjection,
       Matrix4f inverseView,
-      Vec3d cameraPos,
-      Vec3d center,
+      Vec3 cameraPos,
+      Vec3 center,
       float radius,
       float width,
       float sharpness,
@@ -361,9 +361,9 @@ public final class FragEffectScanRenderer {
    }
 
    private static float viewDistance() {
-      return Math.max(96.0F, (float)((Integer)MINECRAFT.options.getViewDistance().getValue() + 1) * 16.0F);
+      return Math.max(96.0F, (float)((Integer)MINECRAFT.options.renderDistance().get() + 1) * 16.0F);
    }
 
-   private static record WavePulse(Vec3d center, long startedAt, float speedMultiplier) {
+   private static record WavePulse(Vec3 center, long startedAt, float speedMultiplier) {
    }
 }

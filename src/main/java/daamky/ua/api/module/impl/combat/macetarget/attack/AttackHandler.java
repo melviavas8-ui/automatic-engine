@@ -1,13 +1,13 @@
 package daamky.ua.api.module.impl.combat.macetarget.attack;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.item.Items;
 import daamky.ua.utils.inventory.InventoryTask;
 import daamky.ua.utils.inventory.lookup.InventoryUtils;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.Items;
 
 public class AttackHandler {
-   private static final MinecraftClient MC = MinecraftClient.getInstance();
+   private static final Minecraft MC = Minecraft.getInstance();
    private boolean pendingAttack;
    private boolean shouldDisableAfterAttack;
    private boolean swappedToMace;
@@ -34,8 +34,8 @@ public class AttackHandler {
    }
 
    public void performAttack(LivingEntity target) {
-      if (MC.player != null && MC.interactionManager != null && target != null && this.prepareMaceSwap()) {
-         MC.interactionManager.attackEntity(MC.player, target);
+      if (MC.player != null && MC.gameMode != null && target != null && this.prepareMaceSwap()) {
+         MC.gameMode.attack(MC.player, target);
          this.queueRestoreAfterAttack();
       }
    }

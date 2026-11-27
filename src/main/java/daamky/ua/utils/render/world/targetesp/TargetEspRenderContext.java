@@ -1,13 +1,13 @@
 package daamky.ua.utils.render.world.targetesp;
 
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Quaternionf;
 
 public record TargetEspRenderContext(
    LivingEntity target,
-   Vec3d targetPos,
-   Vec3d cameraPos,
+   Vec3 targetPos,
+   Vec3 cameraPos,
    Quaternionf cameraRotation,
    float alpha,
    float partialTicks,

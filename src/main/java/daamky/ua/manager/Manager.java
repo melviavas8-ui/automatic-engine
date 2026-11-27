@@ -6,7 +6,7 @@ import lightning.sdk.annotation.LgVM.Level;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.EndTick;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.StartTick;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import daamky.ua.api.command.CommandManager;
 import daamky.ua.api.config.ConfigManager;
 import daamky.ua.api.drag.core.ElementManager;
@@ -104,10 +104,10 @@ public class Manager {
       return instance != null && instance.eventBus != null ? instance.eventBus.post(event) : event;
    }
 
-   public static void toggleClickGui(MinecraftClient client) {
-      if (daamky.gui.GuiStyle.isClientGui(client.currentScreen)) {
+   public static void toggleClickGui(Minecraft client) {
+      if (daamky.gui.GuiStyle.isClientGui(client.screen)) {
          ClientSounds.playClickGuiClosingSound();
-         client.currentScreen.close();
+         client.screen.onClose();
       } else if (!WorldAnimation.isActive()) {
          ClientSounds.playClickGuiOpeningSound();
          client.setScreen(daamky.gui.GuiStyle.create());

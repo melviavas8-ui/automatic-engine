@@ -1,7 +1,5 @@
 package daamky.ua.api.module.impl.misc;
 
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.text.Text;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.TickEvent;
 import daamky.ua.api.module.Module;
@@ -11,6 +9,8 @@ import daamky.ua.api.settings.impl.MultiModeSetting;
 import daamky.ua.api.settings.impl.NumberSetting;
 import daamky.ua.utils.network.Network;
 import daamky.ua.utils.repository.friend.FriendUtils;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Player;
 
 public final class AutoLeave extends Module {
    private final ModeSetting leaveType = this.register(new ModeSetting("Leave Type", "Leave action.", "Disconnect", "Hub", "Disconnect"));
@@ -28,18 +28,18 @@ public final class AutoLeave extends Module {
 
    @SubscribeEvent
    private void onTick(TickEvent event) {
-      if (mc.player != null && mc.world != null && mc.getNetworkHandler() != null) {
+      if (mc.player != null && mc.level != null && mc.getConnection() != null) {
          if (this.triggers.isSelected("HP")) {
             float health = Network.getResolvedHealth(mc.player, true);
             if (health > 0.0F && health <= this.hp.getFloat()) {
-               this.leave(Text.literal(" - HP dropped to " + Network.formatHealthValue(health)));
+               this.leave(Component.literal(" - HP dropped to " + Network.formatHealthValue(health)));
                return;
             }
          }
 
          if (!Network.isPvp()) {
             if (this.triggers.isSelected("Players")) {
-               for (PlayerEntity player : mc.world.getPlayers()) {
+               for (Player player : mc.level.players()) {
                   if (player != mc.player && !FriendUtils.isFriend(player) && !(mc.player.distanceTo(player) >= this.distance.getFloat())) {
                      this.leave(player.getName().copy().append(" - appeared nearby " + Math.round(mc.player.distanceTo(player)) + "m"));
                      return;
@@ -50,12 +50,12 @@ public final class AutoLeave extends Module {
       }
    }
 
-   private void leave(Text text) {
-      if (mc.getNetworkHandler() != null) {
+   private void leave(Component text) {
+      if (mc.getConnection() != null) {
          if (this.leaveType.is("Hub")) {
-            mc.getNetworkHandler().sendChatCommand("hub");
+            mc.getConnection().sendCommand("hub");
          } else {
-            mc.getNetworkHandler().getConnection().disconnect(Text.of("[Auto Leave]\n").copy().append(text));
+            mc.getConnection().getConnection().disconnect(Component.nullToEmpty("[Auto Leave]\n").copy().append(text));
          }
 
          this.setEnabled(false);

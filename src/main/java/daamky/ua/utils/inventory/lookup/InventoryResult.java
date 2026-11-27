@@ -1,6 +1,6 @@
 package daamky.ua.utils.inventory.lookup;
 
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.item.ItemStack;
 
 public record InventoryResult(int slot, boolean found, ItemStack stack) {
    private static final InventoryResult NOT_FOUND = new InventoryResult(-1, false, ItemStack.EMPTY);

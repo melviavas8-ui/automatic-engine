@@ -1,10 +1,5 @@
 package daamky.ua.api.module.impl.combat.macetarget.armor;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.Hand;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.api.module.impl.combat.aura.AngleConnection;
 import daamky.ua.api.module.impl.combat.aura.MathAngle;
@@ -12,9 +7,14 @@ import daamky.ua.api.module.impl.combat.macetarget.state.MaceState;
 import daamky.ua.utils.inventory.lookup.InventoryUtils;
 import daamky.ua.utils.inventory.movement.MovementController;
 import daamky.ua.utils.inventory.swap.SwapSettings;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.Items;
 
 public class FireworkHandler {
-   private static final MinecraftClient MC = MinecraftClient.getInstance();
+   private static final Minecraft MC = Minecraft.getInstance();
    private final MovementController movement = new MovementController();
    private final FireworkHandler.SwapSettingsProvider settingsProvider;
    private MaceState.FireworkPhase phase = MaceState.FireworkPhase.IDLE;
@@ -45,26 +45,26 @@ public class FireworkHandler {
    }
 
    private void useSilent() {
-      if (MC.player != null && MC.getNetworkHandler() != null) {
+      if (MC.player != null && MC.getConnection() != null) {
          int hotbarSlot = InventoryUtils.findHotbarItem(Items.FIREWORK_ROCKET);
          if (hotbarSlot != -1) {
             int currentSlot = MC.player.getInventory().getSelectedSlot();
             if (hotbarSlot != currentSlot) {
-               MC.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(hotbarSlot));
+               MC.getConnection().send(new ServerboundSetCarriedItemPacket(hotbarSlot));
             }
 
             this.sendUse();
             if (hotbarSlot != currentSlot) {
-               MC.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(currentSlot));
+               MC.getConnection().send(new ServerboundSetCarriedItemPacket(currentSlot));
             }
          } else {
             int invSlot = InventoryUtils.findItemInInventory(Items.FIREWORK_ROCKET);
             if (invSlot != -1) {
                int currentHotbarSlot = MC.player.getInventory().getSelectedSlot();
                int wrappedSlot = InventoryUtils.wrapSlot(invSlot);
-               InventoryUtils.click(wrappedSlot, currentHotbarSlot, SlotActionType.SWAP);
+               InventoryUtils.click(wrappedSlot, currentHotbarSlot, ClickType.SWAP);
                this.sendUse();
-               InventoryUtils.click(wrappedSlot, currentHotbarSlot, SlotActionType.SWAP);
+               InventoryUtils.click(wrappedSlot, currentHotbarSlot, ClickType.SWAP);
                InventoryUtils.closeScreen();
             }
          }
@@ -146,18 +146,18 @@ public class FireworkHandler {
                }
                break;
             case SWAP_TO_HAND:
-               InventoryUtils.click(InventoryUtils.wrapSlot(this.slot), MC.player.getInventory().getSelectedSlot(), SlotActionType.SWAP);
+               InventoryUtils.click(InventoryUtils.wrapSlot(this.slot), MC.player.getInventory().getSelectedSlot(), ClickType.SWAP);
                this.startPhase(MaceState.FireworkPhase.AWAIT_ITEM, 0);
                return true;
             case AWAIT_ITEM:
-               if (MC.player.getMainHandStack().getItem() == Items.FIREWORK_ROCKET) {
+               if (MC.player.getMainHandItem().getItem() == Items.FIREWORK_ROCKET) {
                   this.startPhase(MaceState.FireworkPhase.USE, 0);
                   return true;
                }
                break;
             case USE:
                this.sendUse();
-               MC.player.swingHand(Hand.MAIN_HAND);
+               MC.player.swing(InteractionHand.MAIN_HAND);
                this.startPhase(MaceState.FireworkPhase.POST_USE, settings.randomPostSwapDelay());
                return this.currentDelay == 0;
             case POST_USE:
@@ -173,7 +173,7 @@ public class FireworkHandler {
                }
                break;
             case SWAP_BACK:
-               InventoryUtils.click(InventoryUtils.wrapSlot(this.slot), MC.player.getInventory().getSelectedSlot(), SlotActionType.SWAP);
+               InventoryUtils.click(InventoryUtils.wrapSlot(this.slot), MC.player.getInventory().getSelectedSlot(), ClickType.SWAP);
                InventoryUtils.selectSlot(this.savedSlot);
                if (settings.shouldCloseInventory()) {
                   InventoryUtils.closeScreen();
@@ -198,7 +198,7 @@ public class FireworkHandler {
          rotation = MathAngle.cameraAngle();
       }
 
-      InventoryUtils.sendUsePacket(Hand.MAIN_HAND, rotation.getYaw(), rotation.getPitch());
+      InventoryUtils.sendUsePacket(InteractionHand.MAIN_HAND, rotation.getYaw(), rotation.getPitch());
    }
 
    private void startPhase(MaceState.FireworkPhase phase, int delay) {

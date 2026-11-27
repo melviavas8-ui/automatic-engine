@@ -1,8 +1,5 @@
 package daamky.ua.api.module.impl.movement;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.FireworkEvent;
 import daamky.ua.api.module.Module;
@@ -11,6 +8,9 @@ import daamky.ua.api.module.impl.combat.aura.AngleConnection;
 import daamky.ua.api.settings.impl.BooleanSetting;
 import daamky.ua.api.settings.impl.ModeSetting;
 import daamky.ua.api.settings.impl.NumberSetting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.Vec3;
 
 public final class SuperFireWork extends Module {
    private final ModeSetting modeSetting = this.register(
@@ -26,8 +26,8 @@ public final class SuperFireWork extends Module {
 
    @SubscribeEvent
    private void onFirework(FireworkEvent event) {
-      MinecraftClient client = MinecraftClient.getInstance();
-      if (client.player != null && client.player.isGliding()) {
+      Minecraft client = Minecraft.getInstance();
+      if (client.player != null && client.player.isFallFlying()) {
          float yaw = AngleConnection.INSTANCE.getRotation().getYaw() % 360.0F;
          if (yaw < 0.0F) {
             yaw += 360.0F;
@@ -84,7 +84,7 @@ public final class SuperFireWork extends Module {
       this.applyFireworkVelocity(event, speedXZ, speedY);
    }
 
-   private void handleBravoHvHMode(MinecraftClient client, FireworkEvent event, float yaw) {
+   private void handleBravoHvHMode(Minecraft client, FireworkEvent event, float yaw) {
       boolean diagonal = this.checkDiagonal(yaw, 16.0F);
       boolean nearPlayer = this.checkNearPlayer(client, 4.0F);
       double speedY = 1.66;
@@ -101,7 +101,7 @@ public final class SuperFireWork extends Module {
       this.applyFireworkVelocity(event, speedXZ, speedY);
    }
 
-   private void handlePulseHVHMode(MinecraftClient client, FireworkEvent event, float yaw) {
+   private void handlePulseHVHMode(Minecraft client, FireworkEvent event, float yaw) {
       boolean diagonal = this.checkDiagonal(yaw, 16.0F);
       boolean nearPlayer = this.checkNearPlayer(client, 5.0F);
       double speedY = 1.66;
@@ -118,7 +118,7 @@ public final class SuperFireWork extends Module {
       this.applyFireworkVelocity(event, speedXZ, speedY);
    }
 
-   private void handleCustomMode(MinecraftClient client, FireworkEvent event, float yaw) {
+   private void handleCustomMode(Minecraft client, FireworkEvent event, float yaw) {
       boolean diagonal = this.checkDiagonal(yaw, 16.0F);
       boolean nearPlayer = this.checkNearPlayer(client, 5.0F);
       double speedY = 1.66;
@@ -147,9 +147,9 @@ public final class SuperFireWork extends Module {
       return false;
    }
 
-   private boolean checkNearPlayer(MinecraftClient client, float distance) {
-      if (this.nearBoostSetting.getValue() && client.world != null && client.player != null) {
-         for (PlayerEntity player : client.world.getPlayers()) {
+   private boolean checkNearPlayer(Minecraft client, float distance) {
+      if (this.nearBoostSetting.getValue() && client.level != null && client.player != null) {
+         for (Player player : client.level.players()) {
             if (player != client.player && player.distanceTo(client.player) <= distance) {
                return true;
             }
@@ -162,8 +162,8 @@ public final class SuperFireWork extends Module {
    }
 
    private void applyFireworkVelocity(FireworkEvent event, double speedXZ, double speedY) {
-      Vec3d rotationVector = AngleConnection.INSTANCE.getMoveRotation().toVector();
-      Vec3d currentVelocity = event.getVector();
+      Vec3 rotationVector = AngleConnection.INSTANCE.getMoveRotation().toVector();
+      Vec3 currentVelocity = event.getVector();
       event.setVector(
          currentVelocity.add(
             rotationVector.x * 0.1 + (rotationVector.x * speedXZ - currentVelocity.x) * 0.5,

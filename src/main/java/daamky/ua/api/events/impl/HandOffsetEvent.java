@@ -1,23 +1,23 @@
 package daamky.ua.api.events.impl;
 
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.Hand;
+import com.mojang.blaze3d.vertex.PoseStack;
 import daamky.ua.api.events.CancellableEvent;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
 
 public final class HandOffsetEvent extends CancellableEvent {
-   private final MatrixStack matrices;
+   private final PoseStack matrices;
    private final ItemStack stack;
-   private final Hand hand;
+   private final InteractionHand hand;
    private float scale = 1.0F;
 
-   public HandOffsetEvent(MatrixStack matrices, ItemStack stack, Hand hand) {
+   public HandOffsetEvent(PoseStack matrices, ItemStack stack, InteractionHand hand) {
       this.matrices = matrices;
       this.stack = stack;
       this.hand = hand;
    }
 
-   public MatrixStack getMatrices() {
+   public PoseStack getMatrices() {
       return this.matrices;
    }
 
@@ -25,7 +25,7 @@ public final class HandOffsetEvent extends CancellableEvent {
       return this.stack;
    }
 
-   public Hand getHand() {
+   public InteractionHand getHand() {
       return this.hand;
    }
 

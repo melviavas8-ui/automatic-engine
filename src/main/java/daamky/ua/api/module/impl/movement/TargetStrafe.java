@@ -1,9 +1,5 @@
 package daamky.ua.api.module.impl.movement;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.InputEvent;
 import daamky.ua.api.events.impl.TickEvent;
@@ -15,6 +11,10 @@ import daamky.ua.api.settings.impl.ModeSetting;
 import daamky.ua.api.settings.impl.MultiModeSetting;
 import daamky.ua.api.settings.impl.NumberSetting;
 import daamky.ua.utils.inventory.InventoryFlowManager;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
 
 public final class TargetStrafe extends Module {
    private final ModeSetting mode = this.register(new ModeSetting("Mode", "Target strafe mode.", "Matrix", "Matrix", "Grim"));
@@ -48,12 +48,12 @@ public final class TargetStrafe extends Module {
 
    @SubscribeEvent
    private void onInput(InputEvent event) {
-      MinecraftClient client = MinecraftClient.getInstance();
-      if (client.player != null && client.world != null && InventoryFlowManager.isIdle()) {
+      Minecraft client = Minecraft.getInstance();
+      if (client.player != null && client.level != null && InventoryFlowManager.isIdle()) {
          LivingEntity target = AuraModule.target;
          if (target != null && target.isAlive() && this.mode.is("Grim")) {
             if (!this.options.isSelected("Only While Pressing") || this.isAnyMoveKeyDown(client)) {
-               Vec3d nextPoint = this.calculateGrimNextPoint(client, target);
+               Vec3 nextPoint = this.calculateGrimNextPoint(client, target);
                this.applyGrimMovement(client, event, nextPoint);
             }
          }
@@ -62,13 +62,13 @@ public final class TargetStrafe extends Module {
 
    @SubscribeEvent
    private void onTick(TickEvent event) {
-      MinecraftClient client = event.getClient();
-      if (client.player != null && client.world != null && InventoryFlowManager.isIdle()) {
+      Minecraft client = event.getClient();
+      if (client.player != null && client.level != null && InventoryFlowManager.isIdle()) {
          LivingEntity target = AuraModule.target;
          if (target != null && target.isAlive() && this.mode.is("Matrix")) {
             if (!this.options.isSelected("Only While Pressing") || this.isAnyMoveKeyDown(client)) {
-               if (this.options.isSelected("Auto Jump") && client.player.isOnGround()) {
-                  client.player.jump();
+               if (this.options.isSelected("Auto Jump") && client.player.onGround()) {
+                  client.player.jumpFromGround();
                }
 
                this.processMatrixStrafe(client, target);
@@ -77,9 +77,9 @@ public final class TargetStrafe extends Module {
       }
    }
 
-   private Vec3d calculateGrimNextPoint(MinecraftClient client, LivingEntity target) {
-      Vec3d playerPos = client.player.getEntityPos();
-      Vec3d targetPos = target.getEntityPos();
+   private Vec3 calculateGrimNextPoint(Minecraft client, LivingEntity target) {
+      Vec3 playerPos = client.player.position();
+      Vec3 targetPos = target.position();
       double r = this.grimRadius.getValue();
       int directionMultiplier = this.getDirectionMultiplier();
       return this.options.isSelected("Front")
@@ -87,8 +87,8 @@ public final class TargetStrafe extends Module {
          : this.calculateNormalPoint(playerPos, targetPos, r, directionMultiplier, this.type);
    }
 
-   private Vec3d calculateFrontPoint(LivingEntity target, Vec3d targetPos, double r, int directionMultiplier) {
-      float targetYaw = target.getYaw();
+   private Vec3 calculateFrontPoint(LivingEntity target, Vec3 targetPos, double r, int directionMultiplier) {
+      float targetYaw = target.getYRot();
       if (this.type.is("Center")) {
          return targetPos.add(
             -Math.sin(Math.toRadians((double)targetYaw)) * r * (double)directionMultiplier,
@@ -105,13 +105,13 @@ public final class TargetStrafe extends Module {
       }
    }
 
-   private Vec3d calculateNormalPoint(Vec3d playerPos, Vec3d targetPos, double r, int directionMultiplier, ModeSetting selectedType) {
+   private Vec3 calculateNormalPoint(Vec3 playerPos, Vec3 targetPos, double r, int directionMultiplier, ModeSetting selectedType) {
       if (selectedType.is("Cube")) {
-         Vec3d[] points = new Vec3d[]{
-            new Vec3d(targetPos.x - r, playerPos.y, targetPos.z - r),
-            new Vec3d(targetPos.x - r, playerPos.y, targetPos.z + r),
-            new Vec3d(targetPos.x + r, playerPos.y, targetPos.z + r),
-            new Vec3d(targetPos.x + r, playerPos.y, targetPos.z - r)
+         Vec3[] points = new Vec3[]{
+            new Vec3(targetPos.x - r, playerPos.y, targetPos.z - r),
+            new Vec3(targetPos.x - r, playerPos.y, targetPos.z + r),
+            new Vec3(targetPos.x + r, playerPos.y, targetPos.z + r),
+            new Vec3(targetPos.x + r, playerPos.y, targetPos.z - r)
          };
          if (playerPos.distanceTo(points[this.grimPointIndex]) < 0.5) {
             this.grimPointIndex = (this.grimPointIndex + directionMultiplier + points.length) % points.length;
@@ -121,17 +121,17 @@ public final class TargetStrafe extends Module {
       } else if (selectedType.is("Circle")) {
          double baseAngle = (double)(System.currentTimeMillis() % 3600L) / 3600.0 * 4.0 * Math.PI;
          double angle = directionMultiplier > 0 ? baseAngle : (Math.PI * 2) - baseAngle;
-         return new Vec3d(targetPos.x + Math.cos(angle) * r, playerPos.y, targetPos.z + Math.sin(angle) * r);
+         return new Vec3(targetPos.x + Math.cos(angle) * r, playerPos.y, targetPos.z + Math.sin(angle) * r);
       } else {
-         return new Vec3d(targetPos.x, playerPos.y, targetPos.z);
+         return new Vec3(targetPos.x, playerPos.y, targetPos.z);
       }
    }
 
-   private void applyGrimMovement(MinecraftClient client, InputEvent event, Vec3d nextPoint) {
-      Vec3d direction = nextPoint.subtract(client.player.getEntityPos()).normalize();
+   private void applyGrimMovement(Minecraft client, InputEvent event, Vec3 nextPoint) {
+      Vec3 direction = nextPoint.subtract(client.player.position()).normalize();
       float yaw = AngleConnection.INSTANCE.getRotation().getYaw();
       float movementAngle = (float)Math.toDegrees(Math.atan2(direction.z, direction.x)) - 90.0F;
-      float angleDiff = MathHelper.wrapDegrees(movementAngle - yaw);
+      float angleDiff = Mth.wrapDegrees(movementAngle - yaw);
       boolean forward = false;
       boolean back = false;
       boolean left = false;
@@ -159,14 +159,14 @@ public final class TargetStrafe extends Module {
       }
 
       event.setDirectionalLow(forward, back, left, right);
-      if (this.options.isSelected("Auto Jump") && client.player.isOnGround()) {
+      if (this.options.isSelected("Auto Jump") && client.player.onGround()) {
          event.setJumping(true);
       }
    }
 
-   private void processMatrixStrafe(MinecraftClient client, LivingEntity target) {
-      Vec3d playerPos = client.player.getEntityPos();
-      Vec3d targetPos = target.getEntityPos();
+   private void processMatrixStrafe(Minecraft client, LivingEntity target) {
+      Vec3 playerPos = client.player.position();
+      Vec3 targetPos = target.position();
       double r = this.radius.getValue();
       int directionMultiplier = this.getDirectionMultiplier();
       if (this.options.isSelected("Front")) {
@@ -180,19 +180,19 @@ public final class TargetStrafe extends Module {
       }
    }
 
-   private void processMatrixFrontStrafe(MinecraftClient client, LivingEntity target, Vec3d playerPos, Vec3d targetPos, double r, int directionMultiplier) {
-      float targetYaw = target.getYaw();
+   private void processMatrixFrontStrafe(Minecraft client, LivingEntity target, Vec3 playerPos, Vec3 targetPos, double r, int directionMultiplier) {
+      float targetYaw = target.getYRot();
       double x = targetPos.x - Math.sin(Math.toRadians((double)targetYaw)) * r * (double)directionMultiplier;
       double z = targetPos.z + Math.cos(Math.toRadians((double)targetYaw)) * r * (double)directionMultiplier;
       this.setMotionTo(client, playerPos, x, z);
    }
 
-   private void processMatrixCubeStrafe(MinecraftClient client, Vec3d playerPos, Vec3d targetPos, double r, int directionMultiplier) {
-      Vec3d nextPoint = this.calculateNormalPoint(playerPos, targetPos, r, directionMultiplier, this.typeMatrix);
+   private void processMatrixCubeStrafe(Minecraft client, Vec3 playerPos, Vec3 targetPos, double r, int directionMultiplier) {
+      Vec3 nextPoint = this.calculateNormalPoint(playerPos, targetPos, r, directionMultiplier, this.typeMatrix);
       this.setMotionTo(client, playerPos, nextPoint.x, nextPoint.z);
    }
 
-   private void processMatrixCircleStrafe(MinecraftClient client, Vec3d playerPos, Vec3d targetPos, double r, int directionMultiplier) {
+   private void processMatrixCircleStrafe(Minecraft client, Vec3 playerPos, Vec3 targetPos, double r, int directionMultiplier) {
       double angle = Math.atan2(playerPos.z - targetPos.z, playerPos.x - targetPos.x);
       angle += (double)directionMultiplier * this.speed.getValue() / Math.max(playerPos.distanceTo(targetPos), r);
       double x = targetPos.x + r * Math.cos(angle);
@@ -200,11 +200,11 @@ public final class TargetStrafe extends Module {
       this.setMotionTo(client, playerPos, x, z);
    }
 
-   private void setMotionTo(MinecraftClient client, Vec3d playerPos, double x, double z) {
+   private void setMotionTo(Minecraft client, Vec3 playerPos, double x, double z) {
       float yaw = (float)Math.toDegrees(Math.atan2(z - playerPos.z, x - playerPos.x)) - 90.0F;
       double motionSpeed = this.speed.getValue();
       client.player
-         .setVelocity(-Math.sin(Math.toRadians((double)yaw)) * motionSpeed, client.player.getVelocity().y, Math.cos(Math.toRadians((double)yaw)) * motionSpeed);
+         .setDeltaMovement(-Math.sin(Math.toRadians((double)yaw)) * motionSpeed, client.player.getDeltaMovement().y, Math.cos(Math.toRadians((double)yaw)) * motionSpeed);
    }
 
    private int getDirectionMultiplier() {
@@ -221,10 +221,10 @@ public final class TargetStrafe extends Module {
       return 1;
    }
 
-   private boolean isAnyMoveKeyDown(MinecraftClient client) {
-      return client.options.forwardKey.isPressed()
-         || client.options.backKey.isPressed()
-         || client.options.leftKey.isPressed()
-         || client.options.rightKey.isPressed();
+   private boolean isAnyMoveKeyDown(Minecraft client) {
+      return client.options.keyUp.isDown()
+         || client.options.keyDown.isDown()
+         || client.options.keyLeft.isDown()
+         || client.options.keyRight.isDown();
    }
 }

@@ -3,8 +3,8 @@ package daamky.ua.utils.render;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.AddressMode;
 import com.mojang.blaze3d.textures.FilterMode;
+import com.mojang.blaze3d.textures.GpuSampler;
 import java.util.OptionalDouble;
-import net.minecraft.client.gl.GpuSampler;
 
 public final class RenderSampler {
    private static GpuSampler linear;

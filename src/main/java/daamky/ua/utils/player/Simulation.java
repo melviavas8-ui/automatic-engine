@@ -1,9 +1,9 @@
 package daamky.ua.utils.player;
 
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.phys.Vec3;
 
 public interface Simulation {
-   Vec3d pos();
+   Vec3 pos();
 
    void tick();
 }

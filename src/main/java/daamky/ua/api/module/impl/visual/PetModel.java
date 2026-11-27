@@ -1,15 +1,15 @@
 package daamky.ua.api.module.impl.visual;
 
-import net.minecraft.client.model.ModelData;
-import net.minecraft.client.model.ModelPart;
-import net.minecraft.client.model.ModelPartBuilder;
-import net.minecraft.client.model.ModelPartData;
-import net.minecraft.client.model.ModelTransform;
-import net.minecraft.client.model.TexturedModelData;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RotationAxis;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.math.Axis;
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.model.geom.PartPose;
+import net.minecraft.client.model.geom.builders.CubeListBuilder;
+import net.minecraft.client.model.geom.builders.LayerDefinition;
+import net.minecraft.client.model.geom.builders.MeshDefinition;
+import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.util.Mth;
 
 public final class PetModel {
    private final ModelPart head;
@@ -34,86 +34,86 @@ public final class PetModel {
    }
 
    private static ModelPart bakeRoot() {
-      ModelData mesh = new ModelData();
-      ModelPartData parts = mesh.getRoot();
-      ModelPartData head = parts.addChild(
+      MeshDefinition mesh = new MeshDefinition();
+      PartDefinition parts = mesh.getRoot();
+      PartDefinition head = parts.addOrReplaceChild(
          "head",
-         ModelPartBuilder.create().uv(0, 0).cuboid(-3.0F, -3.0F, -4.0F, 6.0F, 6.0F, 4.0F).uv(21, 0).cuboid(-1.5F, 0.0F, -7.0F, 3.0F, 3.0F, 3.0F),
-         ModelTransform.origin(0.0F, 10.5F, -6.8F)
+         CubeListBuilder.create().texOffs(0, 0).addBox(-3.0F, -3.0F, -4.0F, 6.0F, 6.0F, 4.0F).texOffs(21, 0).addBox(-1.5F, 0.0F, -7.0F, 3.0F, 3.0F, 3.0F),
+         PartPose.offset(0.0F, 10.5F, -6.8F)
       );
-      head.addChild(
+      head.addOrReplaceChild(
          "left_ear",
-         ModelPartBuilder.create().uv(32, 4).cuboid(0.0F, -5.0F, -1.5F, 1.0F, 3.0F, 3.0F).uv(34, 1).cuboid(0.0F, -5.5F, -0.75F, 1.0F, 1.0F, 1.5F),
-         ModelTransform.origin(3.0F, 3.0F, -2.0F)
+         CubeListBuilder.create().texOffs(32, 4).addBox(0.0F, -5.0F, -1.5F, 1.0F, 3.0F, 3.0F).texOffs(34, 1).addBox(0.0F, -5.5F, -0.75F, 1.0F, 1.0F, 1.5F),
+         PartPose.offset(3.0F, 3.0F, -2.0F)
       );
-      head.addChild(
+      head.addOrReplaceChild(
          "right_ear",
-         ModelPartBuilder.create().uv(32, 4).cuboid(-1.0F, -5.0F, -1.5F, 1.0F, 3.0F, 3.0F).uv(34, 1).cuboid(-1.0F, -5.5F, -0.75F, 1.0F, 1.0F, 1.5F),
-         ModelTransform.origin(-3.0F, 3.0F, -2.0F)
+         CubeListBuilder.create().texOffs(32, 4).addBox(-1.0F, -5.0F, -1.5F, 1.0F, 3.0F, 3.0F).texOffs(34, 1).addBox(-1.0F, -5.5F, -0.75F, 1.0F, 1.0F, 1.5F),
+         PartPose.offset(-3.0F, 3.0F, -2.0F)
       );
-      parts.addChild(
+      parts.addOrReplaceChild(
          "neck",
-         ModelPartBuilder.create().uv(15, 7).cuboid(-2.95F, -1.0F, -4.0F, 5.9F, 5.0F, 6.0F),
-         ModelTransform.of(0.0F, 10.5F, -5.0F, -0.43633232F, 0.0F, 0.0F)
+         CubeListBuilder.create().texOffs(15, 7).addBox(-2.95F, -1.0F, -4.0F, 5.9F, 5.0F, 6.0F),
+         PartPose.offsetAndRotation(0.0F, 10.5F, -5.0F, -0.43633232F, 0.0F, 0.0F)
       );
-      ModelPartData body = parts.addChild("body", ModelPartBuilder.create(), ModelTransform.origin(0.0F, 13.5F, -5.0F));
-      body.addChild("chest", ModelPartBuilder.create().uv(32, 13).cuboid(-4.0F, -3.5F, -3.0F, 8.0F, 7.0F, 6.0F), ModelTransform.origin(0.0F, 0.0F, 3.0F));
-      body.addChild("back", ModelPartBuilder.create().uv(3, 19).cuboid(-3.0F, -3.0F, -0.5F, 6.0F, 6.0F, 11.0F), ModelTransform.origin(0.0F, -0.5F, 5.5F));
-      parts.addChild(
-         "front_left_leg", ModelPartBuilder.create().uv(42, 0).cuboid(-1.0F, 0.0F, -1.0F, 2.0F, 5.0F, 2.0F), ModelTransform.origin(1.5F, 16.0F, -3.0F)
+      PartDefinition body = parts.addOrReplaceChild("body", CubeListBuilder.create(), PartPose.offset(0.0F, 13.5F, -5.0F));
+      body.addOrReplaceChild("chest", CubeListBuilder.create().texOffs(32, 13).addBox(-4.0F, -3.5F, -3.0F, 8.0F, 7.0F, 6.0F), PartPose.offset(0.0F, 0.0F, 3.0F));
+      body.addOrReplaceChild("back", CubeListBuilder.create().texOffs(3, 19).addBox(-3.0F, -3.0F, -0.5F, 6.0F, 6.0F, 11.0F), PartPose.offset(0.0F, -0.5F, 5.5F));
+      parts.addOrReplaceChild(
+         "front_left_leg", CubeListBuilder.create().texOffs(42, 0).addBox(-1.0F, 0.0F, -1.0F, 2.0F, 5.0F, 2.0F), PartPose.offset(1.5F, 16.0F, -3.0F)
       );
-      parts.addChild(
+      parts.addOrReplaceChild(
          "front_right_leg",
-         ModelPartBuilder.create().mirrored().uv(42, 0).cuboid(-1.0F, 0.0F, -1.0F, 2.0F, 5.0F, 2.0F),
-         ModelTransform.origin(-1.5F, 16.0F, -3.0F)
+         CubeListBuilder.create().mirror().texOffs(42, 0).addBox(-1.0F, 0.0F, -1.0F, 2.0F, 5.0F, 2.0F),
+         PartPose.offset(-1.5F, 16.0F, -3.0F)
       );
-      parts.addChild(
-         "left_back_leg", ModelPartBuilder.create().uv(52, 0).cuboid(-1.0F, 0.0F, -1.0F, 2.0F, 5.0F, 2.0F), ModelTransform.origin(1.5F, 16.0F, 9.0F)
+      parts.addOrReplaceChild(
+         "left_back_leg", CubeListBuilder.create().texOffs(52, 0).addBox(-1.0F, 0.0F, -1.0F, 2.0F, 5.0F, 2.0F), PartPose.offset(1.5F, 16.0F, 9.0F)
       );
-      parts.addChild(
+      parts.addOrReplaceChild(
          "right_back_leg",
-         ModelPartBuilder.create().mirrored().uv(52, 0).cuboid(-1.0F, 0.0F, -1.0F, 2.0F, 5.0F, 2.0F),
-         ModelTransform.origin(-1.5F, 16.0F, 9.0F)
+         CubeListBuilder.create().mirror().texOffs(52, 0).addBox(-1.0F, 0.0F, -1.0F, 2.0F, 5.0F, 2.0F),
+         PartPose.offset(-1.5F, 16.0F, 9.0F)
       );
-      parts.addChild(
+      parts.addOrReplaceChild(
          "tail",
-         ModelPartBuilder.create().uv(2, 12).cuboid(-1.0F, 2.0F, -1.0F, 2.0F, 8.0F, 2.0F),
-         ModelTransform.of(0.0F, 9.0F, 10.0F, (float) (Math.PI / 8), 0.0F, 0.0F)
+         CubeListBuilder.create().texOffs(2, 12).addBox(-1.0F, 2.0F, -1.0F, 2.0F, 8.0F, 2.0F),
+         PartPose.offsetAndRotation(0.0F, 9.0F, 10.0F, (float) (Math.PI / 8), 0.0F, 0.0F)
       );
-      return TexturedModelData.of(mesh, 60, 36).createModel();
+      return LayerDefinition.create(mesh, 60, 36).bakeRoot();
    }
 
    public void setupAnim(float ageInTicks, PetBrain brain) {
-      this.head.yaw = brain.getYaw() * (float) (Math.PI / 180.0);
-      this.head.pitch = brain.getPitch() * (float) (Math.PI / 180.0);
+      this.head.yRot = brain.getYaw() * (float) (Math.PI / 180.0);
+      this.head.xRot = brain.getPitch() * (float) (Math.PI / 180.0);
       float swing = brain.limbSwing * 0.6662F;
       float amount = brain.limbSwingAmount;
-      this.frontLeftLeg.pitch = MathHelper.cos((double)swing) * 1.4F * amount;
-      this.frontRightLeg.pitch = MathHelper.cos((double)(swing + (float) Math.PI)) * 1.4F * amount;
-      this.leftBackLeg.pitch = MathHelper.cos((double)(swing + (float) Math.PI)) * 1.4F * amount;
-      this.rightBackLeg.pitch = MathHelper.cos((double)swing) * 1.4F * amount;
+      this.frontLeftLeg.xRot = Mth.cos((double)swing) * 1.4F * amount;
+      this.frontRightLeg.xRot = Mth.cos((double)(swing + (float) Math.PI)) * 1.4F * amount;
+      this.leftBackLeg.xRot = Mth.cos((double)(swing + (float) Math.PI)) * 1.4F * amount;
+      this.rightBackLeg.xRot = Mth.cos((double)swing) * 1.4F * amount;
       if (brain.isLay()) {
-         this.frontLeftLeg.pitch = (float)Math.toRadians(-90.0);
-         this.frontRightLeg.pitch = (float)Math.toRadians(-90.0);
-         this.leftBackLeg.pitch = (float)Math.toRadians(90.0);
-         this.rightBackLeg.pitch = (float)Math.toRadians(90.0);
-         this.frontLeftLeg.yaw = (float)Math.toRadians(-22.0);
-         this.frontRightLeg.yaw = (float)Math.toRadians(22.0);
-         this.leftBackLeg.yaw = (float)Math.toRadians(22.0);
-         this.rightBackLeg.yaw = (float)Math.toRadians(-22.0);
+         this.frontLeftLeg.xRot = (float)Math.toRadians(-90.0);
+         this.frontRightLeg.xRot = (float)Math.toRadians(-90.0);
+         this.leftBackLeg.xRot = (float)Math.toRadians(90.0);
+         this.rightBackLeg.xRot = (float)Math.toRadians(90.0);
+         this.frontLeftLeg.yRot = (float)Math.toRadians(-22.0);
+         this.frontRightLeg.yRot = (float)Math.toRadians(22.0);
+         this.leftBackLeg.yRot = (float)Math.toRadians(22.0);
+         this.rightBackLeg.yRot = (float)Math.toRadians(-22.0);
       } else {
-         this.frontLeftLeg.yaw = this.frontRightLeg.yaw = this.leftBackLeg.yaw = this.rightBackLeg.yaw = 0.0F;
+         this.frontLeftLeg.yRot = this.frontRightLeg.yRot = this.leftBackLeg.yRot = this.rightBackLeg.yRot = 0.0F;
       }
 
-      this.tail.pitch = (float)Math.toRadians(brain.isLay() ? 45.0 : 22.0);
-      this.tail.roll = (float)(Math.toRadians(-22.5) + (float) (Math.PI / 8) + (double)(MathHelper.cos((double)(ageInTicks * 0.15F)) * 0.3F));
+      this.tail.xRot = (float)Math.toRadians(brain.isLay() ? 45.0 : 22.0);
+      this.tail.zRot = (float)(Math.toRadians(-22.5) + (float) (Math.PI / 8) + (double)(Mth.cos((double)(ageInTicks * 0.15F)) * 0.3F));
    }
 
-   public void render(MatrixStack pose, VertexConsumer consumer, int packedLight, int packedOverlay, PetBrain brain) {
-      pose.push();
+   public void render(PoseStack pose, VertexConsumer consumer, int packedLight, int packedOverlay, PetBrain brain) {
+      pose.pushPose();
       pose.translate(0.0F, 1.2F - (brain.isLay() ? 0.3F : 0.0F), 0.0F);
-      pose.multiply(RotationAxis.POSITIVE_X.rotationDegrees(180.0F));
-      pose.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(brain.getBody()));
+      pose.mulPose(Axis.XP.rotationDegrees(180.0F));
+      pose.mulPose(Axis.YP.rotationDegrees(brain.getBody()));
       this.head.render(pose, consumer, packedLight, packedOverlay);
       this.neck.render(pose, consumer, packedLight, packedOverlay);
       this.body.render(pose, consumer, packedLight, packedOverlay);
@@ -122,6 +122,6 @@ public final class PetModel {
       this.leftBackLeg.render(pose, consumer, packedLight, packedOverlay);
       this.rightBackLeg.render(pose, consumer, packedLight, packedOverlay);
       this.tail.render(pose, consumer, packedLight, packedOverlay);
-      pose.pop();
+      pose.popPose();
    }
 }

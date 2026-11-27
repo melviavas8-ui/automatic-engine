@@ -6,9 +6,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.widget.EntryListWidget;
-import net.minecraft.client.gui.widget.OptionListWidget;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractSelectionList;
+import net.minecraft.client.gui.components.OptionsList;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import daamky.ua.screens.mainmenu.DraggableListEntryAccess;
 import daamky.ua.screens.mainmenu.VanillaMenuTheme;
 
-@Mixin({EntryListWidget.class})
+@Mixin({AbstractSelectionList.class})
 public abstract class AbstractSelectionListMixin {
    @Unique
    private final Map<Object, Float> daamky$entryVisibility = new IdentityHashMap<>();
@@ -43,32 +43,32 @@ public abstract class AbstractSelectionListMixin {
    }
 
    @Inject(
-      method = {"drawMenuListBackground"},
+      method = {"renderListBackground"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$renderThemedListBackground(DrawContext graphics, CallbackInfo ci) {
+   private void daamky$renderThemedListBackground(GuiGraphics graphics, CallbackInfo ci) {
       if (VanillaMenuTheme.active()) {
          ci.cancel();
       }
    }
 
    @Inject(
-      method = {"drawHeaderAndFooterSeparators"},
+      method = {"renderListSeparators"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$hideVanillaListSeparators(DrawContext graphics, CallbackInfo ci) {
+   private void daamky$hideVanillaListSeparators(GuiGraphics graphics, CallbackInfo ci) {
       if (VanillaMenuTheme.active()) {
          ci.cancel();
       }
    }
 
    @Inject(
-      method = {"renderList"},
+      method = {"renderListItems"},
       at = {@At("HEAD")}
    )
-   private void daamky$prepareListAnimations(DrawContext graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+   private void daamky$prepareListAnimations(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
       if (!VanillaMenuTheme.active()) {
          this.daamky$entryVisibility.clear();
          this.daamky$lastCards.clear();
@@ -80,7 +80,7 @@ public abstract class AbstractSelectionListMixin {
          long now = System.nanoTime();
          this.daamky$deltaSeconds = this.daamky$lastFrameNanos == 0L ? 0.0F : Math.min(0.05F, (float)(now - this.daamky$lastFrameNanos) / 1.0E9F);
          this.daamky$lastFrameNanos = now;
-         EntryListWidget<?> list = (EntryListWidget<?>)(Object)this;
+         AbstractSelectionList<?> list = (AbstractSelectionList<?>)(Object)this;
          List<?> currentEntries = list.children();
          Iterator<Entry<Object, AbstractSelectionListMixin.CardSnapshot>> snapshots = this.daamky$lastCards.entrySet().iterator();
 
@@ -113,13 +113,13 @@ public abstract class AbstractSelectionListMixin {
    }
 
    @Inject(
-      method = {"renderEntry"},
+      method = {"renderItem"},
       at = {@At("HEAD")}
    )
-   private void daamky$renderThemedListCard(DrawContext graphics, int mouseX, int mouseY, float partialTick, @Coerce Object entry, CallbackInfo ci) {
+   private void daamky$renderThemedListCard(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, @Coerce Object entry, CallbackInfo ci) {
       if (VanillaMenuTheme.active()) {
-         EntryListWidget<?> list = (EntryListWidget<?>)(Object)this;
-         if (!(list instanceof OptionListWidget)) {
+         AbstractSelectionList<?> list = (AbstractSelectionList<?>)(Object)this;
+         if (!(list instanceof OptionsList)) {
             int index = list.children().indexOf(entry);
             if (index >= 0) {
                int x = list.getRowLeft();
@@ -127,7 +127,7 @@ public abstract class AbstractSelectionListMixin {
                int width = list.getRowWidth();
                int height = Math.max(1, list.getRowBottom(index) - y);
                boolean hovered = mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY <= y + height;
-               boolean selected = list.getSelectedOrNull() == entry;
+               boolean selected = list.getSelected() == entry;
                float dragX = 0.0F;
                float dragY = 0.0F;
                if (entry instanceof DraggableListEntryAccess draggable) {
@@ -153,11 +153,11 @@ public abstract class AbstractSelectionListMixin {
                float scale = 0.88F + smooth * 0.12F;
                float centerX = (float)x + (float)width * 0.5F;
                float centerY = (float)y + (float)height * 0.5F;
-               graphics.getMatrices().pushMatrix();
-               graphics.getMatrices().translate(dragX, dragY);
-               graphics.getMatrices().translate(centerX, centerY);
-               graphics.getMatrices().scale(scale, scale);
-               graphics.getMatrices().translate(-centerX, -centerY);
+               graphics.pose().pushMatrix();
+               graphics.pose().translate(dragX, dragY);
+               graphics.pose().translate(centerX, centerY);
+               graphics.pose().scale(scale, scale);
+               graphics.pose().translate(-centerX, -centerY);
                this.daamky$posePushed = true;
                VanillaMenuTheme.renderListCard(graphics, (float)x, (float)y, (float)width, (float)height, hovered, selected, visibility);
             }
@@ -166,22 +166,22 @@ public abstract class AbstractSelectionListMixin {
    }
 
    @Inject(
-      method = {"renderEntry"},
+      method = {"renderItem"},
       at = {@At("TAIL")}
    )
-   private void daamky$finishThemedListCard(DrawContext graphics, int mouseX, int mouseY, float partialTick, @Coerce Object entry, CallbackInfo ci) {
+   private void daamky$finishThemedListCard(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, @Coerce Object entry, CallbackInfo ci) {
       if (this.daamky$posePushed) {
-         graphics.getMatrices().popMatrix();
+         graphics.pose().popMatrix();
          this.daamky$posePushed = false;
       }
    }
 
    @Inject(
-      method = {"drawSelectionHighlight"},
+      method = {"renderSelection"},
       at = {@At("HEAD")},
       cancellable = true
    )
-   private void daamky$hideVanillaSelection(DrawContext graphics, @Coerce Object entry, int y, CallbackInfo ci) {
+   private void daamky$hideVanillaSelection(GuiGraphics graphics, @Coerce Object entry, int y, CallbackInfo ci) {
       if (VanillaMenuTheme.active()) {
          ci.cancel();
       }

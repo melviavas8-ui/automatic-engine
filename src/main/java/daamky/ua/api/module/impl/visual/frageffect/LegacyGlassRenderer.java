@@ -4,7 +4,7 @@ import com.mojang.blaze3d.opengl.GlStateManager;
 import java.awt.Color;
 import java.util.HashMap;
 import java.util.Map;
-import net.minecraft.client.network.OtherClientPlayerEntity;
+import net.minecraft.client.player.RemotePlayer;
 
 public class LegacyGlassRenderer {
    private static final Map<Integer, LegacyGlassRenderer.GlassProperties> glassEntities = new HashMap<>();
@@ -12,18 +12,18 @@ public class LegacyGlassRenderer {
    public LegacyGlassRenderer() {
    }
 
-   public static void applyGlassEffect(OtherClientPlayerEntity fakePlayer, boolean glassEnabled, float alpha, Color tint) {
+   public static void applyGlassEffect(RemotePlayer fakePlayer, boolean glassEnabled, float alpha, Color tint) {
       if (fakePlayer != null) {
          int entityId = fakePlayer.getId();
          if (!glassEnabled) {
             fakePlayer.setInvisible(false);
-            fakePlayer.setGlowing(false);
+            fakePlayer.setGlowingTag(false);
             glassEntities.remove(entityId);
          } else {
             float normalizedAlpha = Math.clamp(alpha / 100.0F, 0.0F, 1.0F);
             glassEntities.put(entityId, new LegacyGlassRenderer.GlassProperties(normalizedAlpha, tint));
             fakePlayer.setInvisible(false);
-            fakePlayer.setGlowing(true);
+            fakePlayer.setGlowingTag(true);
          }
       }
    }

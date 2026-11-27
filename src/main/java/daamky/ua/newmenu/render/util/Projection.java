@@ -1,9 +1,9 @@
 package daamky.ua.newmenu.render.util;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.Camera;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector2d;
@@ -21,7 +21,7 @@ public final class Projection {
     /**
      * Updates the exact view-projection matrix from WorldRenderer.render per frame.
      */
-    public static void updateMatrices(Matrix4f positionMatrix, Matrix4f projectionMatrix, Vec3d camPos) {
+    public static void updateMatrices(Matrix4f positionMatrix, Matrix4f projectionMatrix, Vec3 camPos) {
         if (positionMatrix == null || projectionMatrix == null || camPos == null) return;
         VIEW_PROJ.set(projectionMatrix).mul(positionMatrix);
         camX = camPos.x;
@@ -35,7 +35,7 @@ public final class Projection {
      * Returns Vector2d(screenX, screenY), or null if behind camera.
      */
     public static Vector2d project(double wx, double wy, double wz) {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.getWindow() == null) return null;
 
         Vector4f clip;
@@ -50,13 +50,13 @@ public final class Projection {
         } else {
             // Fallback if matrices not yet captured in the first frame
             if (client.gameRenderer == null) return null;
-            Camera camera = client.gameRenderer.getCamera();
+            Camera camera = client.gameRenderer.getMainCamera();
             if (camera == null) return null;
-            Vec3d camPos = camera.getCameraPos();
+            Vec3 camPos = camera.position();
 
-            float fov = lastFov > 0.0F ? lastFov : (client.options != null && client.options.getFov() != null ? (float) client.options.getFov().getValue() : 70.0F);
-            Matrix4f projMatrix = client.gameRenderer.getBasicProjectionMatrix(fov);
-            Matrix4f viewMatrix = new Matrix4f().rotation(camera.getRotation().conjugate(new Quaternionf()));
+            float fov = lastFov > 0.0F ? lastFov : (client.options != null && client.options.fov() != null ? (float) client.options.fov().get() : 70.0F);
+            Matrix4f projMatrix = client.gameRenderer.getProjectionMatrix(fov);
+            Matrix4f viewMatrix = new Matrix4f().rotation(camera.rotation().conjugate(new Quaternionf()));
             Matrix4f fallbackViewProj = new Matrix4f(projMatrix).mul(viewMatrix);
 
             clip = new Vector4f(
@@ -75,8 +75,8 @@ public final class Projection {
         float ndcX = clip.x / clip.w;
         float ndcY = clip.y / clip.w;
 
-        int winW = client.getWindow().getScaledWidth();
-        int winH = client.getWindow().getScaledHeight();
+        int winW = client.getWindow().getGuiScaledWidth();
+        int winH = client.getWindow().getGuiScaledHeight();
 
         double screenX = (ndcX * 0.5f + 0.5f) * winW;
         double screenY = (1.0f - (ndcY * 0.5f + 0.5f)) * winH;
@@ -93,8 +93,8 @@ public final class Projection {
      */
     public static Vector2d projectEntityTop(Entity entity, float tickDelta) {
         if (entity == null) return null;
-        Vec3d pos = entity.getLerpedPos(tickDelta);
-        double headY = pos.y + entity.getHeight() + 0.28;
+        Vec3 pos = entity.getPosition(tickDelta);
+        double headY = pos.y + entity.getBbHeight() + 0.28;
         return project(pos.x, headY, pos.z);
     }
 }

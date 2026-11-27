@@ -1,10 +1,10 @@
 package daamky.ua.screens.clickgui.impl.module;
 
 import java.util.List;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.input.CharInput;
-import net.minecraft.client.input.KeyInput;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import daamky.ua.api.drag.impl.ClientLanguage;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.settings.bind.KeyBind;
@@ -106,7 +106,7 @@ public class ModuleOption {
       }
    }
 
-   public float renderSettings(DrawContext graphics, float panelX, float settingsTop, float width, float scale, float alpha, float clipBottom) {
+   public float renderSettings(GuiGraphics graphics, float panelX, float settingsTop, float width, float scale, float alpha, float clipBottom) {
       float animatedHeight = this.renderSettingsBackground(panelX, settingsTop, width, scale, alpha, clipBottom);
       this.renderSettingsContent(graphics, panelX, settingsTop, width, scale, alpha, clipBottom);
       return animatedHeight;
@@ -138,7 +138,7 @@ public class ModuleOption {
       }
    }
 
-   public void renderSettingsContent(DrawContext graphics, float panelX, float settingsTop, float width, float scale, float alpha, float clipBottom) {
+   public void renderSettingsContent(GuiGraphics graphics, float panelX, float settingsTop, float width, float scale, float alpha, float clipBottom) {
       if (this.hasSettings() && !(this.settingsProgress <= 0.01F)) {
          float settingsX = panelX + 5.0F * scale;
          float settingsY = settingsTop + 2.0F * scale;
@@ -173,7 +173,7 @@ public class ModuleOption {
       }
    }
 
-   public void renderOverlay(DrawContext graphics) {
+   public void renderOverlay(GuiGraphics graphics) {
       if (this.hasSettings() && !(this.settingsProgress <= 0.01F)) {
          for (ClickGuiOption option : this.settings) {
             float visibility = option.visibilityProgress();
@@ -197,11 +197,11 @@ public class ModuleOption {
       }
    }
 
-   public boolean mouseClicked(Click event, boolean doubled) {
+   public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
       return this.mouseClickedSettings(event, doubled) ? true : this.mouseClickedRow(event, doubled);
    }
 
-   public boolean mouseClickedRow(Click event, boolean doubled) {
+   public boolean mouseClickedRow(MouseButtonEvent event, boolean doubled) {
       if (event.button() == 2 && this.isRowHovered(event.x(), event.y())) {
          this.startBinding();
          return true;
@@ -224,7 +224,7 @@ public class ModuleOption {
       }
    }
 
-   public boolean mouseClickedSettings(Click event, boolean doubled) {
+   public boolean mouseClickedSettings(MouseButtonEvent event, boolean doubled) {
       if (this.hasSettings() && !(this.settingsProgress <= 0.85F)) {
          ClickGuiOption handled = null;
 
@@ -257,7 +257,7 @@ public class ModuleOption {
       }
    }
 
-   public boolean mouseClickedPopup(Click event, boolean doubled) {
+   public boolean mouseClickedPopup(MouseButtonEvent event, boolean doubled) {
       if (this.hasSettings() && !(this.settingsProgress <= 0.01F)) {
          boolean hasOpenPopup = false;
          ClickGuiOption handled = null;
@@ -287,7 +287,7 @@ public class ModuleOption {
       }
    }
 
-   public boolean mouseReleased(Click event) {
+   public boolean mouseReleased(MouseButtonEvent event) {
       if (this.hasSettings() && !(this.settingsProgress <= 0.01F)) {
          for (int i = this.settings.size() - 1; i >= 0; i--) {
             ClickGuiOption option = this.settings.get(i);
@@ -302,7 +302,7 @@ public class ModuleOption {
       }
    }
 
-   public boolean mouseDragged(Click event, double dragX, double dragY) {
+   public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
       if (this.hasSettings() && !(this.settingsProgress <= 0.01F)) {
          for (int i = this.settings.size() - 1; i >= 0; i--) {
             ClickGuiOption option = this.settings.get(i);
@@ -317,7 +317,7 @@ public class ModuleOption {
       }
    }
 
-   public boolean keyPressed(KeyInput event) {
+   public boolean keyPressed(KeyEvent event) {
       if (!this.binding) {
          if (this.hasSettings() && !(this.settingsProgress <= 0.01F)) {
             for (int i = this.settings.size() - 1; i >= 0; i--) {
@@ -342,7 +342,7 @@ public class ModuleOption {
       }
    }
 
-   public boolean charTyped(CharInput event) {
+   public boolean charTyped(CharacterEvent event) {
       if (this.hasSettings() && !(this.settingsProgress <= 0.01F)) {
          for (int i = this.settings.size() - 1; i >= 0; i--) {
             ClickGuiOption option = this.settings.get(i);

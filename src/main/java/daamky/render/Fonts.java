@@ -2,14 +2,13 @@ package daamky.render;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.util.Identifier;
-
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import net.minecraft.client.Minecraft;
+import net.minecraft.resources.Identifier;
 
 
 
@@ -26,7 +25,7 @@ public final class Fonts {
     private static List<String> names() {
         if (names == null) {
             names = new ArrayList<>();
-            try (var in = MinecraftClient.getInstance().getResourceManager().open(Identifier.of("daamky", "fonts/index.json"))) {
+            try (var in = Minecraft.getInstance().getResourceManager().open(Identifier.fromNamespaceAndPath("daamky", "fonts/index.json"))) {
                 for (JsonElement e : JsonParser.parseReader(new InputStreamReader(in)).getAsJsonArray()) names.add(e.getAsString());
             } catch (Exception ignored) {}
         }

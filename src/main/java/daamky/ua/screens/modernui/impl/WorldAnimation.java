@@ -2,12 +2,12 @@ package daamky.ua.screens.modernui.impl;
 
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.render.GuiRenderer;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.RawProjectionMatrix;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.renderer.PerspectiveProjectionMatrixBuffer;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import daamky.ua.screens.modernui.ClickGuiScreen;
 import daamky.ua.utils.render.Render3D;
@@ -20,7 +20,7 @@ public final class WorldAnimation {
    private static final float WORLD_SCALE = 0.016F;
    private static final float GUI_RENDERER_Z_OFFSET = 11000.0F;
    private static WorldAnimation.State state;
-   private static RawProjectionMatrix projectionBuffer;
+   private static PerspectiveProjectionMatrixBuffer projectionBuffer;
    private static boolean renderingDetached;
    private static GpuBufferSlice projectionOverride;
 
@@ -28,14 +28,14 @@ public final class WorldAnimation {
    }
 
    public static void start(ClickGuiScreen screen, float previousValue, float value) {
-      MinecraftClient client = MinecraftClient.getInstance();
-      if (client != null && client.world != null && client.player != null && screen != null) {
-         Camera camera = client.gameRenderer.getCamera();
-         float yaw = camera.getYaw();
-         float pitch = camera.getPitch();
-         Vec3d look = lookVector(yaw, pitch);
-         double offsetDistance = 7.5 * (double)client.getWindow().getFramebufferHeight() / 1080.0;
-         Vec3d anchor = camera.getCameraPos().add(look.x * offsetDistance, look.y * offsetDistance, look.z * offsetDistance);
+      Minecraft client = Minecraft.getInstance();
+      if (client != null && client.level != null && client.player != null && screen != null) {
+         Camera camera = client.gameRenderer.getMainCamera();
+         float yaw = camera.yRot();
+         float pitch = camera.xRot();
+         Vec3 look = lookVector(yaw, pitch);
+         double offsetDistance = 7.5 * (double)client.getWindow().getHeight() / 1080.0;
+         Vec3 anchor = camera.position().add(look.x * offsetDistance, look.y * offsetDistance, look.z * offsetDistance);
          float fixedWidth = (float)Render2D.getFixedScaledWidth();
          float fixedHeight = (float)Render2D.getFixedScaledHeight();
          state = new WorldAnimation.State(
@@ -79,13 +79,13 @@ public final class WorldAnimation {
       return projectionOverride;
    }
 
-   public static void render(GuiRenderer renderer, DrawContext graphics, GpuBufferSlice fogBuffer, float partialTicks) {
+   public static void render(GuiRenderer renderer, GuiGraphics graphics, GpuBufferSlice fogBuffer, float partialTicks) {
       WorldAnimation.State current = state;
       if (current != null && renderer != null) {
-         MinecraftClient client = MinecraftClient.getInstance();
-         if (client == null || client.world == null || client.player == null || client.options.hudHidden) {
+         Minecraft client = Minecraft.getInstance();
+         if (client == null || client.level == null || client.player == null || client.options.hideGui) {
             stop();
-         } else if (client.currentScreen != null) {
+         } else if (client.screen != null) {
             stop();
          } else {
             float fixedWidth = (float)Render2D.getFixedScaledWidth();
@@ -117,10 +117,10 @@ public final class WorldAnimation {
 
    private static GpuBufferSlice projectionBuffer(Matrix4f projection) {
       if (projectionBuffer == null) {
-         projectionBuffer = new RawProjectionMatrix("daamky_modern_ui_world");
+         projectionBuffer = new PerspectiveProjectionMatrixBuffer("daamky_modern_ui_world");
       }
 
-      return projectionBuffer.set(projection);
+      return projectionBuffer.getBuffer(projection);
    }
 
    private static Matrix4f createDetachedProjection(WorldAnimation.State state, float progress, float fixedWidth, float fixedHeight) {
@@ -128,7 +128,7 @@ public final class WorldAnimation {
       if (animationScale <= 0.001F) {
          return null;
       } else {
-         Vec3d cameraPos = Render3D.lastCameraPos;
+         Vec3 cameraPos = Render3D.lastCameraPos;
          float centerX = fixedWidth * 0.5F;
          float centerY = fixedHeight * 0.5F;
          float relativeX = (float)(state.anchor.x - cameraPos.x);
@@ -145,10 +145,10 @@ public final class WorldAnimation {
       }
    }
 
-   private static float resolveWorldScale(Vec3d anchor, float yaw, float pitch, float fixedWidth, float fixedHeight) {
+   private static float resolveWorldScale(Vec3 anchor, float yaw, float pitch, float fixedWidth, float fixedHeight) {
       float centerX = fixedWidth * 0.5F;
       float centerY = fixedHeight * 0.5F;
-      Vec3d cameraPos = Render3D.lastCameraPos;
+      Vec3 cameraPos = Render3D.lastCameraPos;
       float relativeX = (float)(anchor.x - cameraPos.x);
       float relativeY = (float)(anchor.y - cameraPos.y);
       float relativeZ = (float)(anchor.z - cameraPos.z);
@@ -198,11 +198,11 @@ public final class WorldAnimation {
          || projector.project(0.0F, fixedHeight) != null;
    }
 
-   private static Vec3d lookVector(float yaw, float pitch) {
+   private static Vec3 lookVector(float yaw, float pitch) {
       double yawRadians = Math.toRadians((double)yaw);
       double pitchRadians = Math.toRadians((double)pitch);
       double pitchCos = Math.cos(pitchRadians);
-      return new Vec3d(-Math.sin(yawRadians) * pitchCos, -Math.sin(pitchRadians), Math.cos(yawRadians) * pitchCos);
+      return new Vec3(-Math.sin(yawRadians) * pitchCos, -Math.sin(pitchRadians), Math.cos(yawRadians) * pitchCos);
    }
 
    private static float scale(float progress) {
@@ -253,7 +253,7 @@ public final class WorldAnimation {
 
    private static final class State {
       private final ClickGuiScreen screen;
-      private final Vec3d anchor;
+      private final Vec3 anchor;
       private final float yaw;
       private final float pitch;
       private final float worldScale;
@@ -261,7 +261,7 @@ public final class WorldAnimation {
       private float value;
       private boolean skipNextTick;
 
-      private State(ClickGuiScreen screen, Vec3d anchor, float yaw, float pitch, float worldScale, float previousValue, float value, boolean skipNextTick) {
+      private State(ClickGuiScreen screen, Vec3 anchor, float yaw, float pitch, float worldScale, float previousValue, float value, boolean skipNextTick) {
          this.screen = screen;
          this.anchor = anchor;
          this.yaw = yaw;

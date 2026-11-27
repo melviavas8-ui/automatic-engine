@@ -1,12 +1,5 @@
 package daamky.ua.mixin;
 
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
-import net.minecraft.client.gui.screen.multiplayer.MultiplayerServerListWidget;
-import net.minecraft.client.gui.widget.Widget;
-import net.minecraft.text.Text;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -18,9 +11,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import daamky.ua.mixin.accessor.AbstractSelectionListAccessor;
 import daamky.ua.screens.mainmenu.DraggableListEntryAccess;
 import daamky.ua.screens.mainmenu.VanillaMenuTheme;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.layouts.LayoutElement;
+import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
+import net.minecraft.client.gui.screens.multiplayer.ServerSelectionList;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.Component;
 
 @Mixin(
-   targets = {"net/minecraft/client/gui/screen/multiplayer/MultiplayerServerListWidget$ServerEntry"}
+   targets = {"net/minecraft/client/gui/screens/multiplayer/ServerSelectionList$OnlineServerEntry"}
 )
 public abstract class OnlineServerEntryThemeMixin implements DraggableListEntryAccess {
    @Unique
@@ -39,46 +39,46 @@ public abstract class OnlineServerEntryThemeMixin implements DraggableListEntryA
    private double daamky$cursorY;
    @Shadow
    @Final
-   private MultiplayerScreen screen;
+   private JoinMultiplayerScreen screen;
    @Shadow
    @Final
-   private MultiplayerServerListWidget serverListWidget;
+   private ServerSelectionList serverListWidget;
 
    public OnlineServerEntryThemeMixin() {
    }
 
    @Redirect(
-      method = {"render"},
+      method = {"renderContent"},
       at = @At(
          value = "INVOKE",
-         target = "Lnet/minecraft/client/gui/DrawContext;drawTextWithShadow(Lnet/minecraft/client/font/TextRenderer;Lnet/minecraft/text/Text;III)V"
+         target = "Lnet/minecraft/client/gui/GuiGraphics;drawString(Lnet/minecraft/client/gui/Font;Lnet/minecraft/network/chat/Component;III)V"
       )
    )
-   private void daamky$alignPlayerCountWithPing(DrawContext graphics, TextRenderer font, Text text, int x, int y, int color) {
-      int vanillaRightEdge = x + font.getWidth(text);
+   private void daamky$alignPlayerCountWithPing(GuiGraphics graphics, Font font, Component text, int x, int y, int color) {
+      int vanillaRightEdge = x + font.width(text);
       VanillaMenuTheme.drawRightAlignedText(graphics, text.getString(), (float)vanillaRightEdge, (float)y, color);
    }
 
    @Redirect(
-      method = {"render"},
+      method = {"renderContent"},
       at = @At(
          value = "INVOKE",
-         target = "Lnet/minecraft/client/gui/DrawContext;fill(IIIII)V"
+         target = "Lnet/minecraft/client/gui/GuiGraphics;fill(IIIII)V"
       )
    )
-   private void daamky$hideVanillaIconHover(DrawContext graphics, int left, int top, int right, int bottom, int color) {
+   private void daamky$hideVanillaIconHover(GuiGraphics graphics, int left, int top, int right, int bottom, int color) {
    }
 
    @Inject(
       method = {"mouseClicked"},
       at = {@At("HEAD")}
    )
-   private void daamky$startDragging(Click event, boolean doubled, CallbackInfoReturnable<Boolean> cir) {
+   private void daamky$startDragging(MouseButtonEvent event, boolean doubled, CallbackInfoReturnable<Boolean> cir) {
       if (VanillaMenuTheme.active() && event.button() == 0) {
          this.daamky$mouseDown = true;
          this.daamky$dragging = false;
          this.daamky$pressY = event.y();
-         Widget entry = (Widget)(Object)this;
+         LayoutElement entry = (LayoutElement)(Object)this;
          this.daamky$grabX = event.x() - (double)entry.getX();
          this.daamky$grabY = event.y() - (double)entry.getY();
          this.daamky$cursorX = event.x();
@@ -86,7 +86,7 @@ public abstract class OnlineServerEntryThemeMixin implements DraggableListEntryA
       }
    }
 
-   public boolean mouseDragged(Click event, double dragX, double dragY) {
+   public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
       if (this.daamky$mouseDown && event.button() == 0) {
          if (!this.daamky$dragging && Math.abs(event.y() - this.daamky$pressY) < 3.0) {
             return false;
@@ -99,19 +99,19 @@ public abstract class OnlineServerEntryThemeMixin implements DraggableListEntryA
                return true;
             } else {
                int target = index;
-               Widget entry = (Widget)(Object)this;
+               LayoutElement entry = (LayoutElement)(Object)this;
                double draggedCenter = this.daamky$cursorY - this.daamky$grabY + (double)entry.getHeight() * 0.5;
                if (draggedCenter < (double)(Object)this.serverListWidget.getRowTop(index) && index > 0) {
                   target = index - 1;
-               } else if (draggedCenter > (double)(Object)this.serverListWidget.getRowBottom(index) && index < this.screen.getServerList().size() - 1) {
+               } else if (draggedCenter > (double)(Object)this.serverListWidget.getRowBottom(index) && index < this.screen.getServers().size() - 1) {
                   target = index + 1;
                }
 
                if (target != index) {
-                  double scroll = this.serverListWidget.getScrollY();
-                  this.screen.getServerList().swapEntries(index, target);
+                  double scroll = this.serverListWidget.scrollAmount();
+                  this.screen.getServers().swap(index, target);
                   ((AbstractSelectionListAccessor)(Object)this.serverListWidget).daamky$swapEntries(index, target);
-                  this.serverListWidget.setScrollY(scroll);
+                  this.serverListWidget.setScrollAmount(scroll);
                }
 
                return true;
@@ -122,7 +122,7 @@ public abstract class OnlineServerEntryThemeMixin implements DraggableListEntryA
       }
    }
 
-   public boolean mouseReleased(Click event) {
+   public boolean mouseReleased(MouseButtonEvent event) {
       boolean handled = this.daamky$dragging;
       this.daamky$mouseDown = false;
       this.daamky$dragging = false;

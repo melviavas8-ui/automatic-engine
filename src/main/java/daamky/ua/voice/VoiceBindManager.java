@@ -22,9 +22,9 @@ import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.TargetDataLine;
+import net.minecraft.client.Minecraft;
 import javax.sound.sampled.AudioFileFormat.Type;
 import javax.sound.sampled.DataLine.Info;
-import net.minecraft.client.MinecraftClient;
 import org.slf4j.Logger;
 import daamky.ua.api.config.ConfigManager;
 import daamky.ua.api.module.Module;
@@ -499,7 +499,7 @@ public final class VoiceBindManager {
       if (module != null && now - this.lastToggleAt >= 900L) {
          this.lastToggleAt = now;
          this.status = "Команда: " + module.getName();
-         MinecraftClient minecraft = MinecraftClient.getInstance();
+         Minecraft minecraft = Minecraft.getInstance();
          if (minecraft != null) {
             minecraft.execute(module::toggleByVoice);
          }

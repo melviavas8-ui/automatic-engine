@@ -2,13 +2,13 @@ package daamky.ua.api.module.impl.visual.esp;
 
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import daamky.ua.api.settings.impl.MultiModeSetting;
 import daamky.ua.utils.render.color.ColorUtil;
 import daamky.ua.utils.render.ui.font.FontType;
@@ -31,20 +31,20 @@ public final class EspTagRenderer {
       boolean includeHealth,
       float alpha,
       MultiModeSetting tagElements,
-      MinecraftClient mc,
-      DrawContext graphics
+      Minecraft mc,
+      GuiGraphics graphics
    ) {
       this.parts.clear();
       ItemStack iconStack = ItemStack.EMPTY;
       boolean roundIcon = false;
       if (entity instanceof ItemEntity item) {
-         ItemStack stack = item.getStack();
+         ItemStack stack = item.getItem();
          iconStack = stack;
-         TagParts.addTagPart(this.parts, FontType.SEMIBOLD, TagParts.clean(stack.getName().getString()), EspColors.TAG_TEXT, 0.0F);
+         TagParts.addTagPart(this.parts, FontType.SEMIBOLD, TagParts.clean(stack.getHoverName().getString()), EspColors.TAG_TEXT, 0.0F);
          if (stack.getCount() > 1) {
             TagParts.addTagPart(this.parts, FontType.SEMIBOLD, " x" + stack.getCount(), EspColors.TAG_MUTED, 0.0F);
          }
-      } else if (entity instanceof PlayerEntity player) {
+      } else if (entity instanceof Player player) {
          PlayerTag tag = this.playerTags.resolve(player, mc);
          if (tagElements.isSelected("Friend Prefix") && FriendUtils.isFriend(player)) {
             TagParts.addTagPart(this.parts, FontType.SEMIBOLD, "(F)", ColorUtil.rgba(42, 255, 118, 255), -0.25F);
@@ -77,7 +77,7 @@ public final class EspTagRenderer {
          TagParts.addTagPart(this.parts, FontType.SEMIBOLD, this.labelFor(entity, false), EspColors.TAG_TEXT, 0.0F);
       }
 
-      if (includeHealth && entity instanceof LivingEntity living && !(entity instanceof PlayerEntity)) {
+      if (includeHealth && entity instanceof LivingEntity living && !(entity instanceof Player)) {
          TagParts.addTagPart(
             this.parts,
             FontType.SEMIBOLD,
@@ -88,9 +88,9 @@ public final class EspTagRenderer {
       }
 
       if (!this.parts.isEmpty() || !iconStack.isEmpty()) {
-         PlayerEntity var10000;
+         Player var10000;
          label56: {
-            if (entity instanceof PlayerEntity player && tagElements.isSelected("Head")) {
+            if (entity instanceof Player player && tagElements.isSelected("Head")) {
                var10000 = player;
                break label56;
             }
@@ -98,7 +98,7 @@ public final class EspTagRenderer {
             var10000 = null;
          }
 
-         PlayerEntity headPlayer = var10000;
+         Player headPlayer = var10000;
          EspVisualRenderer.drawTagFrame(headPlayer, this.parts, iconStack, roundIcon, box, anchor, alpha, graphics);
       }
    }
@@ -107,7 +107,7 @@ public final class EspTagRenderer {
       EspVisualRenderer.drawHealthBar(box, entity, alpha, this.healthTracker);
    }
 
-   public void drawEquipment(PlayerEntity player, EspGeometry.ScreenBox box, EspGeometry.ScreenAnchor anchor, float alpha) {
+   public void drawEquipment(Player player, EspGeometry.ScreenBox box, EspGeometry.ScreenAnchor anchor, float alpha) {
       EspVisualRenderer.drawEquipment(player, box, anchor, alpha);
    }
 
@@ -117,12 +117,12 @@ public final class EspTagRenderer {
 
    private String labelFor(Entity entity, boolean includeHealth) {
       if (entity instanceof ItemEntity item) {
-         ItemStack stack = item.getStack();
-         String name = TagParts.clean(stack.getName().getString());
+         ItemStack stack = item.getItem();
+         String name = TagParts.clean(stack.getHoverName().getString());
          return stack.getCount() > 1 ? name + " x" + stack.getCount() : name;
       } else {
          String name = TagParts.clean(entity.getName().getString());
-         if (entity instanceof PlayerEntity player && FriendUtils.isFriend(player)) {
+         if (entity instanceof Player player && FriendUtils.isFriend(player)) {
             name = "Friend " + name;
          }
 

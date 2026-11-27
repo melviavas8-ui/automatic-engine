@@ -1,26 +1,26 @@
 package daamky.ua.api.module.impl.player;
 
 import java.util.concurrent.ThreadLocalRandom;
-import net.minecraft.block.Block;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.gui.screen.GameMenuScreen;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.PotionContentsComponent;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.decoration.DisplayEntity.TextDisplayEntity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.screen.GenericContainerScreenHandler;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.text.Text;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.gui.screens.PauseScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Display.TextDisplay;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.TickEvent;
 import daamky.ua.api.module.Module;
@@ -110,14 +110,14 @@ public final class ExpFarm extends Module {
 
    @SubscribeEvent
    private void onTick(TickEvent.Post event) {
-      if (mc.player != null && mc.world != null && mc.interactionManager != null) {
+      if (mc.player != null && mc.level != null && mc.gameMode != null) {
          if (mc.options != null) {
             mc.options.pauseOnLostFocus = false;
          }
 
-         if (!(mc.player.getHealth() <= 0.0F) && !mc.player.isDead()) {
+         if (!(mc.player.getHealth() <= 0.0F) && !mc.player.isDeadOrDying()) {
             this.rip = false;
-            if (mc.currentScreen instanceof GameMenuScreen) {
+            if (mc.screen instanceof PauseScreen) {
                mc.setScreen(null);
             }
 
@@ -129,7 +129,7 @@ public final class ExpFarm extends Module {
                   int expii = (int)this.expi.getFloat();
                   if (this.s == 23) {
                      this.bruh();
-                     mc.player.networkHandler.sendChatCommand("hub");
+                     mc.player.connection.sendCommand("hub");
                      this.roll(true);
                      this.xp = false;
                      this.take = false;
@@ -142,25 +142,25 @@ public final class ExpFarm extends Module {
                         this.riprun = false;
                      } else if (this.s == 0 && mc.player.experienceLevel >= expii) {
                         this.bruh();
-                        mc.player.networkHandler.sendChatCommand("hub");
+                        mc.player.connection.sendCommand("hub");
                         this.roll(false);
                         this.picked = true;
                         this.xp = true;
                         this.ex = mc.player.experienceLevel;
                         this.eb = 0;
                         this.storageWaitTicks = 0;
-                        this.take = this.invis.getValue() && !mc.player.hasStatusEffect(StatusEffects.INVISIBILITY) && this.pis() == -1;
+                        this.take = this.invis.getValue() && !mc.player.hasEffect(MobEffects.INVISIBILITY) && this.pis() == -1;
                         this.svc = true;
                         this.d = 40;
                         this.s = 4;
                         return;
                      }
 
-                     if (this.s == 0 && this.invis.getValue() && mc.player.hasStatusEffect(StatusEffects.INVISIBILITY)) {
+                     if (this.s == 0 && this.invis.getValue() && mc.player.hasEffect(MobEffects.INVISIBILITY)) {
                         this.drink = false;
                      }
 
-                     if (this.s == 0 && this.invis.getValue() && !mc.player.hasStatusEffect(StatusEffects.INVISIBILITY)) {
+                     if (this.s == 0 && this.invis.getValue() && !mc.player.hasEffect(MobEffects.INVISIBILITY)) {
                         int ii = this.pis();
                         if (ii == -1) {
                            if (!this.rnd && (this.picked || this.looked)) {
@@ -174,7 +174,7 @@ public final class ExpFarm extends Module {
                            }
 
                            this.bruh();
-                           mc.player.networkHandler.sendChatCommand("hub");
+                           mc.player.connection.sendCommand("hub");
                            this.looked = true;
                            this.take = true;
                            this.svc = true;
@@ -188,7 +188,7 @@ public final class ExpFarm extends Module {
                         this.drink = true;
                         if (!this.picked) {
                            this.bruh();
-                           mc.player.networkHandler.sendChatCommand("hub");
+                           mc.player.connection.sendCommand("hub");
                            this.roll(true);
                            this.picked = true;
                            this.d = 40;
@@ -204,7 +204,7 @@ public final class ExpFarm extends Module {
                            int bot = -1;
 
                            for (int i = 0; i < 36; i++) {
-                              if (mc.player.getInventory().getStack(i).isOf(Items.GLASS_BOTTLE)) {
+                              if (mc.player.getInventory().getItem(i).is(Items.GLASS_BOTTLE)) {
                                  bot = i;
                                  break;
                               }
@@ -214,13 +214,13 @@ public final class ExpFarm extends Module {
                               int bar = mc.player.getInventory().getSelectedSlot();
                               if (bot >= 9) {
                                  for (int ix = 0; ix < 9; ix++) {
-                                    if (mc.player.getInventory().getStack(ix).isEmpty()) {
+                                    if (mc.player.getInventory().getItem(ix).isEmpty()) {
                                        bar = ix;
                                        break;
                                     }
                                  }
 
-                                 mc.interactionManager.clickSlot(mc.player.playerScreenHandler.syncId, bot, bar, SlotActionType.SWAP, mc.player);
+                                 mc.gameMode.handleInventoryMouseClick(mc.player.inventoryMenu.containerId, bot, bar, ClickType.SWAP, mc.player);
                               } else {
                                  bar = bot;
                               }
@@ -240,17 +240,17 @@ public final class ExpFarm extends Module {
                               } else {
                                  this.storageWaitTicks = 0;
                                  Direction side = Direction.UP;
-                                 Vec3d vec = Vec3d.ofCenter(box).add(0.0, 0.5, 0.0);
+                                 Vec3 vec = Vec3.atCenterOf(box).add(0.0, 0.5, 0.0);
 
                                  for (int ixx = 0; ixx < 9; ixx++) {
-                                    ItemStack stack = mc.player.getInventory().getStack(ixx);
-                                    if (!stack.isOf(Items.EXPERIENCE_BOTTLE) && !stack.isOf(Items.PAPER)) {
+                                    ItemStack stack = mc.player.getInventory().getItem(ixx);
+                                    if (!stack.is(Items.EXPERIENCE_BOTTLE) && !stack.is(Items.PAPER)) {
                                        mc.player.getInventory().setSelectedSlot(ixx);
                                        break;
                                     }
                                  }
 
-                                 mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, new BlockHitResult(vec, side, box, false));
+                                 mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(vec, side, box, false));
                                  this.d = 10;
                                  this.s = 15;
                               }
@@ -259,15 +259,15 @@ public final class ExpFarm extends Module {
                      } else if (this.s == 15) {
                         if (this.xp && mc.player.experienceLevel < 15) {
                            this.finishXpStorageRun();
-                        } else if (!(mc.player.currentScreenHandler instanceof GenericContainerScreenHandler menu)) {
+                        } else if (!(mc.player.containerMenu instanceof ChestMenu menu)) {
                            this.d = 5;
                         } else {
-                           int var38 = menu.getRows() * 9;
+                           int var38 = menu.getRowCount() * 9;
                            int var51 = -1;
 
                            for (int var61 = 0; var61 < var38; var61++) {
-                              ItemStack stack = ((Slot)menu.slots.get(var61)).getStack();
-                              if (stack.isOf(Items.GLASS_BOTTLE)) {
+                              ItemStack stack = ((Slot)menu.slots.get(var61)).getItem();
+                              if (stack.is(Items.GLASS_BOTTLE)) {
                                  var51 = var61;
                                  break;
                               }
@@ -279,7 +279,7 @@ public final class ExpFarm extends Module {
                               int bar = -1;
 
                               for (int ixxx = 0; ixxx < 9; ixxx++) {
-                                 if (mc.player.getInventory().getStack(ixxx).isEmpty()) {
+                                 if (mc.player.getInventory().getItem(ixxx).isEmpty()) {
                                     bar = ixxx;
                                     break;
                                  }
@@ -290,24 +290,24 @@ public final class ExpFarm extends Module {
                               } else {
                                  this.q = var51;
                                  this.w = var38 + 27 + bar;
-                                 mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, this.q, 0, SlotActionType.PICKUP, mc.player);
+                                 mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, this.q, 0, ClickType.PICKUP, mc.player);
                                  this.d = 2;
                                  this.s = 21;
                               }
                            }
                         }
                      } else if (this.s == 21) {
-                        mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, this.w, 1, SlotActionType.PICKUP, mc.player);
+                        mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, this.w, 1, ClickType.PICKUP, mc.player);
                         this.d = 2;
                         this.s = 22;
                      } else if (this.s == 22) {
-                        mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, this.q, 0, SlotActionType.PICKUP, mc.player);
+                        mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, this.q, 0, ClickType.PICKUP, mc.player);
                         this.q = this.w = 0;
-                        mc.player.closeHandledScreen();
+                        mc.player.closeContainer();
                         this.d = 10;
                         this.s = 16;
                      } else if (this.s == 16) {
-                        mc.player.networkHandler.sendChatCommand("exp");
+                        mc.player.connection.sendCommand("exp");
                         this.d = 20;
                         this.s = 17;
                      } else if (this.s == 17) {
@@ -318,13 +318,13 @@ public final class ExpFarm extends Module {
                            int need = real >= 50 ? 50 : (real >= 45 ? 45 : (real >= 30 ? 30 : (real >= 15 ? 15 : 0)));
                            if (need <= 0) {
                               InventoryTask.closeScreen(false);
-                              mc.player.closeHandledScreen();
+                              mc.player.closeContainer();
                               this.xp = false;
                               this.take = false;
                               this.svc = false;
                               this.looked = false;
                               this.bruh();
-                              mc.player.networkHandler.sendChatCommand("hub");
+                              mc.player.connection.sendCommand("hub");
                               this.roll(true);
                               this.picked = true;
                               this.d = 40;
@@ -333,11 +333,11 @@ public final class ExpFarm extends Module {
                               int[] ss = new int[]{-1, -1, -1, -1};
                               int[] cc = new int[]{50, 45, 30, 15};
 
-                              for (int ixxxx = 0; ixxxx < mc.player.currentScreenHandler.slots.size(); ixxxx++) {
-                                 ItemStack stack = mc.player.currentScreenHandler.getSlot(ixxxx).getStack();
+                              for (int ixxxx = 0; ixxxx < mc.player.containerMenu.slots.size(); ixxxx++) {
+                                 ItemStack stack = mc.player.containerMenu.getSlot(ixxxx).getItem();
 
                                  for (int j = 0; j < cc.length; j++) {
-                                    if (stack.isOf(Items.EXPERIENCE_BOTTLE) && stack.getCount() == cc[j]) {
+                                    if (stack.is(Items.EXPERIENCE_BOTTLE) && stack.getCount() == cc[j]) {
                                        ss[j] = ixxxx;
                                     }
                                  }
@@ -347,7 +347,7 @@ public final class ExpFarm extends Module {
 
                               for (int ixxxx = 0; ixxxx < cc.length; ixxxx++) {
                                  while (ss[ixxxx] != -1 && ost >= cc[ixxxx]) {
-                                    mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, ss[ixxxx], 0, SlotActionType.PICKUP, mc.player);
+                                    mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, ss[ixxxx], 0, ClickType.PICKUP, mc.player);
                                     ost -= cc[ixxxx];
                                     this.eb = this.eb + cc[ixxxx];
                                  }
@@ -360,13 +360,13 @@ public final class ExpFarm extends Module {
                            }
                         } else {
                            InventoryTask.closeScreen(false);
-                           mc.player.closeHandledScreen();
+                           mc.player.closeContainer();
                            this.xp = false;
                            this.take = false;
                            this.svc = false;
                            this.looked = false;
                            this.bruh();
-                           mc.player.networkHandler.sendChatCommand("hub");
+                           mc.player.connection.sendCommand("hub");
                            this.roll(true);
                            this.picked = true;
                            this.d = 40;
@@ -374,7 +374,7 @@ public final class ExpFarm extends Module {
                         }
                      } else if (this.s == 18) {
                         InventoryTask.closeScreen(false);
-                        mc.player.closeHandledScreen();
+                        mc.player.closeContainer();
                         this.d = 10;
                         this.s = 19;
                      } else if (this.s == 19) {
@@ -389,49 +389,49 @@ public final class ExpFarm extends Module {
                            this.storageWaitTicks = 0;
 
                            for (int ixxxx = 0; ixxxx < 9; ixxxx++) {
-                              ItemStack stack = mc.player.getInventory().getStack(ixxxx);
-                              if (!stack.isOf(Items.EXPERIENCE_BOTTLE) && !stack.isOf(Items.PAPER)) {
+                              ItemStack stack = mc.player.getInventory().getItem(ixxxx);
+                              if (!stack.is(Items.EXPERIENCE_BOTTLE) && !stack.is(Items.PAPER)) {
                                  mc.player.getInventory().setSelectedSlot(ixxxx);
                                  break;
                               }
                            }
 
                            Direction side = Direction.UP;
-                           Vec3d vec = Vec3d.ofCenter(box).add(0.0, 0.5, 0.0);
-                           mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, new BlockHitResult(vec, side, box, false));
+                           Vec3 vec = Vec3.atCenterOf(box).add(0.0, 0.5, 0.0);
+                           mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(vec, side, box, false));
                            this.d = 10;
                            this.s = 20;
                         }
                      } else if (this.s == 20) {
-                        if (!(mc.player.currentScreenHandler instanceof GenericContainerScreenHandler menu)) {
+                        if (!(mc.player.containerMenu instanceof ChestMenu menu)) {
                            this.d = 5;
                         } else {
-                           int var33 = menu.getRows() * 9;
+                           int var33 = menu.getRowCount() * 9;
                            int var47 = -1;
                            int var59 = -1;
 
                            for (int var67 = 0; var67 < var33; var67++) {
-                              if (((Slot)menu.slots.get(var67)).getStack().isEmpty()) {
+                              if (((Slot)menu.slots.get(var67)).getItem().isEmpty()) {
                                  var47 = var67;
                                  break;
                               }
                            }
 
-                           for (int ixxxxx = var33; ixxxxx < mc.player.currentScreenHandler.slots.size(); ixxxxx++) {
-                              ItemStack stack = mc.player.currentScreenHandler.getSlot(ixxxxx).getStack();
-                              if (stack.isOf(Items.EXPERIENCE_BOTTLE)) {
+                           for (int ixxxxx = var33; ixxxxx < mc.player.containerMenu.slots.size(); ixxxxx++) {
+                              ItemStack stack = mc.player.containerMenu.getSlot(ixxxxx).getItem();
+                              if (stack.is(Items.EXPERIENCE_BOTTLE)) {
                                  var59 = ixxxxx;
                                  break;
                               }
                            }
 
                            if (var47 != -1 && var59 != -1) {
-                              mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, var59, 0, SlotActionType.PICKUP, mc.player);
-                              mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, var47, 0, SlotActionType.PICKUP, mc.player);
+                              mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, var59, 0, ClickType.PICKUP, mc.player);
+                              mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, var47, 0, ClickType.PICKUP, mc.player);
                               this.ex = Math.max(0, mc.player.experienceLevel);
                               this.eb = 0;
                               if (this.ex >= 15) {
-                                 mc.player.closeHandledScreen();
+                                 mc.player.closeContainer();
                                  this.d = 10;
                                  this.s = 14;
                               } else {
@@ -441,7 +441,7 @@ public final class ExpFarm extends Module {
                                     int bar = mc.player.getInventory().getSelectedSlot();
 
                                     for (int ixxxxxx = 0; ixxxxxx < var33; ixxxxxx++) {
-                                       ItemStack stack = ((Slot)menu.slots.get(ixxxxxx)).getStack();
+                                       ItemStack stack = ((Slot)menu.slots.get(ixxxxxx)).getItem();
                                        if (this.sip(stack)) {
                                           pot = ixxxxxx;
                                           break;
@@ -449,7 +449,7 @@ public final class ExpFarm extends Module {
                                     }
 
                                     for (int ixxxxxxx = 0; ixxxxxxx < 9; ixxxxxxx++) {
-                                       if (mc.player.getInventory().getStack(ixxxxxxx).isEmpty()) {
+                                       if (mc.player.getInventory().getItem(ixxxxxxx).isEmpty()) {
                                           bar = ixxxxxxx;
                                           break;
                                        }
@@ -460,18 +460,18 @@ public final class ExpFarm extends Module {
                                        return;
                                     }
 
-                                    mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, pot, bar, SlotActionType.SWAP, mc.player);
+                                    mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, pot, bar, ClickType.SWAP, mc.player);
                                     tookInvis = true;
                                  }
 
-                                 mc.player.closeHandledScreen();
+                                 mc.player.closeContainer();
                                  this.xp = false;
                                  this.take = false;
                                  this.svc = false;
                                  this.looked = false;
                                  this.bruh();
                                  this.drink = tookInvis;
-                                 mc.player.networkHandler.sendChatCommand("hub");
+                                 mc.player.connection.sendCommand("hub");
                                  this.roll(true);
                                  this.picked = true;
                                  this.d = 40;
@@ -483,7 +483,7 @@ public final class ExpFarm extends Module {
                         }
                      } else if (this.s == 0) {
                         for (int ixxxxxxxx = 0; ixxxxxxxx < 9; ixxxxxxxx++) {
-                           if (mc.player.getInventory().getStack(ixxxxxxxx).isOf(Items.COMPASS)) {
+                           if (mc.player.getInventory().getItem(ixxxxxxxx).is(Items.COMPASS)) {
                               this.bruh();
                               this.d = 20;
                               this.s = 4;
@@ -491,13 +491,13 @@ public final class ExpFarm extends Module {
                            }
                         }
 
-                        mc.player.networkHandler.sendChatCommand("warp pvp");
+                        mc.player.connection.sendCommand("warp pvp");
                         this.configureBaritoneMovement();
                         this.picked = false;
                         this.d = 40;
                         this.s = 9;
                      } else if (this.s == 9) {
-                        if (this.invis.getValue() && !mc.player.hasStatusEffect(StatusEffects.INVISIBILITY) && this.drink) {
+                        if (this.invis.getValue() && !mc.player.hasEffect(MobEffects.INVISIBILITY) && this.drink) {
                            if (this.glug()) {
                               this.drink = false;
                               this.d = 35;
@@ -513,11 +513,11 @@ public final class ExpFarm extends Module {
                         this.s = 1;
                      } else if (this.s == 10) {
                         if (mc.options != null) {
-                           mc.options.useKey.setPressed(false);
+                           mc.options.keyUse.setDown(false);
                         }
 
                         for (int ixxxxxxxxx = 0; ixxxxxxxxx < 9; ixxxxxxxxx++) {
-                           ItemStack stack = mc.player.getInventory().getStack(ixxxxxxxxx);
+                           ItemStack stack = mc.player.getInventory().getItem(ixxxxxxxxx);
                            if (stack.isEmpty()) {
                               mc.player.getInventory().setSelectedSlot(ixxxxxxxxx);
                               break;
@@ -538,29 +538,29 @@ public final class ExpFarm extends Module {
                         } else {
                            this.storageWaitTicks = 0;
                            Direction side = Direction.UP;
-                           Vec3d vec = Vec3d.ofCenter(box).add(0.0, 0.5, 0.0);
+                           Vec3 vec = Vec3.atCenterOf(box).add(0.0, 0.5, 0.0);
 
                            for (int ixxxxxxxxxx = 0; ixxxxxxxxxx < 9; ixxxxxxxxxx++) {
-                              ItemStack stack = mc.player.getInventory().getStack(ixxxxxxxxxx);
-                              if (!stack.isOf(Items.EXPERIENCE_BOTTLE) && !stack.isOf(Items.PAPER)) {
+                              ItemStack stack = mc.player.getInventory().getItem(ixxxxxxxxxx);
+                              if (!stack.is(Items.EXPERIENCE_BOTTLE) && !stack.is(Items.PAPER)) {
                                  mc.player.getInventory().setSelectedSlot(ixxxxxxxxxx);
                                  break;
                               }
                            }
 
-                           mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, new BlockHitResult(vec, side, box, false));
+                           mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(vec, side, box, false));
                            this.d = 10;
                            this.s = 12;
                         }
                      } else if (this.s == 12) {
-                        if (!(mc.player.currentScreenHandler instanceof GenericContainerScreenHandler menu)) {
+                        if (!(mc.player.containerMenu instanceof ChestMenu menu)) {
                            this.d = 5;
                         } else {
-                           int var29 = menu.getRows() * 9;
+                           int var29 = menu.getRowCount() * 9;
                            int var45 = -1;
 
                            for (int var56 = 0; var56 < var29; var56++) {
-                              ItemStack stack = ((Slot)menu.slots.get(var56)).getStack();
+                              ItemStack stack = ((Slot)menu.slots.get(var56)).getItem();
                               if (this.sip(stack)) {
                                  var45 = var56;
                                  break;
@@ -573,14 +573,14 @@ public final class ExpFarm extends Module {
                               int bar = mc.player.getInventory().getSelectedSlot();
 
                               for (int ixxxxxxxxxxx = 0; ixxxxxxxxxxx < 9; ixxxxxxxxxxx++) {
-                                 if (mc.player.getInventory().getStack(ixxxxxxxxxxx).isEmpty()) {
+                                 if (mc.player.getInventory().getItem(ixxxxxxxxxxx).isEmpty()) {
                                     bar = ixxxxxxxxxxx;
                                     break;
                                  }
                               }
 
-                              mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, var45, bar, SlotActionType.SWAP, mc.player);
-                              mc.player.closeHandledScreen();
+                              mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, var45, bar, ClickType.SWAP, mc.player);
+                              mc.player.closeContainer();
                               this.d = 10;
                               this.s = 13;
                            }
@@ -594,14 +594,14 @@ public final class ExpFarm extends Module {
                            this.take = false;
                            this.looked = false;
                            this.bruh();
-                           mc.player.networkHandler.sendChatCommand("hub");
+                           mc.player.connection.sendCommand("hub");
                            this.roll(true);
                            this.picked = true;
                            this.d = 40;
                            this.s = 4;
                         }
                      } else if (this.s == 1) {
-                        if (mc.player.squaredDistanceTo(-320.0, 59.0, 25.0) > 9.0) {
+                        if (mc.player.distanceToSqr(-320.0, 59.0, 25.0) > 9.0) {
                            this.manualWalkToActiveRoutePoint();
                            if (this.distanceToActiveGotoSqr() <= 6.25) {
                               this.sendNextRoutePoint();
@@ -619,7 +619,7 @@ public final class ExpFarm extends Module {
                            this.s = 3;
                         } else {
                            this.bruh();
-                           mc.player.networkHandler.sendChatCommand("hub");
+                           mc.player.connection.sendCommand("hub");
                            this.roll(true);
                            this.picked = true;
                            this.d = 40;
@@ -628,14 +628,14 @@ public final class ExpFarm extends Module {
                      } else if (this.s == 3) {
                         if (mc.player.experienceLevel >= expii) {
                            this.bruh();
-                           mc.player.networkHandler.sendChatCommand("hub");
+                           mc.player.connection.sendCommand("hub");
                            this.roll(false);
                            this.picked = true;
                            this.xp = true;
                            this.ex = mc.player.experienceLevel;
                            this.eb = 0;
                            this.storageWaitTicks = 0;
-                           this.take = this.invis.getValue() && !mc.player.hasStatusEffect(StatusEffects.INVISIBILITY) && this.pis() == -1;
+                           this.take = this.invis.getValue() && !mc.player.hasEffect(MobEffects.INVISIBILITY) && this.pis() == -1;
                            this.svc = true;
                            this.d = 40;
                            this.s = 4;
@@ -644,8 +644,8 @@ public final class ExpFarm extends Module {
                         int comp = -1;
 
                         for (int ixxxxxxxxxxxx = 0; ixxxxxxxxxxxx < 9; ixxxxxxxxxxxx++) {
-                           ItemStack stack = mc.player.getInventory().getStack(ixxxxxxxxxxxx);
-                           if (stack.isOf(Items.COMPASS)) {
+                           ItemStack stack = mc.player.getInventory().getItem(ixxxxxxxxxxxx);
+                           if (stack.is(Items.COMPASS)) {
                               comp = ixxxxxxxxxxxx;
                               break;
                            }
@@ -656,14 +656,14 @@ public final class ExpFarm extends Module {
                               this.mw = 0;
                               this.bruh();
                               InventoryTask.closeScreen(false);
-                              mc.player.closeHandledScreen();
-                              mc.player.networkHandler.sendChatCommand("hub");
+                              mc.player.closeContainer();
+                              mc.player.connection.sendCommand("hub");
                               this.d = 40;
                            }
                         } else {
                            this.mw = 0;
                            mc.player.getInventory().setSelectedSlot(comp);
-                           mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
+                           mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
                            this.d = 25;
                            this.s = 5;
                         }
@@ -671,9 +671,9 @@ public final class ExpFarm extends Module {
                         int head = -1;
                         int heads = 0;
 
-                        for (int ixxxxxxxxxxxxx = 0; ixxxxxxxxxxxxx < mc.player.currentScreenHandler.slots.size(); ixxxxxxxxxxxxx++) {
-                           ItemStack stack = mc.player.currentScreenHandler.getSlot(ixxxxxxxxxxxxx).getStack();
-                           if (stack.isOf(Items.PLAYER_HEAD)) {
+                        for (int ixxxxxxxxxxxxx = 0; ixxxxxxxxxxxxx < mc.player.containerMenu.slots.size(); ixxxxxxxxxxxxx++) {
+                           ItemStack stack = mc.player.containerMenu.getSlot(ixxxxxxxxxxxxx).getItem();
+                           if (stack.is(Items.PLAYER_HEAD)) {
                               if (++heads == 2) {
                                  head = ixxxxxxxxxxxxx;
                                  break;
@@ -685,7 +685,7 @@ public final class ExpFarm extends Module {
                            this.retryAnarchyMenu(false);
                         } else {
                            this.mw = 0;
-                           mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, head, 0, SlotActionType.PICKUP, mc.player);
+                           mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, head, 0, ClickType.PICKUP, mc.player);
                            this.s = 6;
                         }
                      } else if (this.s == 6) {
@@ -693,9 +693,9 @@ public final class ExpFarm extends Module {
                         int stands = 0;
                         int ns = this.rnd ? this.a1 : (int)this.an.getFloat();
 
-                        for (int ixxxxxxxxxxxxxx = 0; ixxxxxxxxxxxxxx < mc.player.currentScreenHandler.slots.size(); ixxxxxxxxxxxxxx++) {
-                           ItemStack stack = mc.player.currentScreenHandler.getSlot(ixxxxxxxxxxxxxx).getStack();
-                           if (stack.isOf(Items.ARMOR_STAND)) {
+                        for (int ixxxxxxxxxxxxxx = 0; ixxxxxxxxxxxxxx < mc.player.containerMenu.slots.size(); ixxxxxxxxxxxxxx++) {
+                           ItemStack stack = mc.player.containerMenu.getSlot(ixxxxxxxxxxxxxx).getItem();
+                           if (stack.is(Items.ARMOR_STAND)) {
                               if (++stands == ns) {
                                  stand = ixxxxxxxxxxxxxx;
                                  break;
@@ -707,7 +707,7 @@ public final class ExpFarm extends Module {
                            this.retryAnarchyMenu(false);
                         } else {
                            this.mw = 0;
-                           mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, stand, 0, SlotActionType.PICKUP, mc.player);
+                           mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, stand, 0, ClickType.PICKUP, mc.player);
                            this.d = 1;
                            this.s = 7;
                         }
@@ -748,7 +748,7 @@ public final class ExpFarm extends Module {
                            if (this.svc) {
                               this.svc = false;
                               this.bruh();
-                              mc.player.networkHandler.sendChatCommand("hub");
+                              mc.player.connection.sendCommand("hub");
                               this.roll(true);
                               this.picked = true;
                               this.d = 40;
@@ -763,9 +763,9 @@ public final class ExpFarm extends Module {
                         int head = -1;
                         int nh = this.rnd ? this.a2 : (int)this.an11.getFloat();
 
-                        for (int ixxxxxxxxxxxxxxx = 0; ixxxxxxxxxxxxxxx < mc.player.currentScreenHandler.slots.size(); ixxxxxxxxxxxxxxx++) {
-                           ItemStack stack = mc.player.currentScreenHandler.getSlot(ixxxxxxxxxxxxxxx).getStack();
-                           if (stack.isOf(Items.PLAYER_HEAD) && stack.getCount() == nh) {
+                        for (int ixxxxxxxxxxxxxxx = 0; ixxxxxxxxxxxxxxx < mc.player.containerMenu.slots.size(); ixxxxxxxxxxxxxxx++) {
+                           ItemStack stack = mc.player.containerMenu.getSlot(ixxxxxxxxxxxxxxx).getItem();
+                           if (stack.is(Items.PLAYER_HEAD) && stack.getCount() == nh) {
                               head = ixxxxxxxxxxxxxxx;
                               break;
                            }
@@ -777,7 +777,7 @@ public final class ExpFarm extends Module {
                         } else {
                            this.mw = 0;
                            this.hr = 0;
-                           mc.interactionManager.clickSlot(mc.player.currentScreenHandler.syncId, head, 0, SlotActionType.PICKUP, mc.player);
+                           mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, head, 0, ClickType.PICKUP, mc.player);
                            this.d = 40;
                            this.s = 8;
                         }
@@ -793,7 +793,7 @@ public final class ExpFarm extends Module {
                this.drink = this.looked = this.rnd = this.picked = this.take = this.xp = this.svc = false;
                this.riprun = true;
                if (mc.options != null) {
-                  mc.options.useKey.setPressed(false);
+                  mc.options.keyUse.setDown(false);
                }
 
                this.rip = true;
@@ -849,7 +849,7 @@ public final class ExpFarm extends Module {
       this.storageWaitTicks = 0;
       this.st = 0;
       InventoryTask.closeScreen(false);
-      mc.player.closeHandledScreen();
+      mc.player.closeContainer();
       this.bruh();
       if (random) {
          this.roll(true);
@@ -857,7 +857,7 @@ public final class ExpFarm extends Module {
 
       if (hub) {
          this.picked = true;
-         mc.player.networkHandler.sendChatCommand("hub");
+         mc.player.connection.sendCommand("hub");
          this.d = 40;
       } else {
          this.d = 25;
@@ -868,14 +868,14 @@ public final class ExpFarm extends Module {
 
    private void configureBaritoneMovement() {
       if (mc.player != null) {
-         mc.player.networkHandler.sendChatMessage("#set allowJumpAt256 true");
-         mc.player.networkHandler.sendChatMessage("#set allowParkour true");
-         mc.player.networkHandler.sendChatMessage("#set allowParkourAscend true");
-         mc.player.networkHandler.sendChatMessage("#set allowDiagonalAscend true");
-         mc.player.networkHandler.sendChatMessage("#set allowSprint true");
-         mc.player.networkHandler.sendChatMessage("#set allowVines true");
-         mc.player.networkHandler.sendChatMessage("#set assumeStep true");
-         mc.player.networkHandler.sendChatMessage("#set maxFallHeightNoWater 55555");
+         mc.player.connection.sendChat("#set allowJumpAt256 true");
+         mc.player.connection.sendChat("#set allowParkour true");
+         mc.player.connection.sendChat("#set allowParkourAscend true");
+         mc.player.connection.sendChat("#set allowDiagonalAscend true");
+         mc.player.connection.sendChat("#set allowSprint true");
+         mc.player.connection.sendChat("#set allowVines true");
+         mc.player.connection.sendChat("#set assumeStep true");
+         mc.player.connection.sendChat("#set maxFallHeightNoWater 55555");
       }
    }
 
@@ -909,7 +909,7 @@ public final class ExpFarm extends Module {
 
    private boolean hasCompassInHotbar() {
       for (int i = 0; i < 9; i++) {
-         if (mc.player.getInventory().getStack(i).isOf(Items.COMPASS)) {
+         if (mc.player.getInventory().getItem(i).is(Items.COMPASS)) {
             return true;
          }
       }
@@ -981,26 +981,26 @@ public final class ExpFarm extends Module {
          }
 
          if (mc.options != null) {
-            mc.options.forwardKey.setPressed(true);
-            mc.options.sprintKey.setPressed(true);
-            mc.options.jumpKey.setPressed(true);
+            mc.options.keyUp.setDown(true);
+            mc.options.keySprint.setDown(true);
+            mc.options.keyJump.setDown(true);
          }
 
          mc.player.setSprinting(true);
-         if (mc.player.horizontalCollision && mc.player.isOnGround()) {
-            mc.player.jump();
+         if (mc.player.horizontalCollision && mc.player.onGround()) {
+            mc.player.jumpFromGround();
          }
       }
    }
 
    private BlockPos findNearbyRespawnAnchor() {
-      BlockPos me = mc.player.getBlockPos();
+      BlockPos me = mc.player.blockPosition();
 
       for (int x = -5; x <= 5; x++) {
          for (int y = -3; y <= 3; y++) {
             for (int z = -5; z <= 5; z++) {
-               BlockPos pos = me.add(x, y, z);
-               if (mc.world.getBlockState(pos).getBlock() == Blocks.RESPAWN_ANCHOR) {
+               BlockPos pos = me.offset(x, y, z);
+               if (mc.level.getBlockState(pos).getBlock() == Blocks.RESPAWN_ANCHOR) {
                   return pos;
                }
             }
@@ -1018,9 +1018,9 @@ public final class ExpFarm extends Module {
       double dx = x - mc.player.getX();
       double dz = z - mc.player.getZ();
       float yaw = (float)(Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
-      mc.player.setYaw(yaw);
-      mc.player.setHeadYaw(yaw);
-      mc.player.setBodyYaw(yaw);
+      mc.player.setYRot(yaw);
+      mc.player.setYHeadRot(yaw);
+      mc.player.setYBodyRot(yaw);
    }
 
    private void kek() {
@@ -1028,11 +1028,11 @@ public final class ExpFarm extends Module {
       String near = "";
       double nearD = Double.MAX_VALUE;
 
-      for (Entity entity : mc.world.getEntities()) {
+      for (Entity entity : mc.level.entitiesForRendering()) {
          if (entity != null && entity != mc.player) {
-            double dst = mc.player.squaredDistanceTo(entity);
+            double dst = mc.player.distanceToSqr(entity);
             if (!(dst > max) && !(dst >= nearD)) {
-               Text c = entity instanceof TextDisplayEntity textDisplay ? textDisplay.getText() : null;
+               Component c = entity instanceof TextDisplay textDisplay ? textDisplay.getText() : null;
                if (c == null) {
                   c = entity.getCustomName();
                }
@@ -1053,7 +1053,7 @@ public final class ExpFarm extends Module {
 
    private int pis() {
       for (int i = 0; i < 36; i++) {
-         ItemStack stack = mc.player.getInventory().getStack(i);
+         ItemStack stack = mc.player.getInventory().getItem(i);
          if (this.sip(stack)) {
             return i;
          }
@@ -1063,13 +1063,13 @@ public final class ExpFarm extends Module {
    }
 
    private boolean sip(ItemStack stack) {
-      if (stack != null && (stack.isOf(Items.POTION) || stack.isOf(Items.SPLASH_POTION) || stack.isOf(Items.LINGERING_POTION))) {
-         PotionContentsComponent pc = (PotionContentsComponent)stack.get(DataComponentTypes.POTION_CONTENTS);
+      if (stack != null && (stack.is(Items.POTION) || stack.is(Items.SPLASH_POTION) || stack.is(Items.LINGERING_POTION))) {
+         PotionContents pc = (PotionContents)stack.get(DataComponents.POTION_CONTENTS);
          if (pc == null) {
             return false;
          } else {
-            for (StatusEffectInstance effect : pc.getEffects()) {
-               if (effect.getEffectType().matches(StatusEffects.INVISIBILITY)) {
+            for (MobEffectInstance effect : pc.getAllEffects()) {
+               if (effect.getEffect().is(MobEffects.INVISIBILITY)) {
                   return true;
                }
             }
@@ -1082,17 +1082,17 @@ public final class ExpFarm extends Module {
    }
 
    private BlockPos boxx() {
-      BlockPos me = mc.player.getBlockPos();
+      BlockPos me = mc.player.blockPosition();
       BlockPos best = null;
       double bd = Double.MAX_VALUE;
 
       for (int x = -5; x <= 5; x++) {
          for (int y = -3; y <= 3; y++) {
             for (int z = -5; z <= 5; z++) {
-               BlockPos pos = me.add(x, y, z);
-               Block block = mc.world.getBlockState(pos).getBlock();
+               BlockPos pos = me.offset(x, y, z);
+               Block block = mc.level.getBlockState(pos).getBlock();
                if (block == Blocks.CHEST || block == Blocks.TRAPPED_CHEST || block == Blocks.BARREL) {
-                  double distance = mc.player.squaredDistanceTo(Vec3d.ofCenter(pos));
+                  double distance = mc.player.distanceToSqr(Vec3.atCenterOf(pos));
                   if (distance < bd) {
                      bd = distance;
                      best = pos;
@@ -1112,14 +1112,14 @@ public final class ExpFarm extends Module {
       } else {
          int old = mc.player.getInventory().getSelectedSlot();
          if (slot >= 9) {
-            mc.interactionManager.clickSlot(mc.player.playerScreenHandler.syncId, slot, old, SlotActionType.SWAP, mc.player);
+            mc.gameMode.handleInventoryMouseClick(mc.player.inventoryMenu.containerId, slot, old, ClickType.SWAP, mc.player);
             slot = old;
          }
 
          mc.player.getInventory().setSelectedSlot(slot);
-         mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
+         mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
          if (mc.options != null) {
-            mc.options.useKey.setPressed(true);
+            mc.options.keyUse.setDown(true);
          }
 
          return true;
@@ -1149,7 +1149,7 @@ public final class ExpFarm extends Module {
 
    private void finishXpStorageRun() {
       InventoryTask.closeScreen(false);
-      mc.player.closeHandledScreen();
+      mc.player.closeContainer();
       this.xp = false;
       this.take = false;
       this.svc = false;
@@ -1157,7 +1157,7 @@ public final class ExpFarm extends Module {
       this.storageWaitTicks = 0;
       this.eb = 0;
       this.bruh();
-      mc.player.networkHandler.sendChatCommand("hub");
+      mc.player.connection.sendCommand("hub");
       this.roll(true);
       this.picked = true;
       this.d = 40;
@@ -1166,20 +1166,20 @@ public final class ExpFarm extends Module {
 
    private void bruh() {
       if (mc.player != null) {
-         mc.player.networkHandler.sendChatMessage("#stop");
-         mc.player.networkHandler.sendChatMessage("#cancel");
+         mc.player.connection.sendChat("#stop");
+         mc.player.connection.sendChat("#cancel");
       }
 
       if (mc.options != null) {
-         mc.options.forwardKey.setPressed(false);
-         mc.options.backKey.setPressed(false);
-         mc.options.leftKey.setPressed(false);
-         mc.options.rightKey.setPressed(false);
-         mc.options.jumpKey.setPressed(false);
-         mc.options.sneakKey.setPressed(false);
-         mc.options.sprintKey.setPressed(false);
-         mc.options.useKey.setPressed(false);
-         mc.options.attackKey.setPressed(false);
+         mc.options.keyUp.setDown(false);
+         mc.options.keyDown.setDown(false);
+         mc.options.keyLeft.setDown(false);
+         mc.options.keyRight.setDown(false);
+         mc.options.keyJump.setDown(false);
+         mc.options.keyShift.setDown(false);
+         mc.options.keySprint.setDown(false);
+         mc.options.keyUse.setDown(false);
+         mc.options.keyAttack.setDown(false);
       }
 
       if (mc.player != null) {

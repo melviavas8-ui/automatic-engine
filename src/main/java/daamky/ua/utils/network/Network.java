@@ -2,19 +2,19 @@ package daamky.ua.utils.network;
 
 import java.util.Locale;
 import java.util.Map;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.hud.ClientBossBar;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.scoreboard.Scoreboard;
-import net.minecraft.scoreboard.ScoreboardDisplaySlot;
-import net.minecraft.scoreboard.ScoreboardEntry;
-import net.minecraft.scoreboard.ScoreboardObjective;
-import net.minecraft.scoreboard.Team;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.LerpingBossEvent;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.scores.DisplaySlot;
+import net.minecraft.world.scores.Objective;
+import net.minecraft.world.scores.PlayerScoreEntry;
+import net.minecraft.world.scores.PlayerTeam;
+import net.minecraft.world.scores.Scoreboard;
 import daamky.ua.mixin.accessor.BossHealthOverlayAccessor;
 
 public final class Network {
-   private static final MinecraftClient MC = MinecraftClient.getInstance();
+   private static final Minecraft MC = Minecraft.getInstance();
    private static long lastPvpMs;
    private static long lastTpsPacketNs;
    private static float tps = 20.0F;
@@ -32,7 +32,7 @@ public final class Network {
       long now = System.nanoTime();
       if (lastTpsPacketNs != 0L) {
          float raw = 20.0F * (1.0E9F / (float)(now - lastTpsPacketNs));
-         tps = MathHelper.clamp(raw, 0.0F, 20.0F);
+         tps = Mth.clamp(raw, 0.0F, 20.0F);
       }
 
       lastTpsPacketNs = now;
@@ -99,11 +99,11 @@ public final class Network {
    }
 
    public static int getAnarchyMode() {
-      if (MC.world == null) {
+      if (MC.level == null) {
          return -1;
       } else {
-         Scoreboard scoreboard = MC.world.getScoreboard();
-         ScoreboardObjective objective = scoreboard.getObjectiveForSlot(ScoreboardDisplaySlot.SIDEBAR);
+         Scoreboard scoreboard = MC.level.getScoreboard();
+         Objective objective = scoreboard.getDisplayObjective(DisplaySlot.SIDEBAR);
          if (objective == null) {
             return -1;
          } else {
@@ -113,8 +113,8 @@ public final class Network {
             if (fromHeader != -1) {
                return fromHeader;
             } else {
-               for (ScoreboardEntry entry : scoreboard.getScoreboardEntries(objective)) {
-                  String row = clean(Team.decorateName(scoreboard.getScoreHolderTeam(entry.owner()), entry.name()).getString());
+               for (PlayerScoreEntry entry : scoreboard.listPlayerScores(objective)) {
+                  String row = clean(PlayerTeam.formatNameForTeam(scoreboard.getPlayersTeam(entry.owner()), entry.ownerName()).getString());
                   int value = extractAnarchyNumber(row, false);
                   if (value != -1) {
                      return value;
@@ -148,10 +148,10 @@ public final class Network {
    }
 
    private static String detectServer() {
-      if (MC.getNetworkHandler() != null && MC.getNetworkHandler().getServerInfo() != null) {
-         String address = safeLower(MC.getNetworkHandler().getServerInfo().address);
-         String brand = safeLower(MC.getNetworkHandler().getBrand());
-         String normalizedBrand = normalizeServerToken(MC.getNetworkHandler().getBrand());
+      if (MC.getConnection() != null && MC.getConnection().getServerData() != null) {
+         String address = safeLower(MC.getConnection().getServerData().ip);
+         String brand = safeLower(MC.getConnection().serverBrand());
+         String normalizedBrand = normalizeServerToken(MC.getConnection().serverBrand());
          if (brand.contains("botfilter") || normalizedBrand.contains("botfilter")) {
             return "FunTime";
          } else if (address.contains("spooky")
@@ -177,10 +177,10 @@ public final class Network {
    }
 
    private static void updatePvpState() {
-      if (MC.inGameHud != null && MC.inGameHud.getBossBarHud() != null) {
-         Map<?, ClientBossBar> events = ((BossHealthOverlayAccessor)MC.inGameHud.getBossBarHud()).daamky$getEvents();
+      if (MC.gui != null && MC.gui.getBossOverlay() != null) {
+         Map<?, LerpingBossEvent> events = ((BossHealthOverlayAccessor)MC.gui.getBossOverlay()).daamky$getEvents();
 
-         for (ClientBossBar event : events.values()) {
+         for (LerpingBossEvent event : events.values()) {
             String name = safeLower(event.getName().getString());
             if (name.contains("pvp") || name.contains("пвп")) {
                lastPvpMs = System.currentTimeMillis();

@@ -1,28 +1,28 @@
 package daamky.ua.utils.render.ui.outline.outlinedefault;
 
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import net.minecraft.client.gui.ScreenRect;
-import net.minecraft.client.gui.render.state.SimpleGuiElementRenderState;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.texture.TextureSetup;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.gui.render.TextureSetup;
+import net.minecraft.client.gui.render.state.GuiElementRenderState;
 import org.joml.Matrix3x2f;
 
-final class DefaultOutlineRenderState implements SimpleGuiElementRenderState {
+final class DefaultOutlineRenderState implements GuiElementRenderState {
    private final BuiltOutline outline;
    private final Matrix3x2f pose;
-   private final ScreenRect scissorArea;
-   private final ScreenRect bounds;
+   private final ScreenRectangle scissorArea;
+   private final ScreenRectangle bounds;
 
-   DefaultOutlineRenderState(Matrix3x2f pose, BuiltOutline outline, ScreenRect scissorArea) {
+   DefaultOutlineRenderState(Matrix3x2f pose, BuiltOutline outline, ScreenRectangle scissorArea) {
       this.outline = outline;
       this.pose = pose;
       this.scissorArea = scissorArea;
-      ScreenRect transformedBounds = new ScreenRect(Math.round(outline.x()), Math.round(outline.y()), Math.round(outline.width()), Math.round(outline.height()))
-         .transformEachVertex(this.pose);
+      ScreenRectangle transformedBounds = new ScreenRectangle(Math.round(outline.x()), Math.round(outline.y()), Math.round(outline.width()), Math.round(outline.height()))
+         .transformMaxBounds(this.pose);
       this.bounds = scissorArea == null ? transformedBounds : scissorArea.intersection(transformedBounds);
    }
 
-   public void setupVertices(VertexConsumer vertices) {
+   public void buildVertices(VertexConsumer vertices) {
       int batchIndex = DefaultOutlineRenderer.getInstance().reserve(this.outline);
       if (batchIndex >= 0) {
          float x0 = this.outline.x();
@@ -37,7 +37,7 @@ final class DefaultOutlineRenderState implements SimpleGuiElementRenderState {
    }
 
    private void vertex(VertexConsumer consumer, float x, float y, int coordX, int coordY, int batchIndex) {
-      consumer.vertex(this.pose, x, y).color(coordX, coordY, 255, 255).lineWidth((float)(batchIndex + 1));
+      consumer.addVertexWith2DPose(this.pose, x, y).setColor(coordX, coordY, 255, 255).setLineWidth((float)(batchIndex + 1));
    }
 
    public RenderPipeline pipeline() {
@@ -45,14 +45,14 @@ final class DefaultOutlineRenderState implements SimpleGuiElementRenderState {
    }
 
    public TextureSetup textureSetup() {
-      return TextureSetup.empty();
+      return TextureSetup.noTexture();
    }
 
-   public ScreenRect scissorArea() {
+   public ScreenRectangle scissorArea() {
       return this.scissorArea;
    }
 
-   public ScreenRect bounds() {
+   public ScreenRectangle bounds() {
       return this.bounds;
    }
 }

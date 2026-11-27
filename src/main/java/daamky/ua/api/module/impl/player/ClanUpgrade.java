@@ -1,13 +1,5 @@
 package daamky.ua.api.module.impl.player;
 
-import net.minecraft.block.Blocks;
-import net.minecraft.item.Items;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.drag.impl.Notifications;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.TickEvent;
@@ -15,6 +7,14 @@ import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.module.impl.combat.aura.util.StopWatch;
 import daamky.ua.utils.inventory.InventoryTask;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 
 public final class ClanUpgrade extends Module {
    private static final long PLACE_DELAY_MS = 60L;
@@ -29,7 +29,7 @@ public final class ClanUpgrade extends Module {
 
    @SubscribeEvent
    private void onPostTick(TickEvent.Post event) {
-      if (mc.player != null && mc.world != null && mc.interactionManager != null) {
+      if (mc.player != null && mc.level != null && mc.gameMode != null) {
          BlockPos nearbyRedstone = this.findNearbyRedstone();
          if (nearbyRedstone != null) {
             this.lastPlacedPos = nearbyRedstone;
@@ -38,14 +38,14 @@ public final class ClanUpgrade extends Module {
 
          if (this.breakNext && this.lastPlacedPos != null) {
             this.lookDown();
-            if (mc.world.getBlockState(this.lastPlacedPos).isAir()) {
+            if (mc.level.getBlockState(this.lastPlacedPos).isAir()) {
                this.breakNext = false;
                this.lastPlacedPos = null;
             } else {
                this.breakBlock(this.lastPlacedPos, Direction.UP);
             }
          } else if (this.stopWatch.finished(60.0)) {
-            int redstoneSlot = InventoryTask.getHotbarSlotId(slot -> mc.player.getInventory().getStack(slot).isOf(Items.REDSTONE));
+            int redstoneSlot = InventoryTask.getHotbarSlotId(slot -> mc.player.getInventory().getItem(slot).is(Items.REDSTONE));
             if (redstoneSlot == -1) {
                if (this.notifyWatch.finished(1000.0)) {
                   Notifications.push("ClanUpgrade", "Нужен редстоун в хотбаре", 1000L);
@@ -79,9 +79,9 @@ public final class ClanUpgrade extends Module {
    }
 
    private BlockPos placeUnderPlayer(int slot) {
-      if (mc.player != null && mc.world != null && mc.interactionManager != null) {
-         BlockPos placePos = mc.player.getBlockPos();
-         if (!mc.world.getBlockState(placePos).isReplaceable()) {
+      if (mc.player != null && mc.level != null && mc.gameMode != null) {
+         BlockPos placePos = mc.player.blockPosition();
+         if (!mc.level.getBlockState(placePos).canBeReplaced()) {
             return null;
          } else {
             int previousSlot = mc.player.getInventory().getSelectedSlot();
@@ -90,15 +90,15 @@ public final class ClanUpgrade extends Module {
             boolean placed = false;
 
             for (Direction direction : Direction.values()) {
-               BlockPos neighborPos = placePos.offset(direction);
-               if (!mc.world.getBlockState(neighborPos).isReplaceable()) {
+               BlockPos neighborPos = placePos.relative(direction);
+               if (!mc.level.getBlockState(neighborPos).canBeReplaced()) {
                   Direction placeSide = direction.getOpposite();
-                  Vec3d hitPos = Vec3d.ofCenter(neighborPos)
-                     .add((double)placeSide.getOffsetX() * 0.5, (double)placeSide.getOffsetY() * 0.5, (double)placeSide.getOffsetZ() * 0.5);
+                  Vec3 hitPos = Vec3.atCenterOf(neighborPos)
+                     .add((double)placeSide.getStepX() * 0.5, (double)placeSide.getStepY() * 0.5, (double)placeSide.getStepZ() * 0.5);
                   BlockHitResult hit = new BlockHitResult(hitPos, placeSide, neighborPos, false);
-                  ActionResult result = mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, hit);
-                  if (result.isAccepted()) {
-                     mc.player.swingHand(Hand.MAIN_HAND);
+                  InteractionResult result = mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, hit);
+                  if (result.consumesAction()) {
+                     mc.player.swing(InteractionHand.MAIN_HAND);
                      placed = true;
                      break;
                   }
@@ -114,32 +114,32 @@ public final class ClanUpgrade extends Module {
    }
 
    private void breakBlock(BlockPos pos, Direction side) {
-      if (mc.player != null && mc.interactionManager != null) {
+      if (mc.player != null && mc.gameMode != null) {
          this.lookDown();
-         mc.interactionManager.attackBlock(pos, side);
-         mc.interactionManager.updateBlockBreakingProgress(pos, side);
-         mc.player.swingHand(Hand.MAIN_HAND);
+         mc.gameMode.startDestroyBlock(pos, side);
+         mc.gameMode.continueDestroyBlock(pos, side);
+         mc.player.swing(InteractionHand.MAIN_HAND);
       }
    }
 
    private void lookDown() {
       if (mc.player != null) {
-         mc.player.setPitch(90.0F);
+         mc.player.setXRot(90.0F);
       }
    }
 
    private BlockPos findNearbyRedstone() {
-      if (mc.player != null && mc.world != null) {
-         BlockPos basePos = mc.player.getBlockPos();
+      if (mc.player != null && mc.level != null) {
+         BlockPos basePos = mc.player.blockPosition();
          BlockPos bestPos = null;
          double bestDistance = Double.MAX_VALUE;
 
          for (int y = -1; y <= 0; y++) {
             for (int x = -1; x <= 1; x++) {
                for (int z = -1; z <= 1; z++) {
-                  BlockPos pos = basePos.add(x, y, z);
-                  if (mc.world.getBlockState(pos).isOf(Blocks.REDSTONE_WIRE)) {
-                     double distance = pos.getSquaredDistance(basePos);
+                  BlockPos pos = basePos.offset(x, y, z);
+                  if (mc.level.getBlockState(pos).is(Blocks.REDSTONE_WIRE)) {
+                     double distance = pos.distSqr(basePos);
                      if (distance < bestDistance) {
                         bestDistance = distance;
                         bestPos = pos;

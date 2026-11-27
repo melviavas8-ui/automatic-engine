@@ -1,8 +1,8 @@
 package daamky.ua.api.module.impl.visual.particles;
 
 import java.util.Random;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
 
 final class ParticleRules {
    final Entity entityFor;
@@ -12,7 +12,7 @@ final class ParticleRules {
    final boolean stopMotionOnCollide;
    final boolean collisionAtOtherParticles;
    private final ParticleSettings settings;
-   private final MinecraftClient client;
+   private final Minecraft client;
    private final Random random;
    private final boolean renderModeIsRandom;
    boolean renderBox;
@@ -26,7 +26,7 @@ final class ParticleRules {
    float rotationSpeedMul;
    String motionSideChangeRuleMode;
 
-   ParticleRules(MinecraftClient client, ParticleSettings settings, Random random, Entity entityFor) {
+   ParticleRules(Minecraft client, ParticleSettings settings, Random random, Entity entityFor) {
       this.client = client;
       this.settings = settings;
       this.random = random;

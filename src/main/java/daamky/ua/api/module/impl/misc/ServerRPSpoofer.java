@@ -1,11 +1,11 @@
 package daamky.ua.api.module.impl.misc;
 
 import java.util.UUID;
-import net.minecraft.client.network.ClientCommonNetworkHandler;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
-import net.minecraft.network.packet.c2s.common.ResourcePackStatusC2SPacket;
-import net.minecraft.network.packet.c2s.common.ResourcePackStatusC2SPacket.Status;
-import net.minecraft.network.packet.s2c.common.ResourcePackSendS2CPacket;
+import net.minecraft.client.multiplayer.ClientCommonPacketListenerImpl;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.network.protocol.common.ClientboundResourcePackPushPacket;
+import net.minecraft.network.protocol.common.ServerboundResourcePackPacket;
+import net.minecraft.network.protocol.common.ServerboundResourcePackPacket.Action;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.TickEvent;
 import daamky.ua.api.module.Module;
@@ -16,7 +16,7 @@ public final class ServerRPSpoofer extends Module {
    private final StopWatch counter = new StopWatch();
    private ServerRPSpoofer.ResourcePackAction currentAction = ServerRPSpoofer.ResourcePackAction.WAIT;
    private UUID resourcePackId;
-   private ClientCommonNetworkHandler resourcePackListener;
+   private ClientCommonPacketListenerImpl resourcePackListener;
 
    public ServerRPSpoofer() {
       super("Server RP Spoof", "Spoofs server resource pack acceptance.", ModuleCategory.MISC);
@@ -27,7 +27,7 @@ public final class ServerRPSpoofer extends Module {
       this.reset();
    }
 
-   public boolean handleResourcePackPush(ClientCommonNetworkHandler listener, ResourcePackSendS2CPacket packet) {
+   public boolean handleResourcePackPush(ClientCommonPacketListenerImpl listener, ClientboundResourcePackPushPacket packet) {
       if (this.isEnabled() && listener != null && packet != null) {
          this.resourcePackListener = listener;
          this.resourcePackId = packet.id();
@@ -47,9 +47,9 @@ public final class ServerRPSpoofer extends Module {
    }
 
    private void processResourcePackAction() {
-      ClientCommonNetworkHandler connection = this.resourcePackListener;
+      ClientCommonPacketListenerImpl connection = this.resourcePackListener;
       if (connection == null) {
-         ClientPlayNetworkHandler playConnection = mc.getNetworkHandler();
+         ClientPacketListener playConnection = mc.getConnection();
          if (playConnection != null) {
             connection = playConnection;
          }
@@ -57,12 +57,12 @@ public final class ServerRPSpoofer extends Module {
 
       if (connection != null && this.resourcePackId != null) {
          if (this.currentAction == ServerRPSpoofer.ResourcePackAction.ACCEPT) {
-            connection.sendPacket(new ResourcePackStatusC2SPacket(this.resourcePackId, Status.ACCEPTED));
+            connection.send(new ServerboundResourcePackPacket(this.resourcePackId, Action.ACCEPTED));
             this.currentAction = ServerRPSpoofer.ResourcePackAction.SEND;
             this.counter.reset();
          } else {
             if (this.currentAction == ServerRPSpoofer.ResourcePackAction.SEND && this.counter.finished(300.0)) {
-               connection.sendPacket(new ResourcePackStatusC2SPacket(this.resourcePackId, Status.SUCCESSFULLY_LOADED));
+               connection.send(new ServerboundResourcePackPacket(this.resourcePackId, Action.SUCCESSFULLY_LOADED));
                this.reset();
             }
          }

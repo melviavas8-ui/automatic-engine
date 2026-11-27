@@ -5,19 +5,19 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.projectile.thrown.PotionEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.item.consume.UseAction;
-import net.minecraft.network.packet.s2c.play.EntityStatusS2CPacket;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.Box;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.throwableitemprojectile.AbstractThrownPotion;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemUseAnimation;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.phys.AABB;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.PacketEvent;
 import daamky.ua.api.module.Module;
@@ -42,8 +42,8 @@ public final class UseTracker extends Module {
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
-      if (client.player != null && client.world != null) {
+   public void onTick(Minecraft client) {
+      if (client.player != null && client.level != null) {
          if (this.trackConsume.getValue()) {
             this.trackConsumedItems(client);
          }
@@ -56,23 +56,23 @@ public final class UseTracker extends Module {
 
    @SubscribeEvent
    private void onPacket(PacketEvent event) {
-      if (event.isReceive() && mc.world != null && mc.player != null) {
-         if (this.trackTotem.getValue() && event.getPacket() instanceof EntityStatusS2CPacket packet && packet.getStatus() == 35) {
-            if (packet.getEntity(mc.world) instanceof PlayerEntity player && !player.getUuid().equals(mc.player.getUuid())) {
-               ItemStack totemStack = player.getOffHandStack().isOf(Items.TOTEM_OF_UNDYING)
-                  ? player.getOffHandStack()
-                  : (player.getMainHandStack().isOf(Items.TOTEM_OF_UNDYING) ? player.getMainHandStack() : player.getOffHandStack());
-               Text totemName = (Text)(totemStack.isEmpty() ? Text.literal("Тотем бессмертия") : totemStack.getName());
-               boolean enchanted = player.getOffHandStack().hasEnchantments() || player.getMainHandStack().hasEnchantments();
-               MutableText enchantPart = Text.literal(enchanted ? "зачарованный" : "незачарованный").formatted(enchanted ? Formatting.GREEN : Formatting.RED);
+      if (event.isReceive() && mc.level != null && mc.player != null) {
+         if (this.trackTotem.getValue() && event.getPacket() instanceof ClientboundEntityEventPacket packet && packet.getEventId() == 35) {
+            if (packet.getEntity(mc.level) instanceof Player player && !player.getUUID().equals(mc.player.getUUID())) {
+               ItemStack totemStack = player.getOffhandItem().is(Items.TOTEM_OF_UNDYING)
+                  ? player.getOffhandItem()
+                  : (player.getMainHandItem().is(Items.TOTEM_OF_UNDYING) ? player.getMainHandItem() : player.getOffhandItem());
+               Component totemName = (Component)(totemStack.isEmpty() ? Component.literal("Тотем бессмертия") : totemStack.getHoverName());
+               boolean enchanted = player.getOffhandItem().isEnchanted() || player.getMainHandItem().isEnchanted();
+               MutableComponent enchantPart = Component.literal(enchanted ? "зачарованный" : "незачарованный").withStyle(enchanted ? ChatFormatting.GREEN : ChatFormatting.RED);
                this.sendPrefixed(
-                  Text.empty()
-                     .append(Text.literal(player.getName().getString()).formatted(Formatting.WHITE))
-                     .append(Text.literal(" потерял ").formatted(Formatting.GRAY))
+                  Component.empty()
+                     .append(Component.literal(player.getName().getString()).withStyle(ChatFormatting.WHITE))
+                     .append(Component.literal(" потерял ").withStyle(ChatFormatting.GRAY))
                      .append(totemName)
-                     .append(Text.literal(" (").formatted(Formatting.GRAY))
+                     .append(Component.literal(" (").withStyle(ChatFormatting.GRAY))
                      .append(enchantPart)
-                     .append(Text.literal(")").formatted(Formatting.GRAY))
+                     .append(Component.literal(")").withStyle(ChatFormatting.GRAY))
                );
                return;
             }
@@ -89,18 +89,18 @@ public final class UseTracker extends Module {
       this.removedPotionIds.clear();
    }
 
-   private void trackConsumedItems(MinecraftClient client) {
-      for (PlayerEntity player : client.world.getPlayers()) {
-         if (!player.getUuid().equals(client.player.getUuid())) {
-            UUID id = player.getUuid();
+   private void trackConsumedItems(Minecraft client) {
+      for (Player player : client.level.players()) {
+         if (!player.getUUID().equals(client.player.getUUID())) {
+            UUID id = player.getUUID();
             if (player.isUsingItem()) {
-               this.activeUseItem.computeIfAbsent(id, ignored -> player.getActiveItem().copy());
-               this.useStartTick.putIfAbsent(id, player.age);
+               this.activeUseItem.computeIfAbsent(id, ignored -> player.getUseItem().copy());
+               this.useStartTick.putIfAbsent(id, player.tickCount);
             } else {
                ItemStack used = this.activeUseItem.remove(id);
                Integer startTick = this.useStartTick.remove(id);
-               if (used != null && !used.isEmpty() && startTick != null && player.age - startTick >= 31) {
-                  UseAction action = used.getUseAction();
+               if (used != null && !used.isEmpty() && startTick != null && player.tickCount - startTick >= 31) {
+                  ItemUseAnimation action = used.getUseAnimation();
 
                   String verb = switch (action) {
                      case DRINK -> "выпил";
@@ -108,8 +108,8 @@ public final class UseTracker extends Module {
                      default -> null;
                   };
                   if (verb != null) {
-                     String itemName = stripFormatting(used.getName().getString());
-                     this.chat(Formatting.WHITE + player.getName().getString() + Formatting.GRAY + " " + verb + " " + Formatting.WHITE + itemName);
+                     String itemName = stripFormatting(used.getHoverName().getString());
+                     this.chat(ChatFormatting.WHITE + player.getName().getString() + ChatFormatting.GRAY + " " + verb + " " + ChatFormatting.WHITE + itemName);
                   }
                }
             }
@@ -117,20 +117,20 @@ public final class UseTracker extends Module {
       }
    }
 
-   private void trackThrownPotions(MinecraftClient client) {
+   private void trackThrownPotions(Minecraft client) {
       Set<Integer> current = this.currentPotionIds;
       current.clear();
       float maxDistance = this.radius.getFloat();
 
-      for (Entity entity : client.world.getEntities()) {
-         if (entity instanceof PotionEntity) {
-            PotionEntity potion = (PotionEntity)entity;
+      for (Entity entity : client.level.entitiesForRendering()) {
+         if (entity instanceof AbstractThrownPotion) {
+            AbstractThrownPotion potion = (AbstractThrownPotion)entity;
             if (!(client.player.distanceTo(potion) > maxDistance)) {
                int entityId = potion.getId();
                current.add(entityId);
                UseTracker.PotionData data = this.trackedPotions.get(entityId);
                if (data == null) {
-                  this.trackedPotions.put(entityId, new UseTracker.PotionData(potion.getStack().copy(), potion.getX(), potion.getY(), potion.getZ()));
+                  this.trackedPotions.put(entityId, new UseTracker.PotionData(potion.getItem().copy(), potion.getX(), potion.getY(), potion.getZ()));
                } else {
                   data.lastX = potion.getX();
                   data.lastY = potion.getY();
@@ -153,26 +153,26 @@ public final class UseTracker extends Module {
       }
    }
 
-   private void notifyPotionHits(MinecraftClient client, UseTracker.PotionData data) {
-      Box hitBox = new Box(data.lastX - 4.0, data.lastY - 2.0, data.lastZ - 4.0, data.lastX + 4.0, data.lastY + 2.0, data.lastZ + 4.0);
+   private void notifyPotionHits(Minecraft client, UseTracker.PotionData data) {
+      AABB hitBox = new AABB(data.lastX - 4.0, data.lastY - 2.0, data.lastZ - 4.0, data.lastX + 4.0, data.lastY + 2.0, data.lastZ + 4.0);
 
-      for (LivingEntity hit : client.world.getEntitiesByClass(LivingEntity.class, hitBox, ignored -> true)) {
-         if (hit instanceof PlayerEntity) {
-            PlayerEntity player = (PlayerEntity)hit;
+      for (LivingEntity hit : client.level.getEntitiesOfClass(LivingEntity.class, hitBox, ignored -> true)) {
+         if (hit instanceof Player) {
+            Player player = (Player)hit;
             double dx = player.getX() - data.lastX;
             double dz = player.getZ() - data.lastZ;
             double distance = Math.sqrt(dx * dx + dz * dz);
             if (!(distance > 4.0)) {
                double hitChance = Math.max(0.0, 1.0 - distance / 4.0) * 100.0;
-               Formatting hitColor = hitChance >= 65.0 ? Formatting.GREEN : (hitChance >= 35.0 ? Formatting.YELLOW : Formatting.RED);
+               ChatFormatting hitColor = hitChance >= 65.0 ? ChatFormatting.GREEN : (hitChance >= 35.0 ? ChatFormatting.YELLOW : ChatFormatting.RED);
                this.sendPrefixed(
-                  Text.empty()
-                     .append(Text.literal(player.getName().getString()).formatted(Formatting.WHITE))
-                     .append(Text.literal(" получил ").formatted(Formatting.GRAY))
-                     .append(data.stack.getName())
-                     .append(Text.literal(" (").formatted(Formatting.GRAY))
-                     .append(Text.literal(String.format("%.0f%%", hitChance)).formatted(hitColor))
-                     .append(Text.literal(")").formatted(Formatting.GRAY))
+                  Component.empty()
+                     .append(Component.literal(player.getName().getString()).withStyle(ChatFormatting.WHITE))
+                     .append(Component.literal(" получил ").withStyle(ChatFormatting.GRAY))
+                     .append(data.stack.getHoverName())
+                     .append(Component.literal(" (").withStyle(ChatFormatting.GRAY))
+                     .append(Component.literal(String.format("%.0f%%", hitChance)).withStyle(hitColor))
+                     .append(Component.literal(")").withStyle(ChatFormatting.GRAY))
                );
             }
          }
@@ -185,28 +185,28 @@ public final class UseTracker extends Module {
       }
    }
 
-   private void sendPrefixed(Text message) {
+   private void sendPrefixed(Component message) {
       if (mc.player != null) {
-         MutableText text = Text.empty()
-            .append(Text.literal("daamky").styled(style -> style.withBold(true).withColor(8385279)))
-            .append(Text.literal(" » ").formatted(Formatting.DARK_GRAY))
+         MutableComponent text = Component.empty()
+            .append(Component.literal("daamky").withStyle(style -> style.withBold(true).withColor(8385279)))
+            .append(Component.literal(" » ").withStyle(ChatFormatting.DARK_GRAY))
             .append(message);
          mc.execute(() -> {
             if (mc.player != null) {
-               mc.player.sendMessage(text, false);
+               mc.player.displayClientMessage(text, false);
             }
          });
       }
    }
 
    private static String stripFormatting(String text) {
-      String stripped = Formatting.strip(text);
+      String stripped = ChatFormatting.stripFormatting(text);
       return stripped == null ? text : stripped;
    }
 
-   private static MutableText parseLegacy(String message) {
-      MutableText result = Text.empty();
-      Formatting currentColor = null;
+   private static MutableComponent parseLegacy(String message) {
+      MutableComponent result = Component.empty();
+      ChatFormatting currentColor = null;
       boolean bold = false;
       StringBuilder current = new StringBuilder();
 
@@ -215,11 +215,11 @@ public final class UseTracker extends Module {
          if (c == 167 && i + 1 < message.length()) {
             appendLegacyPart(result, current, currentColor, bold);
             current.setLength(0);
-            Formatting formatting = Formatting.byCode(message.charAt(++i));
+            ChatFormatting formatting = ChatFormatting.getByCode(message.charAt(++i));
             if (formatting != null) {
-               if (formatting == Formatting.BOLD) {
+               if (formatting == ChatFormatting.BOLD) {
                   bold = true;
-               } else if (formatting == Formatting.RESET) {
+               } else if (formatting == ChatFormatting.RESET) {
                   currentColor = null;
                   bold = false;
                } else if (formatting.isColor()) {
@@ -235,15 +235,15 @@ public final class UseTracker extends Module {
       return result;
    }
 
-   private static void appendLegacyPart(MutableText result, StringBuilder current, Formatting color, boolean bold) {
+   private static void appendLegacyPart(MutableComponent result, StringBuilder current, ChatFormatting color, boolean bold) {
       if (!current.isEmpty()) {
-         MutableText part = Text.literal(current.toString());
+         MutableComponent part = Component.literal(current.toString());
          if (color != null) {
-            part.formatted(color);
+            part.withStyle(color);
          }
 
          if (bold) {
-            part.formatted(Formatting.BOLD);
+            part.withStyle(ChatFormatting.BOLD);
          }
 
          result.append(part);

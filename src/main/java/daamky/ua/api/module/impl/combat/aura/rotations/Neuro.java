@@ -1,9 +1,5 @@
 package daamky.ua.api.module.impl.combat.aura.rotations;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.module.impl.combat.AuraModule;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.api.module.impl.combat.aura.MathAngle;
@@ -11,6 +7,10 @@ import daamky.ua.api.module.impl.combat.aura.attack.StrikeManager;
 import daamky.ua.api.module.impl.combat.aura.attack.StrikerConstructor;
 import daamky.ua.api.module.impl.combat.aura.impl.RotateConstructor;
 import daamky.ua.utils.chat.ChatMessage;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 public class Neuro extends RotateConstructor {
    float yaw;
@@ -21,7 +21,7 @@ public class Neuro extends RotateConstructor {
    }
 
    @Override
-   public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3d vec3d, Entity entity) {
+   public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3 vec3d, Entity entity) {
       AuraModule aura = AuraModule.getInstance();
       if (aura == null) {
          return currentAngle;
@@ -30,13 +30,13 @@ public class Neuro extends RotateConstructor {
          if (attackHandler == null) {
             return currentAngle;
          } else {
-            MinecraftClient mc = MinecraftClient.getInstance();
+            Minecraft mc = Minecraft.getInstance();
             StrikerConstructor.AttackPerpetratorConfigurable config = aura.getConfig();
             Angle angleDelta = MathAngle.calculateDelta(currentAngle, targetAngle);
             Angle delta = MathAngle.calculateDelta(new Angle(this.yaw, this.pitch), targetAngle);
-            float currentYaw = mc.player.getYaw();
-            float currentPitch = mc.player.getPitch();
-            float yawStep = MathHelper.wrapDegrees(currentYaw - this.yaw);
+            float currentYaw = mc.player.getYRot();
+            float currentPitch = mc.player.getXRot();
+            float yawStep = Mth.wrapDegrees(currentYaw - this.yaw);
             float pitchStep = currentPitch - this.pitch;
             this.yaw = currentYaw;
             this.pitch = currentPitch;
@@ -52,7 +52,7 @@ public class Neuro extends RotateConstructor {
    }
 
    @Override
-   public Vec3d randomValue() {
-      return Vec3d.ZERO;
+   public Vec3 randomValue() {
+      return Vec3.ZERO;
    }
 }

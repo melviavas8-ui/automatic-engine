@@ -1,6 +1,6 @@
 package daamky.ua.utils.render.ui.zippy;
 
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
 
 public record BuiltZippy(
    float x,
@@ -76,7 +76,7 @@ public record BuiltZippy(
       );
    }
 
-   public void render(DrawContext graphics) {
+   public void render(GuiGraphics graphics) {
       ZippyRenderer.getInstance().draw(graphics, this);
    }
 

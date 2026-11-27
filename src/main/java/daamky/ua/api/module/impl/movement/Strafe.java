@@ -1,6 +1,5 @@
 package daamky.ua.api.module.impl.movement;
 
-import net.minecraft.client.MinecraftClient;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.module.impl.combat.AuraModule;
@@ -11,6 +10,7 @@ import daamky.ua.api.module.impl.combat.aura.util.TaskPriority;
 import daamky.ua.api.settings.impl.ModeSetting;
 import daamky.ua.api.settings.impl.NumberSetting;
 import daamky.ua.utils.move.MoveUtil;
+import net.minecraft.client.Minecraft;
 
 public final class Strafe extends Module {
    private final ModeSetting mode = this.register(new ModeSetting("Mode", "Strafe mode.", "Matrix", "Matrix", "Grim"));
@@ -26,16 +26,16 @@ public final class Strafe extends Module {
 
    @Override
    protected void onEnable() {
-      MinecraftClient client = MinecraftClient.getInstance();
-      this.lastYaw = client.player != null ? client.player.getYaw() : 0.0F;
-      this.lastPitch = client.player != null ? client.player.getPitch() : 0.0F;
+      Minecraft client = Minecraft.getInstance();
+      this.lastYaw = client.player != null ? client.player.getYRot() : 0.0F;
+      this.lastPitch = client.player != null ? client.player.getXRot() : 0.0F;
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
-      if (client.player != null && client.world != null) {
+   public void onTick(Minecraft client) {
+      if (client.player != null && client.level != null) {
          boolean moving = MoveUtil.hasPlayerMovement();
-         float yaw = client.player.getYaw();
+         float yaw = client.player.getYRot();
          if (this.mode.is("Matrix")) {
             this.handleMatrixMode(moving);
          } else if (this.mode.is("Grim")) {
@@ -43,24 +43,24 @@ public final class Strafe extends Module {
          }
 
          this.lastYaw = yaw;
-         this.lastPitch = client.player.getPitch();
+         this.lastPitch = client.player.getXRot();
       }
    }
 
    private void handleMatrixMode(boolean moving) {
       if (moving) {
-         MoveUtil.moveYaw(MinecraftClient.getInstance().player.getYaw());
+         MoveUtil.moveYaw(Minecraft.getInstance().player.getYRot());
          MoveUtil.setVelocity(this.speed.getValue() * 1.5);
       } else {
          MoveUtil.setVelocity(0.0);
       }
    }
 
-   private void handleGrimMode(MinecraftClient client, boolean moving) {
+   private void handleGrimMode(Minecraft client, boolean moving) {
       if (moving) {
-         float yaw = MoveUtil.moveYaw(client.player.getYaw());
+         float yaw = MoveUtil.moveYaw(client.player.getYRot());
          this.rotation.setYaw(yaw);
-         this.rotation.setPitch(client.player.getPitch());
+         this.rotation.setPitch(client.player.getXRot());
          if (AuraModule.target == null) {
             AngleConnection.INSTANCE.rotateTo(this.rotation, 1, AngleConfig.DEFAULT, TaskPriority.HIGH_IMPORTANCE_1, this);
          }

@@ -1,11 +1,11 @@
 package daamky.ua.screens.clickgui.impl.options;
 
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
 import daamky.ua.api.settings.impl.NumberSetting;
 import daamky.ua.utils.render.animation.Easings;
 import daamky.ua.utils.render.animation.SmoothAnimation;
 import daamky.ua.utils.render.ui.Render2D;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.MouseButtonEvent;
 
 public class SliderOption extends ClickGuiOption {
    private final SmoothAnimation progressAnimation = new SmoothAnimation();
@@ -31,7 +31,7 @@ public class SliderOption extends ClickGuiOption {
    }
 
    @Override
-   protected void renderControl(DrawContext graphics, float x, float y, float width, float height, float scale, float alpha) {
+   protected void renderControl(GuiGraphics graphics, float x, float y, float width, float height, float scale, float alpha) {
       this.value = this.setting.getFloat();
       this.min = (float)this.setting.getMin();
       this.max = (float)this.setting.getMax();
@@ -76,7 +76,7 @@ public class SliderOption extends ClickGuiOption {
    }
 
    @Override
-   public boolean mouseClicked(Click event, boolean doubled) {
+   public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
       if (event.button() != 0) {
          return false;
       } else if (this.hovered(
@@ -91,7 +91,7 @@ public class SliderOption extends ClickGuiOption {
    }
 
    @Override
-   public boolean mouseReleased(Click event) {
+   public boolean mouseReleased(MouseButtonEvent event) {
       if (!this.dragging) {
          return false;
       } else {
@@ -101,7 +101,7 @@ public class SliderOption extends ClickGuiOption {
    }
 
    @Override
-   public boolean mouseDragged(Click event, double dragX, double dragY) {
+   public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
       if (!this.dragging) {
          return false;
       } else {

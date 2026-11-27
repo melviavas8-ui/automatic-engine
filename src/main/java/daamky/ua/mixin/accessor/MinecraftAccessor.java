@@ -1,28 +1,28 @@
 package daamky.ua.mixin.accessor;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.session.Session;
-import net.minecraft.client.world.ClientWorld;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.User;
+import net.minecraft.client.multiplayer.ClientLevel;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.gen.Accessor;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
-@Mixin({MinecraftClient.class})
+@Mixin({Minecraft.class})
 public interface MinecraftAccessor {
    @Mutable
-   @Accessor("session")
-   void daamky$setUser(Session var1);
+   @Accessor("user")
+   void daamky$setUser(User var1);
 
-   @Invoker("doAttack")
+   @Invoker("startAttack")
    boolean daamky$startAttack();
 
-   @Invoker("doItemUse")
+   @Invoker("startUseItem")
    void daamky$startUseItem();
 
-   @Invoker("setWorld")
-   void daamky$updateLevelInEngines(ClientWorld var1);
+   @Invoker("updateLevelInEngines")
+   void daamky$updateLevelInEngines(ClientLevel var1);
 
-   @Accessor("itemUseCooldown")
+   @Accessor("rightClickDelay")
    void daamky$setRightClickDelay(int var1);
 }

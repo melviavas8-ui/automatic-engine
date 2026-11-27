@@ -1,9 +1,5 @@
 package daamky.ua.api.module.impl.player;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.text.Text;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.TextFactoryEvent;
 import daamky.ua.api.module.Module;
@@ -11,6 +7,10 @@ import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.settings.impl.BooleanSetting;
 import daamky.ua.api.settings.impl.StringSetting;
 import daamky.ua.utils.repository.friend.FriendUtils;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 
 public final class NameProtect extends Module {
    private static NameProtect instance;
@@ -24,16 +24,16 @@ public final class NameProtect extends Module {
       instance = this;
    }
 
-   public static Text protectOwnNameTag(Entity entity, Text nameTag) {
+   public static Component protectOwnNameTag(Entity entity, Component nameTag) {
       NameProtect protect = instance;
       if (protect != null && protect.isEnabled() && entity != null && nameTag != null) {
-         MinecraftClient client = MinecraftClient.getInstance();
-         if (client.player != null && client.getSession() != null && entity == client.player) {
-            String realName = client.getSession().getUsername();
+         Minecraft client = Minecraft.getInstance();
+         if (client.player != null && client.getUser() != null && entity == client.player) {
+            String realName = client.getUser().getName();
             String replacement = protect.nameSetting.getValue();
             if (realName != null && !realName.isBlank() && replacement != null && !replacement.isBlank()) {
                String text = nameTag.getString();
-               return (Text)(!text.contains(realName) ? nameTag : Text.literal(text.replace(realName, replacement)));
+               return (Component)(!text.contains(realName) ? nameTag : Component.literal(text.replace(realName, replacement)));
             } else {
                return nameTag;
             }
@@ -45,17 +45,17 @@ public final class NameProtect extends Module {
       }
    }
 
-   public static String protectPlayerName(PlayerEntity player, String name) {
+   public static String protectPlayerName(Player player, String name) {
       NameProtect protect = instance;
       if (protect != null && protect.isEnabled() && player != null && name != null && !name.isBlank()) {
-         MinecraftClient client = MinecraftClient.getInstance();
-         if (client.player != null && client.getSession() != null) {
+         Minecraft client = Minecraft.getInstance();
+         if (client.player != null && client.getUser() != null) {
             boolean self = player == client.player;
             boolean friend = protect.friendsSetting.getValue() && FriendUtils.isFriend(player);
             if (!self && !friend) {
                return name;
             } else {
-               String realName = self ? client.getSession().getUsername() : player.getName().getString();
+               String realName = self ? client.getUser().getName() : player.getName().getString();
                String replacement = protect.nameSetting.getValue();
                return realName != null && !realName.isBlank() && replacement != null && !replacement.isBlank() ? name.replace(realName, replacement) : name;
             }
@@ -69,9 +69,9 @@ public final class NameProtect extends Module {
 
    @SubscribeEvent
    private void onTextFactory(TextFactoryEvent event) {
-      MinecraftClient client = MinecraftClient.getInstance();
-      if (client.getSession() != null) {
-         event.replaceText(client.getSession().getUsername(), this.nameSetting.getValue());
+      Minecraft client = Minecraft.getInstance();
+      if (client.getUser() != null) {
+         event.replaceText(client.getUser().getName(), this.nameSetting.getValue());
       }
    }
 }

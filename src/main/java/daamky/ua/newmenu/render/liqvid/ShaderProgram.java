@@ -4,7 +4,7 @@ import java.awt.Color;
 import java.nio.FloatBuffer;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL30;
@@ -93,8 +93,8 @@ public class ShaderProgram {
         matrixBuffer.rewind();
         setMatrix("ModelViewMat", matrixBuffer);
 
-        MinecraftClient client = MinecraftClient.getInstance();
-        setVec2("resolution", client.getWindow().getScaledWidth(), client.getWindow().getScaledHeight());
+        Minecraft client = Minecraft.getInstance();
+        setVec2("resolution", client.getWindow().getGuiScaledWidth(), client.getWindow().getGuiScaledHeight());
     }
 
     /** Binds the program without uploading the ScreenScale matrices (for offscreen passes). */

@@ -1,9 +1,5 @@
 package daamky.ua.api.module.impl.combat.aura.rotations;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.module.impl.combat.AuraModule;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.api.module.impl.combat.aura.MathAngle;
@@ -12,6 +8,10 @@ import daamky.ua.api.module.impl.combat.aura.attack.StrikerConstructor;
 import daamky.ua.api.module.impl.combat.aura.impl.RotateConstructor;
 import daamky.ua.api.module.impl.combat.aura.target.RaycastAngle;
 import daamky.ua.api.module.impl.combat.aura.util.MathUtils;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 public class Matrix extends RotateConstructor {
    private float animatedPitchStep;
@@ -26,7 +26,7 @@ public class Matrix extends RotateConstructor {
    }
 
    @Override
-   public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3d vec3d, Entity entity) {
+   public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3 vec3d, Entity entity) {
       if (entity == null) {
          return currentAngle;
       } else {
@@ -34,7 +34,7 @@ public class Matrix extends RotateConstructor {
          if (aura == null) {
             return currentAngle;
          } else {
-            MinecraftClient client = MinecraftClient.getInstance();
+            Minecraft client = Minecraft.getInstance();
             if (client.player == null) {
                return currentAngle;
             } else {
@@ -56,7 +56,7 @@ public class Matrix extends RotateConstructor {
                   boolean shouldAttack3 = attackHandler.canAttack(config, 5);
                   boolean rayTrace = RaycastAngle.rayTrace(currentAngle.toVector(), (double)(aura.attackDistance() - 0.5F), config.getBox());
                   boolean outOfAttackRange = client.player.distanceTo(entity) > aura.attackDistance();
-                  float playerHead = client.player.getPitch() + currentAngle.getPitch();
+                  float playerHead = client.player.getXRot() + currentAngle.getPitch();
                   if (!rayTrace && !outOfAttackRange) {
                      float straightLineYaw = Math.abs(yawDelta / rotationDifference) * 180.0F;
                      float straightLinePitch = Math.abs(pitchDelta / rotationDifference) * 180.0F;
@@ -78,7 +78,7 @@ public class Matrix extends RotateConstructor {
    }
 
    private Angle animate(Angle from, float targetYaw, float targetPitch, float speed) {
-      float targetChangedYaw = Math.abs(MathHelper.wrapDegrees(targetYaw - this.lastTargetYaw));
+      float targetChangedYaw = Math.abs(Mth.wrapDegrees(targetYaw - this.lastTargetYaw));
       float targetChangedPitch = Math.abs(targetPitch - this.lastTargetPitch);
       if (this.animProgress >= 1.0F || targetChangedYaw > 6.0F || targetChangedPitch > 6.0F) {
          this.startYaw = from.getYaw();
@@ -88,12 +88,12 @@ public class Matrix extends RotateConstructor {
          this.animProgress = 0.0F;
       }
 
-      this.animProgress = MathHelper.clamp(this.animProgress + speed, 0.0F, 1.0F);
+      this.animProgress = Mth.clamp(this.animProgress + speed, 0.0F, 1.0F);
       float eased = this.easeOutBack(this.animProgress);
-      float yawDelta = MathHelper.wrapDegrees(this.lastTargetYaw - this.startYaw);
+      float yawDelta = Mth.wrapDegrees(this.lastTargetYaw - this.startYaw);
       float pitchDelta = this.lastTargetPitch - this.startPitch;
       float yaw = this.startYaw + yawDelta * eased;
-      float pitch = MathHelper.clamp(this.startPitch + pitchDelta * eased, -89.0F, 89.0F);
+      float pitch = Mth.clamp(this.startPitch + pitchDelta * eased, -89.0F, 89.0F);
       return new Angle(yaw, pitch);
    }
 
@@ -104,7 +104,7 @@ public class Matrix extends RotateConstructor {
    }
 
    @Override
-   public Vec3d randomValue() {
-      return Vec3d.ZERO;
+   public Vec3 randomValue() {
+      return Vec3.ZERO;
    }
 }

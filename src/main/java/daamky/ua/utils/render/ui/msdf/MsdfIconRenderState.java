@@ -1,16 +1,16 @@
 package daamky.ua.utils.render.ui.msdf;
 
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import net.minecraft.client.gui.ScreenRect;
-import net.minecraft.client.gui.render.state.SimpleGuiElementRenderState;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.texture.TextureSetup;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.gui.render.TextureSetup;
+import net.minecraft.client.gui.render.state.GuiElementRenderState;
 import org.joml.Matrix3x2f;
 
-final class MsdfIconRenderState implements SimpleGuiElementRenderState {
+final class MsdfIconRenderState implements GuiElementRenderState {
    private final Matrix3x2f pose;
    private final TextureSetup textureSetup;
-   private final ScreenRect scissorArea;
+   private final ScreenRectangle scissorArea;
    private final float distanceRange;
    private float[] positions = new float[128];
    private float[] uvs = new float[64];
@@ -21,7 +21,7 @@ final class MsdfIconRenderState implements SimpleGuiElementRenderState {
    private float maxX = -Float.MAX_VALUE;
    private float maxY = -Float.MAX_VALUE;
 
-   MsdfIconRenderState(Matrix3x2f pose, TextureSetup textureSetup, ScreenRect scissorArea, float distanceRange) {
+   MsdfIconRenderState(Matrix3x2f pose, TextureSetup textureSetup, ScreenRectangle scissorArea, float distanceRange) {
       this.pose = pose;
       this.textureSetup = textureSetup;
       this.scissorArea = scissorArea;
@@ -113,7 +113,7 @@ final class MsdfIconRenderState implements SimpleGuiElementRenderState {
       this.include(trX, trY);
    }
 
-   public void setupVertices(VertexConsumer vertices) {
+   public void buildVertices(VertexConsumer vertices) {
       for (int i = 0; i < this.quadCount; i++) {
          int positionIndex = i * 8;
          int uvIndex = i * 4;
@@ -204,7 +204,7 @@ final class MsdfIconRenderState implements SimpleGuiElementRenderState {
    }
 
    private void vertex(VertexConsumer consumer, float x, float y, float u, float v, int color) {
-      consumer.vertex(this.pose, x, y).texture(u, v).color(color).lineWidth(this.distanceRange);
+      consumer.addVertexWith2DPose(this.pose, x, y).setUv(u, v).setColor(color).setLineWidth(this.distanceRange);
    }
 
    public RenderPipeline pipeline() {
@@ -215,19 +215,19 @@ final class MsdfIconRenderState implements SimpleGuiElementRenderState {
       return this.textureSetup;
    }
 
-   public ScreenRect scissorArea() {
+   public ScreenRectangle scissorArea() {
       return this.scissorArea;
    }
 
-   public ScreenRect bounds() {
+   public ScreenRectangle bounds() {
       if (this.quadCount == 0) {
-         return new ScreenRect(0, 0, 1, 1);
+         return new ScreenRectangle(0, 0, 1, 1);
       } else {
          int x = (int)Math.floor((double)this.minX);
          int y = (int)Math.floor((double)this.minY);
          int width = Math.max(1, (int)Math.ceil((double)(this.maxX - this.minX)));
          int height = Math.max(1, (int)Math.ceil((double)(this.maxY - this.minY)));
-         ScreenRect transformedBounds = new ScreenRect(x, y, width, height).transformEachVertex(this.pose);
+         ScreenRectangle transformedBounds = new ScreenRectangle(x, y, width, height).transformMaxBounds(this.pose);
          return this.scissorArea == null ? transformedBounds : this.scissorArea.intersection(transformedBounds);
       }
    }

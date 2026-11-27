@@ -1,24 +1,24 @@
 package daamky.ua.api.module.impl.visual;
 
 import com.mojang.authlib.GameProfile;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.network.OtherClientPlayerEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.Entity.RemovalReason;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.passive.AnimalEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.network.packet.s2c.play.EntityStatusS2CPacket;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.player.RemotePlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Entity.RemovalReason;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.AttackEvent;
@@ -163,7 +163,7 @@ public class KillEffect extends Module {
 
    @SubscribeEvent
    private void onTick(TickEvent.Post event) {
-      if (mc.player != null && mc.world != null) {
+      if (mc.player != null && mc.level != null) {
          LivingEntity auraTarget = AuraModule.target;
          if (auraTarget != null && auraTarget.isAlive() && auraTarget.getHealth() > 0.0F && this.shouldTriggerFor(auraTarget)) {
             this.deathMemoryTracker.remember(auraTarget, true);
@@ -189,19 +189,19 @@ public class KillEffect extends Module {
 
    @SubscribeEvent
    private void onPacket(PacketEvent event) {
-      if (event.isReceive() && event.getPacket() instanceof EntityStatusS2CPacket packet) {
-         byte status = packet.getStatus();
+      if (event.isReceive() && event.getPacket() instanceof ClientboundEntityEventPacket packet) {
+         byte status = packet.getEventId();
          if (status == 3 || status == 35) {
             mc.execute(() -> this.handleStatus(packet, status));
          }
       }
    }
 
-   private void handleStatus(EntityStatusS2CPacket packet, byte status) {
-      if (mc.world == null || mc.player == null) {
+   private void handleStatus(ClientboundEntityEventPacket packet, byte status) {
+      if (mc.level == null || mc.player == null) {
          return;
       }
-      if (!(packet.getEntity(mc.world) instanceof LivingEntity living)) {
+      if (!(packet.getEntity(mc.level) instanceof LivingEntity living)) {
          return;
       }
       if (status == 3) {
@@ -235,7 +235,7 @@ public class KillEffect extends Module {
          default -> KillFx.Kind.T_CROSS;
       };
       Color c = this.totemColor.getValue();
-      this.killFx.spawn(kind, player.getEntityPos(), player.getHeight(), player.bodyYaw, ColorUtil.rgba(c.getRed(), c.getGreen(), c.getBlue(), 255), this.speedMultiplier(), this.effectSize.getFloat() / 100.0F);
+      this.killFx.spawn(kind, player.position(), player.getBbHeight(), player.yBodyRot, ColorUtil.rgba(c.getRed(), c.getGreen(), c.getBlue(), 255), this.speedMultiplier(), this.effectSize.getFloat() / 100.0F);
    }
 
    @SubscribeEvent
@@ -261,7 +261,7 @@ public class KillEffect extends Module {
       this.resetState();
    }
 
-   public void onAfterTranslucent(Framebuffer renderTarget, Matrix4f projectionMatrix, Matrix4f positionMatrix, Vec3d cameraPos) {
+   public void onAfterTranslucent(RenderTarget renderTarget, Matrix4f projectionMatrix, Matrix4f positionMatrix, Vec3 cameraPos) {
       if (this.isEnabled() && this.isFragMode()) {
          if (!RenderCompatibility.shouldDisableFragEffectScanShader() && !FragEffectScanRenderer.isDisabledAfterError()) {
             FragEffectScanRenderer.render(
@@ -301,8 +301,8 @@ public class KillEffect extends Module {
             if (!(alphaProgress <= 0.0F)) {
                float scaleAnimation = FragEffectEasing.quintOut(effectProgress);
                float scaleProgress = Math.min((scaleAnimation > 0.5F ? 1.0F - scaleAnimation : scaleAnimation) * 4.25F, 1.0F);
-               float width = (float)mc.getWindow().getScaledWidth();
-               float height = (float)mc.getWindow().getScaledHeight();
+               float width = (float)mc.getWindow().getGuiScaledWidth();
+               float height = (float)mc.getWindow().getGuiScaledHeight();
                float extendX = width * 0.5F * (1.0F - scaleProgress);
                float extendY = height * 0.5F * (1.0F - scaleProgress);
                int color = ColorUtil.withAlpha(
@@ -318,7 +318,7 @@ public class KillEffect extends Module {
 
    private void onTrackedKill(LivingEntity entity) {
       if (this.debug.getValue() && mc.player != null) {
-         mc.player.sendMessage(net.minecraft.text.Text.literal("[KillEffect] kill: " + entity.getName().getString() + " via " + this.deathMemoryTracker.lastReason + (this.matchesEffectTarget(entity) ? "" : " (filtered by Targets)")), false);
+         mc.player.displayClientMessage(net.minecraft.network.chat.Component.literal("[KillEffect] kill: " + entity.getName().getString() + " via " + this.deathMemoryTracker.lastReason + (this.matchesEffectTarget(entity) ? "" : " (filtered by Targets)")), false);
       }
 
       if (this.matchesEffectTarget(entity)) {
@@ -340,13 +340,13 @@ public class KillEffect extends Module {
                case "Vortex" -> KillFx.Kind.VORTEX;
                default -> KillFx.Kind.NOVA;
             };
-            this.killFx.spawn(kind, entity.getEntityPos(), entity.getHeight(), entity.getYaw(), this.accent(), this.speedMultiplier(), this.effectSize.getFloat() / 100.0F);
+            this.killFx.spawn(kind, entity.position(), entity.getBbHeight(), entity.getYRot(), this.accent(), this.speedMultiplier(), this.effectSize.getFloat() / 100.0F);
          }
       }
    }
 
    private void triggerFragEffect(LivingEntity entity) {
-      Vec3d killPosition = entity.getEyePos();
+      Vec3 killPosition = entity.getEyePosition();
       float effectSpeed = this.speedMultiplier();
       this.restartEffect(effectSpeed);
       FragEffectScanRenderer.ping(killPosition, effectSpeed);
@@ -355,44 +355,44 @@ public class KillEffect extends Module {
    }
 
    private void spawnLegacyPreviewEffect() {
-      if (mc.player != null && mc.world != null) {
+      if (mc.player != null && mc.level != null) {
          this.spawnLegacyEffect(mc.player, false);
       }
    }
 
    private void spawnLegacyEffect(LivingEntity entity, boolean playSound) {
-      if (mc.world != null && entity != null) {
-         KillEffect.LegacyStyle style = this.legacyType.is("Soul") && entity instanceof PlayerEntity
+      if (mc.level != null && entity != null) {
+         KillEffect.LegacyStyle style = this.legacyType.is("Soul") && entity instanceof Player
             ? KillEffect.LegacyStyle.SOUL
             : KillEffect.LegacyStyle.CROSS;
-         OtherClientPlayerEntity fakePlayer = style == KillEffect.LegacyStyle.SOUL ? this.createLegacyFakePlayer((PlayerEntity)entity) : null;
-         this.legacyEffects.add(new KillEffect.LegacyEffectEntry(System.currentTimeMillis(), entity.getYaw(), entity.getEntityPos(), style, fakePlayer));
+         RemotePlayer fakePlayer = style == KillEffect.LegacyStyle.SOUL ? this.createLegacyFakePlayer((Player)entity) : null;
+         this.legacyEffects.add(new KillEffect.LegacyEffectEntry(System.currentTimeMillis(), entity.getYRot(), entity.position(), style, fakePlayer));
          if (playSound && this.legacySound.getValue()) {
             float volume = (float)(this.legacyVolume.getValue() / 100.0);
-            mc.world.playSound(mc.player, BlockPos.ofFloored(entity.getEntityPos()), SoundManager.FRAG_EFFECT_ECHO_MAIN, SoundCategory.BLOCKS, volume, 1.0F);
+            mc.level.playSound(mc.player, BlockPos.containing(entity.position()), SoundManager.FRAG_EFFECT_ECHO_MAIN, SoundSource.BLOCKS, volume, 1.0F);
          }
       }
    }
 
-   private OtherClientPlayerEntity createLegacyFakePlayer(PlayerEntity player) {
-      if (mc.world != null && mc.player != null) {
+   private RemotePlayer createLegacyFakePlayer(Player player) {
+      if (mc.level != null && mc.player != null) {
          GameProfile profile = new GameProfile(UUID.randomUUID(), player.getGameProfile().name());
-         OtherClientPlayerEntity fake = new OtherClientPlayerEntity(mc.world, profile);
+         RemotePlayer fake = new RemotePlayer(mc.level, profile);
          fake.setId(this.nextLegacyFakeEntityId--);
-         fake.copyPositionAndRotation(player);
-         fake.setYaw(player.getYaw());
-         fake.setPitch(-30.0F);
-         fake.setHeadYaw(player.getHeadYaw());
-         fake.setBodyYaw(player.getYaw());
+         fake.copyPosition(player);
+         fake.setYRot(player.getYRot());
+         fake.setXRot(-30.0F);
+         fake.setYHeadRot(player.getYHeadRot());
+         fake.setYBodyRot(player.getYRot());
          fake.setPose(player.getPose());
          fake.setSprinting(player.isSprinting());
-         fake.setSneaking(player.isSneaking());
+         fake.setShiftKeyDown(player.isShiftKeyDown());
          fake.setNoGravity(true);
          fake.setSilent(true);
          fake.setInvisible(true);
          fake.setHealth(Math.max(player.getHealth(), 1.0F));
          fake.setAbsorptionAmount(player.getAbsorptionAmount());
-         mc.world.addEntity(fake);
+         mc.level.addEntity(fake);
          return fake;
       } else {
          return null;
@@ -442,25 +442,25 @@ public class KillEffect extends Module {
       int alpha = Math.max(0, Math.min(255, Math.round(150.0F * (1.0F - progress))));
       int color = new Color(255, 255, 255, alpha).getRGB();
       float yaw = (float)Math.toRadians((double)(effect.yaw() + 95.0F));
-      Vec3d pos = effect.startPos();
+      Vec3 pos = effect.startPos();
       Render3D.drawLine(pos, pos.add(0.0, 3.0, 0.0), color, 5.0F, true);
-      Vec3d start = pos.add(-1.0 * Math.sin((double)yaw), 2.3F, 1.0 * Math.cos((double)yaw));
-      Vec3d end = pos.add(1.0 * Math.sin((double)yaw), 2.3F, -1.0 * Math.cos((double)yaw));
+      Vec3 start = pos.add(-1.0 * Math.sin((double)yaw), 2.3F, 1.0 * Math.cos((double)yaw));
+      Vec3 end = pos.add(1.0 * Math.sin((double)yaw), 2.3F, -1.0 * Math.cos((double)yaw));
       Render3D.drawLine(start, end, color, 5.0F, true);
    }
 
    private void updateLegacyEffects() {
       if (!this.legacyEffects.isEmpty()) {
          for (KillEffect.LegacyEffectEntry effect : this.legacyEffects) {
-            OtherClientPlayerEntity fakePlayer = effect.fakePlayer();
+            RemotePlayer fakePlayer = effect.fakePlayer();
             if (effect.style() == KillEffect.LegacyStyle.SOUL && fakePlayer != null) {
                float progress = effect.progress();
-               Vec3d soulPos = effect.startPos().add(0.0, (double)(progress * 3.0F), 0.0);
-               fakePlayer.setPosition(soulPos.x, soulPos.y, soulPos.z);
-               fakePlayer.setYaw(effect.yaw());
-               fakePlayer.setHeadYaw(effect.yaw());
-               fakePlayer.setBodyYaw(effect.yaw());
-               fakePlayer.age = mc.player != null ? mc.player.age : fakePlayer.age;
+               Vec3 soulPos = effect.startPos().add(0.0, (double)(progress * 3.0F), 0.0);
+               fakePlayer.setPos(soulPos.x, soulPos.y, soulPos.z);
+               fakePlayer.setYRot(effect.yaw());
+               fakePlayer.setYHeadRot(effect.yaw());
+               fakePlayer.setYBodyRot(effect.yaw());
+               fakePlayer.tickCount = mc.player != null ? mc.player.tickCount : fakePlayer.tickCount;
             }
          }
       }
@@ -481,8 +481,8 @@ public class KillEffect extends Module {
    }
 
    private void disposeLegacyEffect(KillEffect.LegacyEffectEntry effect) {
-      if (mc.world != null && effect != null && effect.fakePlayer() != null) {
-         mc.world.removeEntity(effect.fakePlayer().getId(), RemovalReason.DISCARDED);
+      if (mc.level != null && effect != null && effect.fakePlayer() != null) {
+         mc.level.removeEntity(effect.fakePlayer().getId(), RemovalReason.DISCARDED);
          effect.fakePlayer().discard();
       }
    }
@@ -518,12 +518,12 @@ public class KillEffect extends Module {
    private boolean matchesEffectTarget(LivingEntity entity) {
       if (entity == null || entity == mc.player) {
          return false;
-      } else if (entity instanceof PlayerEntity player) {
+      } else if (entity instanceof Player player) {
          return FriendUtils.isFriend(player) ? this.effectTargets.isSelected("Friends") : this.effectTargets.isSelected("Players");
-      } else if (entity instanceof AnimalEntity) {
+      } else if (entity instanceof Animal) {
          return this.effectTargets.isSelected("Animals");
       } else {
-         return entity instanceof MobEntity ? this.effectTargets.isSelected("Mobs") : false;
+         return entity instanceof Mob ? this.effectTargets.isSelected("Mobs") : false;
       }
    }
 
@@ -690,7 +690,7 @@ public class KillEffect extends Module {
       );
    }
 
-   private static record LegacyEffectEntry(long startedAt, float yaw, Vec3d startPos, KillEffect.LegacyStyle style, OtherClientPlayerEntity fakePlayer) {
+   private static record LegacyEffectEntry(long startedAt, float yaw, Vec3 startPos, KillEffect.LegacyStyle style, RemotePlayer fakePlayer) {
       private float progress() {
          return Math.clamp((float)(System.currentTimeMillis() - this.startedAt) / 3000.0F, 0.0F, 1.0F);
       }

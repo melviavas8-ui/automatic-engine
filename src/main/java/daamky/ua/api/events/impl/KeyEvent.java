@@ -1,8 +1,8 @@
 package daamky.ua.api.events.impl;
 
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.util.InputUtil.Type;
+import com.mojang.blaze3d.platform.InputConstants.Type;
 import daamky.ua.api.events.Event;
+import net.minecraft.client.gui.screens.Screen;
 
 public record KeyEvent(Screen screen, Type type, int key, int action) implements Event {
 }

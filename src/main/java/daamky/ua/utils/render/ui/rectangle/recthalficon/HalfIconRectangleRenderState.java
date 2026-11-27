@@ -1,15 +1,15 @@
 package daamky.ua.utils.render.ui.rectangle.recthalficon;
 
 import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.gui.ScreenRect;
-import net.minecraft.client.gui.render.state.SimpleGuiElementRenderState;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.texture.TextureSetup;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.gui.render.TextureSetup;
+import net.minecraft.client.gui.render.state.GuiElementRenderState;
 import org.joml.Matrix3x2f;
 
-final class HalfIconRectangleRenderState implements SimpleGuiElementRenderState {
+final class HalfIconRectangleRenderState implements GuiElementRenderState {
    private final Matrix3x2f pose;
    private final TextureSetup textureSetup;
    private final List<HalfIconRectangleRenderState.PatternBatch> batches = new ArrayList<>(8);
@@ -37,7 +37,7 @@ final class HalfIconRectangleRenderState implements SimpleGuiElementRenderState 
       return this.batches.isEmpty();
    }
 
-   public void setupVertices(VertexConsumer vertices) {
+   public void buildVertices(VertexConsumer vertices) {
       for (HalfIconRectangleRenderState.PatternBatch batch : this.batches) {
          int batchIndex = HalfIconRectangleRenderer.getInstance().reserve(batch.rectangle());
          if (batchIndex >= 0) {
@@ -52,7 +52,7 @@ final class HalfIconRectangleRenderState implements SimpleGuiElementRenderState 
    }
 
    private void vertex(VertexConsumer consumer, float x, float y, float u, float v, int color, int batchIndex) {
-      consumer.vertex(this.pose, x, y).texture(u, v).color(color).lineWidth((float)(batchIndex + 1));
+      consumer.addVertexWith2DPose(this.pose, x, y).setUv(u, v).setColor(color).setLineWidth((float)(batchIndex + 1));
    }
 
    public RenderPipeline pipeline() {
@@ -63,20 +63,20 @@ final class HalfIconRectangleRenderState implements SimpleGuiElementRenderState 
       return this.textureSetup;
    }
 
-   public ScreenRect scissorArea() {
+   public ScreenRectangle scissorArea() {
       return null;
    }
 
-   public ScreenRect bounds() {
+   public ScreenRectangle bounds() {
       return this.batches.isEmpty()
-         ? new ScreenRect(0, 0, 1, 1)
-         : new ScreenRect(
+         ? new ScreenRectangle(0, 0, 1, 1)
+         : new ScreenRectangle(
                (int)Math.floor((double)this.minX),
                (int)Math.floor((double)this.minY),
                Math.max(1, (int)Math.ceil((double)(this.maxX - this.minX))),
                Math.max(1, (int)Math.ceil((double)(this.maxY - this.minY)))
             )
-            .transformEachVertex(this.pose);
+            .transformMaxBounds(this.pose);
    }
 
    static record IconQuad(

@@ -1,10 +1,10 @@
 package daamky.ua.screens.modernui.settings;
 
 import java.awt.Color;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.input.CharInput;
-import net.minecraft.client.input.KeyInput;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import daamky.ua.api.settings.impl.StringSetting;
 import daamky.ua.utils.render.ui.Render2D;
 import daamky.ua.utils.render.ui.font.FontType;
@@ -25,7 +25,7 @@ final class TextSettingCard extends SettingCardComponent<StringSetting> {
    }
 
    @Override
-   void render(DrawContext graphics, SettingCardContext context, float cardX, float y, int mouseX, int mouseY) {
+   void render(GuiGraphics graphics, SettingCardContext context, float cardX, float y, int mouseX, int mouseY) {
       this.markRow(cardX, y, this.height(context));
       float boxWidth = 62.0F;
       float contentRight = cardX + context.cardWidth - 10.0F;
@@ -84,7 +84,7 @@ final class TextSettingCard extends SettingCardComponent<StringSetting> {
    }
 
    @Override
-   boolean mouseClicked(Click event, boolean doubled, SettingCardContext context) {
+   boolean mouseClicked(MouseButtonEvent event, boolean doubled, SettingCardContext context) {
       if (event.button() == 0 && context.inside(event.x(), event.y(), this.state.boxX, this.state.boxY, this.state.boxWidth, this.state.boxHeight)) {
          context.focusedText = this.setting;
          this.state.text = this.setting.getValue();
@@ -98,7 +98,7 @@ final class TextSettingCard extends SettingCardComponent<StringSetting> {
    }
 
    @Override
-   boolean keyPressed(KeyInput event, SettingCardContext context) {
+   boolean keyPressed(KeyEvent event, SettingCardContext context) {
       if (context.focusedText != this.setting) {
          return false;
       } else {
@@ -159,9 +159,9 @@ final class TextSettingCard extends SettingCardComponent<StringSetting> {
    }
 
    @Override
-   boolean charTyped(CharInput event, SettingCardContext context) {
-      if (context.focusedText == this.setting && event.isValidChar()) {
-         this.insertText(event.asString());
+   boolean charTyped(CharacterEvent event, SettingCardContext context) {
+      if (context.focusedText == this.setting && event.isAllowedChatCharacter()) {
+         this.insertText(event.codepointAsString());
          return true;
       } else {
          return false;

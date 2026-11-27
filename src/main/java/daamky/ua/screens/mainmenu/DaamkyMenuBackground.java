@@ -1,26 +1,26 @@
 package daamky.ua.screens.mainmenu;
 
-import net.minecraft.client.gui.DrawContext;
 import org.joml.Matrix3x2f;
 import daamky.render.Gfx;
 import daamky.render.Img;
 import daamky.render.SdfRect;
 import daamky.ua.utils.render.ui.Render2D;
 import daamky.ua.utils.render.ui.zippy.BuiltZippy;
+import net.minecraft.client.gui.GuiGraphics;
 
 /** Shared cinematic background for the title screen and its themed sub-screens. */
 public final class DaamkyMenuBackground {
     private DaamkyMenuBackground() {
     }
 
-    public static void render(DrawContext context, int width, int height) {
+    public static void render(GuiGraphics context, int width, int height) {
         if (context == null || width <= 0 || height <= 0) {
             return;
         }
 
         Gfx.ctx = context;
         Gfx.scissor = null;
-        Matrix3x2f matrix = new Matrix3x2f(context.getMatrices());
+        Matrix3x2f matrix = new Matrix3x2f(context.pose());
 
         // Keep a dark fallback visible while the resource manager is resolving the texture.
         SdfRect.fill(matrix, 0.0F, 0.0F, width, height, 0.0F, 0xFF050912);
@@ -42,7 +42,7 @@ public final class DaamkyMenuBackground {
         SdfRect.fill(matrix, 0.0F, 0.0F, width, height, 0.0F, 0x25030A14);
     }
     /** Original animated backdrop retained for the settings screens. */
-    public static void renderLegacy(DrawContext graphics, int width, int height) {
+    public static void renderLegacy(GuiGraphics graphics, int width, int height) {
         if (!VanillaMenuTheme.active()) {
             width = Render2D.getFixedScaledWidth();
             height = Render2D.getFixedScaledHeight();

@@ -1,17 +1,17 @@
 package daamky.ua.utils.render.ui.font;
 
+import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
 import java.awt.image.BufferedImage;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.client.texture.TextureSetup;
+import net.minecraft.client.gui.render.TextureSetup;
+import net.minecraft.client.renderer.texture.DynamicTexture;
 
 final class GlyphAtlasPage implements AutoCloseable {
    private static int nextId;
    private final int size;
    private final NativeImage image;
-   private final NativeImageBackedTexture texture;
+   private final DynamicTexture texture;
    private final TextureSetup textureSetup;
    private int cursorX = 1;
    private int cursorY = 1;
@@ -21,8 +21,8 @@ final class GlyphAtlasPage implements AutoCloseable {
    GlyphAtlasPage(int size) {
       this.size = size;
       this.image = new NativeImage(size, size, true);
-      this.texture = new NativeImageBackedTexture(() -> "daamky_font_atlas_" + nextId++, this.image);
-      this.textureSetup = TextureSetup.of(this.texture.getGlTextureView(), RenderSystem.getSamplerCache().get(FilterMode.LINEAR));
+      this.texture = new DynamicTexture(() -> "daamky_font_atlas_" + nextId++, this.image);
+      this.textureSetup = TextureSetup.singleTexture(this.texture.getTextureView(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
    }
 
    TextureSetup textureSetup() {
@@ -67,7 +67,7 @@ final class GlyphAtlasPage implements AutoCloseable {
 
       for (int y = 0; y < height; y++) {
          for (int x = 0; x < width; x++) {
-            this.image.setColor(atlasX + x, atlasY + y, argbToAbgr(source.getRGB(x, y)));
+            this.image.setPixelABGR(atlasX + x, atlasY + y, argbToAbgr(source.getRGB(x, y)));
          }
       }
 

@@ -1,6 +1,6 @@
 package daamky.ua.api.module.impl.visual.particles;
 
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 
 record ParticleTexture(String mode, Identifier id) {
 }

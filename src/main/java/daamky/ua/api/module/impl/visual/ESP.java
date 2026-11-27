@@ -10,21 +10,21 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.option.Perspective;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.decoration.ArmorStandEntity;
-import net.minecraft.entity.decoration.DisplayEntity.TextDisplayEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Display.TextDisplay;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.DrawEvent;
 import daamky.ua.api.events.impl.WorldRenderEvent;
@@ -113,7 +113,7 @@ public final class ESP extends Module {
       return instance != null && instance.isEnabled() && instance.shouldSuppressServerTagEntityInternal(entity);
    }
 
-   public static void captureServerHealth(Entity entity, Text scoreText) {
+   public static void captureServerHealth(Entity entity, Component scoreText) {
       if (instance != null && instance.isEnabled()) {
          instance.healthTracker.capture(entity, scoreText);
       }
@@ -124,7 +124,7 @@ public final class ESP extends Module {
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
+   public void onTick(Minecraft client) {
       this.healthTracker.prune();
       this.rebuildTargets(client);
    }
@@ -137,10 +137,10 @@ public final class ESP extends Module {
 
    @SubscribeEvent
    private void onWorldRender(WorldRenderEvent event) {
-      if (this.elements.isSelected("3D Box") && mc.player != null && mc.world != null) {
+      if (this.elements.isSelected("3D Box") && mc.player != null && mc.level != null) {
          for (Entity entity : this.trackedEntities) {
             if (this.isValidTarget(entity)) {
-               Box box = EspGeometry.interpolatedBox(entity, event.getPartialTicks()).expand(0.02);
+               AABB box = EspGeometry.interpolatedBox(entity, event.getPartialTicks()).inflate(0.02);
                int color = this.colorFor(entity);
                EspVisualRenderer.draw3DCornerBox(
                   box,
@@ -161,7 +161,7 @@ public final class ESP extends Module {
 
    @SubscribeEvent
    private void onDraw(DrawEvent event) {
-      if (mc.player != null && mc.world != null && mc.getWindow() != null) {
+      if (mc.player != null && mc.level != null && mc.getWindow() != null) {
          EspGeometry.ProjectionContext context = EspGeometry.createProjectionContext(mc, event.getPartialTicks());
          if (context != null) {
             boolean draw2DBox = this.elements.isSelected("2D Box");
@@ -176,7 +176,7 @@ public final class ESP extends Module {
                      entries.sort(RENDER_DISTANCE_COMPARATOR);
                   }
 
-                  DrawContext graphics = event.getGraphics();
+                  GuiGraphics graphics = event.getGraphics();
                   if (drawEquipment || drawName) {
                      RenderItem.beginFrame(graphics);
                   }
@@ -192,7 +192,7 @@ public final class ESP extends Module {
                         EspVisualRenderer.draw2DBox(box, entry.color(), alpha);
                      }
 
-                     if (drawEquipment && entity instanceof PlayerEntity player) {
+                     if (drawEquipment && entity instanceof Player player) {
                         this.tagRenderer.drawEquipment(player, box, entry.topAnchor(), alpha);
                      }
 
@@ -220,14 +220,14 @@ public final class ESP extends Module {
       }
    }
 
-   private void drawCompactItemTags(List<ESP.RenderEntry> itemEntries, DrawContext graphics, EspGeometry.ProjectionContext context) {
+   private void drawCompactItemTags(List<ESP.RenderEntry> itemEntries, GuiGraphics graphics, EspGeometry.ProjectionContext context) {
       this.compactItemClusters.clear();
 
       for (ESP.RenderEntry entry : itemEntries) {
          Entity screen = entry.entity();
          if (screen instanceof ItemEntity) {
             ItemEntity item = (ItemEntity)screen;
-            Vec3d position = item.getLerpedPos(context.tickDelta());
+            Vec3 position = item.getPosition(context.tickDelta());
             if (EspGeometry.isFinite(position)) {
                ESP.CompactItemCluster cluster = null;
 
@@ -249,7 +249,7 @@ public final class ESP extends Module {
       }
 
       for (ESP.CompactItemCluster cluster : this.compactItemClusters) {
-         Vec3d anchor = cluster.anchor();
+         Vec3 anchor = cluster.anchor();
          EspGeometry.ScreenPoint screen = EspGeometry.projectWorldToScreenSpace(anchor, context);
          if (screen != null && !(screen.z() < 0.0) && !(screen.z() > 1.0)) {
             double marginX = (double)context.screenWidth() * 0.35;
@@ -272,9 +272,9 @@ public final class ESP extends Module {
             EspGeometry.ScreenBox screenBox = EspGeometry.projectEntityBox(entity, context);
             if (screenBox != null && EspGeometry.isOnScreen(screenBox, context)) {
                EspGeometry.ScreenAnchor topAnchor = EspGeometry.resolveTopAnchor(entity, context, screenBox);
-               Vec3d interpolated = entity.getLerpedPos(context.tickDelta());
+               Vec3 interpolated = entity.getPosition(context.tickDelta());
                this.renderEntries
-                  .add(new ESP.RenderEntry(entity, screenBox, topAnchor, context.cameraPos().squaredDistanceTo(interpolated), this.colorFor(entity)));
+                  .add(new ESP.RenderEntry(entity, screenBox, topAnchor, context.cameraPos().distanceToSqr(interpolated), this.colorFor(entity)));
             }
          }
       }
@@ -282,19 +282,19 @@ public final class ESP extends Module {
       return this.renderEntries;
    }
 
-   private void rebuildTargets(MinecraftClient client) {
+   private void rebuildTargets(Minecraft client) {
       this.trackedEntities.clear();
-      if (client != null && client.world != null && client.player != null) {
+      if (client != null && client.level != null && client.player != null) {
          this.seenEntities.clear();
          if (this.targets.isSelected("Players")) {
-            for (PlayerEntity player : client.world.getPlayers()) {
+            for (Player player : client.level.players()) {
                this.addIfValid(this.seenEntities, player);
             }
          }
 
          if (this.targets.isSelected("Items")) {
-            for (Entity entity : client.world.getEntities()) {
-               if (!(entity instanceof PlayerEntity)) {
+            for (Entity entity : client.level.entitiesForRendering()) {
+               if (!(entity instanceof Player)) {
                   this.addIfValid(this.seenEntities, entity);
                }
             }
@@ -309,19 +309,19 @@ public final class ESP extends Module {
    }
 
    private boolean isValidTarget(Entity entity) {
-      if (entity != null && !entity.isRemoved() && mc.player != null && mc.world != null) {
-         if (entity == mc.player && mc.options.getPerspective() == Perspective.FIRST_PERSON) {
+      if (entity != null && !entity.isRemoved() && mc.player != null && mc.level != null) {
+         if (entity == mc.player && mc.options.getCameraType() == CameraType.FIRST_PERSON) {
             return false;
          } else if (this.range.getFloat() > 0.0F
             && entity != mc.player
-            && mc.player.squaredDistanceTo(entity) > (double)(this.range.getFloat() * this.range.getFloat())) {
+            && mc.player.distanceToSqr(entity) > (double)(this.range.getFloat() * this.range.getFloat())) {
             return false;
-         } else if (!EspGeometry.isFinite(entity.getEntityPos())) {
+         } else if (!EspGeometry.isFinite(entity.position())) {
             return false;
-         } else if (entity instanceof PlayerEntity player) {
+         } else if (entity instanceof Player player) {
             return this.targets.isSelected("Players") && !player.isSpectator() && !AntiBot.shouldIgnore(player);
          } else {
-            return !(entity instanceof ItemEntity item) ? false : this.targets.isSelected("Items") && !item.getStack().isEmpty();
+            return !(entity instanceof ItemEntity item) ? false : this.targets.isSelected("Items") && !item.getItem().isEmpty();
          }
       } else {
          return false;
@@ -332,7 +332,7 @@ public final class ESP extends Module {
       if (!this.shouldHidePlayerLabels()) {
          return false;
       } else {
-         return entity instanceof PlayerEntity player
+         return entity instanceof Player player
             ? this.isPlayerLabelTarget(player)
             : this.isServerTagEntity(entity) && this.isPlayerServerTagEntity(entity);
       }
@@ -343,19 +343,19 @@ public final class ESP extends Module {
    }
 
    private boolean shouldHidePlayerLabels() {
-      return this.elements.isSelected("Name") && this.targets.isSelected("Players") && mc.player != null && mc.world != null;
+      return this.elements.isSelected("Name") && this.targets.isSelected("Players") && mc.player != null && mc.level != null;
    }
 
-   private boolean isPlayerLabelTarget(PlayerEntity player) {
+   private boolean isPlayerLabelTarget(Player player) {
       if (player != null && !player.isRemoved() && !player.isSpectator() && !AntiBot.shouldIgnore(player)) {
-         if (player == mc.player && mc.options.getPerspective() == Perspective.FIRST_PERSON) {
+         if (player == mc.player && mc.options.getCameraType() == CameraType.FIRST_PERSON) {
             return false;
          } else {
             return this.range.getFloat() > 0.0F
                   && player != mc.player
-                  && mc.player.squaredDistanceTo(player) > (double)(this.range.getFloat() * this.range.getFloat())
+                  && mc.player.distanceToSqr(player) > (double)(this.range.getFloat() * this.range.getFloat())
                ? false
-               : EspGeometry.isFinite(player.getEntityPos());
+               : EspGeometry.isFinite(player.position());
          }
       } else {
          return false;
@@ -363,24 +363,24 @@ public final class ESP extends Module {
    }
 
    private boolean isServerTagEntity(Entity entity) {
-      if (entity == null || entity instanceof PlayerEntity) {
+      if (entity == null || entity instanceof Player) {
          return false;
-      } else if (entity instanceof TextDisplayEntity) {
+      } else if (entity instanceof TextDisplay) {
          return true;
       } else {
-         return entity instanceof ArmorStandEntity armorStand
-            ? armorStand.hasCustomName() || armorStand.shouldRenderName() || armorStand.isMarker()
-            : entity.hasCustomName() && entity.shouldRenderName();
+         return entity instanceof ArmorStand armorStand
+            ? armorStand.hasCustomName() || armorStand.shouldShowName() || armorStand.isMarker()
+            : entity.hasCustomName() && entity.shouldShowName();
       }
    }
 
    private boolean isPlayerServerTagEntity(Entity tagEntity) {
-      if (tagEntity != null && EspGeometry.isFinite(tagEntity.getEntityPos())) {
+      if (tagEntity != null && EspGeometry.isFinite(tagEntity.position())) {
          String tagText = this.serverTagText(tagEntity);
          if (tagText.isBlank()) {
             return false;
          } else {
-            for (PlayerEntity player : mc.world.getPlayers()) {
+            for (Player player : mc.level.players()) {
                if (this.isPlayerLabelTarget(player) && this.isAttachedPlayerServerTag(tagEntity, player, tagText)) {
                   return true;
                }
@@ -393,13 +393,13 @@ public final class ESP extends Module {
       }
    }
 
-   private boolean isAttachedPlayerServerTag(Entity tagEntity, PlayerEntity player, String tagText) {
+   private boolean isAttachedPlayerServerTag(Entity tagEntity, Player player, String tagText) {
       return this.containsPlayerName(tagText, player)
          ? this.isNearPlayerNameLabel(tagEntity, player)
          : this.looksLikeHealthTag(tagText) && this.isNearPlayerHealthLabel(tagEntity, player);
    }
 
-   private boolean isNearPlayerNameLabel(Entity tagEntity, PlayerEntity player) {
+   private boolean isNearPlayerNameLabel(Entity tagEntity, Player player) {
       double dx = tagEntity.getX() - player.getX();
       double dz = tagEntity.getZ() - player.getZ();
       double horizontalLimit = 1.1;
@@ -411,7 +411,7 @@ public final class ESP extends Module {
       }
    }
 
-   private boolean isNearPlayerHealthLabel(Entity tagEntity, PlayerEntity player) {
+   private boolean isNearPlayerHealthLabel(Entity tagEntity, Player player) {
       double dx = tagEntity.getX() - player.getX();
       double dz = tagEntity.getZ() - player.getZ();
       double horizontalLimit = 0.95;
@@ -424,8 +424,8 @@ public final class ESP extends Module {
    }
 
    private String serverTagText(Entity entity) {
-      Text text = null;
-      if (entity instanceof TextDisplayEntity textDisplay) {
+      Component text = null;
+      if (entity instanceof TextDisplay textDisplay) {
          text = textDisplay.getText();
       }
 
@@ -436,9 +436,9 @@ public final class ESP extends Module {
       return this.cleanServerTagText(text == null ? "" : text.getString());
    }
 
-   private boolean containsPlayerName(String tagText, PlayerEntity player) {
+   private boolean containsPlayerName(String tagText, Player player) {
       String compactTag = this.compactSearchText(tagText);
-      String scoreboardName = this.compactSearchText(player.getNameForScoreboard());
+      String scoreboardName = this.compactSearchText(player.getScoreboardName());
       String displayName = this.compactSearchText(player.getName().getString());
       return !scoreboardName.isBlank() && compactTag.contains(scoreboardName) || !displayName.isBlank() && compactTag.contains(displayName);
    }
@@ -519,7 +519,7 @@ public final class ESP extends Module {
    }
 
    private int colorFor(Entity entity) {
-      if (entity instanceof PlayerEntity player) {
+      if (entity instanceof Player player) {
          return FriendUtils.isFriend(player) ? this.friendColor.getValue().getRGB() : this.playerColor.getValue().getRGB();
       } else {
          return EspColors.ITEM;
@@ -541,7 +541,7 @@ public final class ESP extends Module {
 
    private float alphaForDistance(double distanceSqr) {
       double distance = Math.sqrt(Math.max(0.0, distanceSqr));
-      return (float)MathHelper.clamp(1.0 - (distance - 96.0) / 80.0, 0.48, 1.0);
+      return (float)Mth.clamp(1.0 - (distance - 96.0) / 80.0, 0.48, 1.0);
    }
 
    private static String cleanItemName(String text) {
@@ -577,21 +577,21 @@ public final class ESP extends Module {
       private final List<ESP.CompactItemRowAccumulator> sortedRows = new ArrayList<>();
       private final List<EspVisualRenderer.ItemTagRow> renderRows = new ArrayList<>();
 
-      private CompactItemCluster(Vec3d first) {
+      private CompactItemCluster(Vec3 first) {
          this.worldX = first.x;
          this.worldY = first.y;
          this.worldZ = first.z;
          this.anchorY = first.y + 0.72;
       }
 
-      private boolean accepts(Vec3d position) {
+      private boolean accepts(Vec3 position) {
          double dx = position.x - this.worldX;
          double dy = Math.abs(position.y - this.worldY);
          double dz = position.z - this.worldZ;
          return dx * dx + dz * dz <= 7.29 && dy <= 1.75;
       }
 
-      private void add(ItemEntity item, Vec3d position, float entryAlpha) {
+      private void add(ItemEntity item, Vec3 position, float entryAlpha) {
          double nextWeight = (double)this.entries + 1.0;
          this.worldX = (this.worldX * (double)this.entries + position.x) / nextWeight;
          this.worldY = (this.worldY * (double)this.entries + position.y) / nextWeight;
@@ -599,9 +599,9 @@ public final class ESP extends Module {
          this.anchorY = Math.max(this.anchorY, position.y + 0.72);
          this.alpha = Math.max(this.alpha, entryAlpha);
          this.entries++;
-         ItemStack stack = item.getStack();
-         String name = ESP.cleanItemName(stack.getName().getString());
-         String id = Registries.ITEM.getId(stack.getItem()).toString();
+         ItemStack stack = item.getItem();
+         String name = ESP.cleanItemName(stack.getHoverName().getString());
+         String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
          ESP.CompactItemKey key = new ESP.CompactItemKey(id, name);
          this.rows.computeIfAbsent(key, ignored -> new ESP.CompactItemRowAccumulator(stack.copy(), id, name)).add(stack.getCount());
       }
@@ -622,8 +622,8 @@ public final class ESP extends Module {
          return this.renderRows;
       }
 
-      private Vec3d anchor() {
-         return new Vec3d(this.worldX, this.anchorY, this.worldZ);
+      private Vec3 anchor() {
+         return new Vec3(this.worldX, this.anchorY, this.worldZ);
       }
 
       private float alpha() {

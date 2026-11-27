@@ -1,16 +1,16 @@
 package daamky.ua.screens.clickgui.impl.options;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.input.CharInput;
-import net.minecraft.client.input.KeyInput;
 import org.lwjgl.glfw.GLFW;
 import daamky.ua.api.settings.impl.StringSetting;
 import daamky.ua.utils.render.animation.Easings;
 import daamky.ua.utils.render.animation.SmoothAnimation;
 import daamky.ua.utils.render.ui.Render2D;
 import daamky.ua.utils.render.ui.font.FontType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 
 public class TextOption extends ClickGuiOption {
    private final SmoothAnimation scrollAnimation = new SmoothAnimation();
@@ -38,7 +38,7 @@ public class TextOption extends ClickGuiOption {
    }
 
    @Override
-   protected void renderControl(DrawContext graphics, float x, float y, float width, float height, float scale, float alpha) {
+   protected void renderControl(GuiGraphics graphics, float x, float y, float width, float height, float scale, float alpha) {
       if (!this.editing) {
          this.value = this.setting.getValue();
          this.cursor = Math.min(this.cursor, this.value.length());
@@ -117,7 +117,7 @@ public class TextOption extends ClickGuiOption {
    }
 
    @Override
-   public boolean mouseClicked(Click event, boolean doubled) {
+   public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
       if (event.button() != 0) {
          return false;
       } else if (this.hovered(event.x(), event.y(), this.controlX, this.controlY, this.controlWidth, this.controlHeight)) {
@@ -133,7 +133,7 @@ public class TextOption extends ClickGuiOption {
    }
 
    @Override
-   public boolean keyPressed(KeyInput event) {
+   public boolean keyPressed(KeyEvent event) {
       if (!this.editing) {
          return false;
       } else {
@@ -199,9 +199,9 @@ public class TextOption extends ClickGuiOption {
    }
 
    @Override
-   public boolean charTyped(CharInput event) {
-      if (this.editing && event.isValidChar()) {
-         this.insertText(event.asString());
+   public boolean charTyped(CharacterEvent event) {
+      if (this.editing && event.isAllowedChatCharacter()) {
+         this.insertText(event.codepointAsString());
          return true;
       } else {
          return false;
@@ -225,14 +225,14 @@ public class TextOption extends ClickGuiOption {
    }
 
    private String getClipboard() {
-      MinecraftClient client = MinecraftClient.getInstance();
-      String clipboard = GLFW.glfwGetClipboardString(client.getWindow().getHandle());
+      Minecraft client = Minecraft.getInstance();
+      String clipboard = GLFW.glfwGetClipboardString(client.getWindow().handle());
       return clipboard == null ? "" : clipboard;
    }
 
    private void setClipboard(String text) {
-      MinecraftClient client = MinecraftClient.getInstance();
-      GLFW.glfwSetClipboardString(client.getWindow().getHandle(), text);
+      Minecraft client = Minecraft.getInstance();
+      GLFW.glfwSetClipboardString(client.getWindow().handle(), text);
    }
 
    private void syncSetting() {

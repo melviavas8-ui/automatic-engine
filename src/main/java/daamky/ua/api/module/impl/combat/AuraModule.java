@@ -10,24 +10,24 @@ import daamky.ua.api.module.impl.combat.aura.rotations.ShardSnapAngle;
 import daamky.ua.api.module.impl.combat.aura.rotations.WhiteRiseAngle;
 import java.util.List;
 import java.util.Map;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
+import net.minecraft.util.Mth;
+import net.minecraft.util.Tuple;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Input;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.module.impl.combat.aura.AuraConfig;
 import daamky.ua.api.settings.impl.ButtonSetting;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ingame.InventoryScreen;
-import net.minecraft.client.option.Perspective;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.network.packet.s2c.play.WorldTimeUpdateS2CPacket;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Pair;
-import net.minecraft.util.PlayerInput;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.world.RaycastContext;
 import daamky.ua.api.module.impl.combat.aura.rotations.SpookyTimeAngle;
 import daamky.ua.api.module.impl.combat.aura.rotations.SpookyTime2Angle;
-import net.minecraft.util.math.Vec3d;
 import org.lwjgl.glfw.GLFW;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.DrawEvent;
@@ -344,22 +344,22 @@ public class AuraModule extends Module {
             AutoRegressionContext.getInstance().hitContentClear();
             this.lastTarget = null;
             this.legitAngle.reset();
-            this.finishRotationOnRelease(MinecraftClient.getInstance());
+            this.finishRotationOnRelease(Minecraft.getInstance());
         }
     }
 
     @SubscribeEvent(priority = EventPriority.MONITOR)
     public void onDraw(DrawEvent e) {
-        if (e.getLayer() == DrawEvent.Layer.GAME && this.isEnabled() && mc.player != null && mc.world != null) {
+        if (e.getLayer() == DrawEvent.Layer.GAME && this.isEnabled() && mc.player != null && mc.level != null) {
             if (this.mode.is("Legit") && target != null && target.isAlive()) {
                 Angle next = this.legitAngle.stepFrame(target);
-                mc.player.setYaw(next.getYaw());
-                mc.player.headYaw = next.getYaw();
+                mc.player.setYRot(next.getYaw());
+                mc.player.yHeadRot = next.getYaw();
             }
             if (this.usesFovCircle()) {
-                if (mc.options.getPerspective() == Perspective.FIRST_PERSON && mc.currentScreen == null && mc.getWindow() != null) {
-                    int width = mc.getWindow().getScaledWidth();
-                    int height = mc.getWindow().getScaledHeight();
+                if (mc.options.getCameraType() == CameraType.FIRST_PERSON && mc.screen == null && mc.getWindow() != null) {
+                    int width = mc.getWindow().getGuiScaledWidth();
+                    int height = mc.getWindow().getGuiScaledHeight();
                     float radius = this.calculateFovRadius(width, height);
                     if (!(radius < 1.0F)) {
                         float diameter = radius * 2.0F;
@@ -388,21 +388,21 @@ public class AuraModule extends Module {
             return 0.0F;
         } else {
             double aimFov = (double)this.cachedDynamicFov;
-            double gameFov = MathHelper.clamp((double)((Integer)mc.options.getFov().getValue()).intValue(), 40.0, 170.0);
-            double gameHalf = MathHelper.clamp(gameFov * 0.5, 1.0, 89.9);
+            double gameFov = Mth.clamp((double)((Integer)mc.options.fov().get()).intValue(), 40.0, 170.0);
+            double gameHalf = Mth.clamp(gameFov * 0.5, 1.0, 89.9);
             if (aimFov >= gameHalf) {
                 return maxRadius;
             } else {
-                double aimHalf = MathHelper.clamp(aimFov, 0.1, 89.9);
+                double aimHalf = Mth.clamp(aimFov, 0.1, 89.9);
                 double radius = Math.tan(Math.toRadians(aimHalf)) / Math.tan(Math.toRadians(gameHalf)) * (double)Math.min(width, height) * 0.5;
-                return (float)MathHelper.clamp(radius, 0.0, (double)maxRadius);
+                return (float)Mth.clamp(radius, 0.0, (double)maxRadius);
             }
         }
     }
 
     @Override
-    public void onTick(MinecraftClient client) {
-        if (client == null || client.player == null || client.world == null) {
+    public void onTick(Minecraft client) {
+        if (client == null || client.player == null || client.level == null) {
             this.targetSelector.releaseTarget();
             target = null;
             RotationController.hardReset();
@@ -413,8 +413,8 @@ public class AuraModule extends Module {
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     private void onPreTick(TickEvent.Pre event) {
-        MinecraftClient client = event.getClient();
-        if (client != null && client.player != null && client.world != null) {
+        Minecraft client = event.getClient();
+        if (client != null && client.player != null && client.level != null) {
             if (this.mode.is("Neuro") && this.neuroDatasetCapture.getValue()) {
                 NeuroTrainingCollector.getInstance().tick(client);
             } else {
@@ -431,7 +431,7 @@ public class AuraModule extends Module {
     @SubscribeEvent
     private void onPacket(PacketEvent event) {
         this.attackPerpetrator.onPacket(event);
-        if (this.isSyncWithTpsEnabled() && event.isReceive() && event.getPacket() instanceof WorldTimeUpdateS2CPacket) {
+        if (this.isSyncWithTpsEnabled() && event.isReceive() && event.getPacket() instanceof ClientboundSetTimePacket) {
             long currentTime = System.nanoTime();
             if (this.timestamp == 0L) {
                 this.timestamp = currentTime;
@@ -440,7 +440,7 @@ public class AuraModule extends Module {
                 if (delay <= 0L) {
                     this.timestamp = currentTime;
                 } else {
-                    float boundedTPS = MathHelper.clamp(20.0F * (1.0E9F / (float)delay), 0.0F, 20.0F);
+                    float boundedTPS = Mth.clamp(20.0F * (1.0E9F / (float)delay), 0.0F, 20.0F);
                     this.tps = (float)this.limitDecimals((double)boundedTPS, 2);
                     this.adjustTicks = boundedTPS - 20.0F;
                     this.timestamp = currentTime;
@@ -451,15 +451,15 @@ public class AuraModule extends Module {
 
     @SubscribeEvent
     private void onInput(InputEvent event) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (this.isEnabled() && client.player != null && client.world != null && event.getInput() != null) {
+        Minecraft client = Minecraft.getInstance();
+        if (this.isEnabled() && client.player != null && client.level != null && event.getInput() != null) {
             if (!this.isHumanDatasetMode()) {
                 if (!BaritoneMovementHelper.isBaritoneActive(client.player)) {
                     InventoryMove inventoryMove = InventoryMove.getInstance();
                     if (inventoryMove == null || !inventoryMove.shouldSuppressSprintInput()) {
-                        PlayerInput input = event.getInput();
+                        Input input = event.getInput();
                         if (target != null && target.isAlive()) {
-                            boolean inWater = client.player.isTouchingWater() || client.player.isSubmergedInWater();
+                            boolean inWater = client.player.isInWater() || client.player.isUnderWater();
                             StrikeManager attackHandler = this.getAttackHandlerRaw();
                             attackHandler.syncShieldState();
                             boolean targetFix = this.moveFix.is( "Target");
@@ -469,9 +469,9 @@ public class AuraModule extends Module {
                             float targetDistance = client.player.distanceTo(target);
                             boolean shouldPrepareAttack = attackHandler.canAttack(config, 1) && targetDistance <= this.attackDistance() && !inWater;
                             boolean hitInContainer = this.options.isSelected( "Hit in container");
-                            boolean containerScreen = client.currentScreen instanceof InventoryScreen || client.currentScreen instanceof ClickGuiScreen || GuiStyle.isClientGui(client.currentScreen);
+                            boolean containerScreen = client.screen instanceof InventoryScreen || client.screen instanceof ClickGuiScreen || GuiStyle.isClientGui(client.screen);
                             
-                            if (client.currentScreen == null || !containerScreen || hitInContainer) {
+                            if (client.screen == null || !containerScreen || hitInContainer) {
                                 if (focusedFixSelected && shouldPrepareAttack) {
                                     event.setDirectionalLow(false, false, false, false);
                                 }
@@ -486,43 +486,43 @@ public class AuraModule extends Module {
                                     event.setDirectionalLow(false, false, false, false);
                                 }
                                 if (!focusedFixSelected && !targetFix && !chaseFix) {
-                                    PlayerInput patchedInput = event.getInput();
+                                    Input patchedInput = event.getInput();
                                     event.setInput(
-                                        new PlayerInput(
-                                            input.forward(), input.backward(), input.left(), input.right(), input.jump(), input.sneak(), patchedInput.sprint()
+                                        new Input(
+                                            input.forward(), input.backward(), input.left(), input.right(), input.jump(), input.shift(), patchedInput.sprint()
                                         )
                                     );
                                 }
                                 if (focusedFixSelected && shouldPrepareAttack) {
                                     event.setDirectionalLow(false, false, false, false);
                                 }
-                                boolean w = client.options.forwardKey.isPressed();
-                                boolean s = client.options.backKey.isPressed();
-                                boolean a = client.options.leftKey.isPressed();
-                                boolean d = client.options.rightKey.isPressed();
+                                boolean w = client.options.keyUp.isDown();
+                                boolean s = client.options.keyDown.isDown();
+                                boolean a = client.options.keyLeft.isDown();
+                                boolean d = client.options.keyRight.isDown();
                                 if (!inWater) {
                                     if (!targetFix
-                                        || !client.options.forwardKey.isPressed()
-                                            && !client.options.backKey.isPressed()
-                                            && !client.options.leftKey.isPressed()
-                                            && !client.options.rightKey.isPressed()) {
+                                        || !client.options.keyUp.isDown()
+                                            && !client.options.keyDown.isDown()
+                                            && !client.options.keyLeft.isDown()
+                                            && !client.options.keyRight.isDown()) {
                                         if (chaseFix) {
                                             if (w || s || a || d) {
-                                                Vec3d playerPos = client.player.getEntityPos();
-                                                Box targetBox = target.getBoundingBox();
-                                                Vec3d center = targetBox.getCenter();
-                                                float targetYaw = target.getYaw();
+                                                Vec3 playerPos = client.player.position();
+                                                AABB targetBox = target.getBoundingBox();
+                                                Vec3 center = targetBox.getCenter();
+                                                float targetYaw = target.getYRot();
                                                 double rad = Math.toRadians((double)targetYaw);
-                                                Vec3d forwardDir = new Vec3d(-Math.sin(rad), 0.0, Math.cos(rad)).normalize();
-                                                Vec3d rightDir = new Vec3d(-forwardDir.z, 0.0, forwardDir.x).normalize();
-                                                Vec3d leftDir = rightDir.multiply(-1.0);
-                                                double offset = (double)target.getWidth() / 2.0 + 0.1;
-                                                Vec3d offsetVec = Vec3d.ZERO;
+                                                Vec3 forwardDir = new Vec3(-Math.sin(rad), 0.0, Math.cos(rad)).normalize();
+                                                Vec3 rightDir = new Vec3(-forwardDir.z, 0.0, forwardDir.x).normalize();
+                                                Vec3 leftDir = rightDir.scale(-1.0);
+                                                double offset = (double)target.getBbWidth() / 2.0 + 0.1;
+                                                Vec3 offsetVec = Vec3.ZERO;
                                                 if (w) {
                                                     offsetVec = offsetVec.add(forwardDir);
                                                 }
                                                 if (s) {
-                                                    offsetVec = offsetVec.add(forwardDir.multiply(-1.0));
+                                                    offsetVec = offsetVec.add(forwardDir.scale(-1.0));
                                                 }
                                                 if (a) {
                                                     offsetVec = offsetVec.add(leftDir);
@@ -530,15 +530,15 @@ public class AuraModule extends Module {
                                                 if (d) {
                                                     offsetVec = offsetVec.add(rightDir);
                                                 }
-                                                Vec3d moveTargetVec = center;
-                                                if (offsetVec.lengthSquared() > 0.0) {
-                                                    moveTargetVec = center.add(offsetVec.normalize().multiply(offset));
+                                                Vec3 moveTargetVec = center;
+                                                if (offsetVec.lengthSqr() > 0.0) {
+                                                    moveTargetVec = center.add(offsetVec.normalize().scale(offset));
                                                 }
                                                 this.moveToward(event, playerPos, moveTargetVec, AngleConnection.INSTANCE.getRotation().getYaw());
                                             }
                                         }
                                     } else {
-                                        this.moveToward(event, client.player.getEntityPos(), target.getEntityPos(), AngleConnection.INSTANCE.getMoveRotation().getYaw());
+                                        this.moveToward(event, client.player.position(), target.position(), AngleConnection.INSTANCE.getMoveRotation().getYaw());
                                     }
                                 }
                             }
@@ -551,8 +551,8 @@ public class AuraModule extends Module {
 
     @SubscribeEvent
     private void onRotationUpdate(RotationUpdateEvent event) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (this.isEnabled() && client.player != null && client.world != null) {
+        Minecraft client = Minecraft.getInstance();
+        if (this.isEnabled() && client.player != null && client.level != null) {
             if (event.getPhase() == EventPhase.PRE) {
                 if (this.mode.is("HolyWorld")) {
                     RotationController.tick();
@@ -600,8 +600,8 @@ public class AuraModule extends Module {
     @SubscribeEvent
     private void onMouseAppliedRotation(MouseAppliedRotationEvent event) {
         if (this.isHumanDatasetMode()) {
-            MinecraftClient client = MinecraftClient.getInstance();
-            if (client.player != null && client.world != null && client.currentScreen == null) {
+            Minecraft client = Minecraft.getInstance();
+            if (client.player != null && client.level != null && client.screen == null) {
                 if (!(Math.abs(event.getCursorDeltaX()) < 1.0E-5F)
                     || !(Math.abs(event.getCursorDeltaY()) < 1.0E-5F)
                     || !(Math.abs(event.getAfterYaw() - event.getBeforeYaw()) < 1.0E-5F)
@@ -614,14 +614,14 @@ public class AuraModule extends Module {
         }
     }
 
-    private void captureHumanRotationSample(MinecraftClient client, LivingEntity activeTarget) {
-        if (client == null || client.player == null || client.world == null || client.currentScreen != null) {
+    private void captureHumanRotationSample(Minecraft client, LivingEntity activeTarget) {
+        if (client == null || client.player == null || client.level == null || client.screen != null) {
             this.resetHumanDatasetTracking();
         } else if (activeTarget != null && activeTarget.isAlive()) {
-            float currentYaw = client.player.getYaw();
-            float currentPitch = client.player.getPitch();
+            float currentYaw = client.player.getYRot();
+            float currentPitch = client.player.getXRot();
             if (this.hasHumanRotationBaseline && this.lastTarget == activeTarget) {
-                double appliedYawStep = (double)MathHelper.wrapDegrees(currentYaw - this.previousHumanYaw);
+                double appliedYawStep = (double)Mth.wrapDegrees(currentYaw - this.previousHumanYaw);
                 double appliedPitchStep = (double)(currentPitch - this.previousHumanPitch);
                 boolean rotationChanged = Math.abs(appliedYawStep) >= 1.0E-5 || Math.abs(appliedPitchStep) >= 1.0E-5;
                 int inputMask = this.computeHumanInputMask(client);
@@ -648,15 +648,15 @@ public class AuraModule extends Module {
                         double deltaLength = Math.hypot(yawDelta, pitchDelta);
                         double distance = (double)client.player.distanceTo(activeTarget);
                         double holdDistance = Math.max(0.001, (double)this.finalDistance());
-                        double distanceRatio = MathHelper.clamp(distance / holdDistance, 0.0, 1.0);
-                        double targetMotion = activeTarget.getVelocity().length();
-                        double targetSpeed = activeTarget.getVelocity().horizontalLength();
+                        double distanceRatio = Mth.clamp(distance / holdDistance, 0.0, 1.0);
+                        double targetMotion = activeTarget.getDeltaMovement().length();
+                        double targetSpeed = activeTarget.getDeltaMovement().horizontalDistance();
                         
                         StrikeManager attackHandler = this.getAttackHandlerRaw();
                         boolean canAttackNow = attackHandler != null && attackHandler.canAttack(config, 0);
                         boolean canAttackSoon = attackHandler != null && attackHandler.canAttack(config, 1);
                         boolean raytraceSuccess = config.getBox() != null && RaycastAngle.rayTrace((double)this.attackDistance(), config.getBox());
-                        double attackCooldown = (double)client.player.getAttackCooldownProgress(0.0F);
+                        double attackCooldown = (double)client.player.getAttackStrengthScale(0.0F);
                         
                         int currentHurtTime = activeTarget.hurtTime;
                         int previousObservedHurtTime = this.observedTargetHurtTime.getOrDefault(activeTarget.getId(), currentHurtTime);
@@ -684,7 +684,7 @@ public class AuraModule extends Module {
                                     sessionElapsedMs,
                                     this.formatSessionClock(sessionElapsedMs),
                                     activeTarget.getId(),
-                                    activeTarget.getUuid().toString(),
+                                    activeTarget.getUUID().toString(),
                                     activeTarget.getType().toString(),
                                     (double)this.previousHumanYaw,
                                     (double)this.previousHumanPitch,
@@ -767,8 +767,8 @@ public class AuraModule extends Module {
 
     public float finalDistance() {
         ElytraTarget elytraTarget = ElytraTarget.getInstance();
-        MinecraftClient client = MinecraftClient.getInstance();
-        return client.player != null && client.player.isGliding() && elytraTarget != null && elytraTarget.isEnabled()
+        Minecraft client = Minecraft.getInstance();
+        return client.player != null && client.player.isFallFlying() && elytraTarget != null && elytraTarget.isEnabled()
             ? elytraTarget.getRange()
             : this.attackRange.getFloat() + this.lookRange.getFloat();
     }
@@ -778,9 +778,9 @@ public class AuraModule extends Module {
     }
 
     public StrikerConstructor.AttackPerpetratorConfigurable getConfig() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (target != null && client.player != null) {
-            Pair<Vec3d, Box> point = this.pointFinder
+            Tuple<Vec3, AABB> point = this.pointFinder
                 .computeVector(
                     target,
                     this.attackDistance(),
@@ -788,46 +788,46 @@ public class AuraModule extends Module {
                     this.getSmoothMode().randomValue(),
                     this.options.isSelected("Ignore Walls")
                 );
-            Vec3d computedPoint = (Vec3d)point.getLeft();
-            Box box = this.adjustAttackBox((Box)point.getRight());
+            Vec3 computedPoint = (Vec3)point.getA();
+            AABB box = this.adjustAttackBox((AABB)point.getB());
             
-            if (client.player.isGliding()) {
+            if (client.player.isFallFlying()) {
                 float leadTicks = 0.0F;
                 ElytraTarget elytraTarget = ElytraTarget.getInstance();
                 if (ElytraTarget.shouldElytraTarget && elytraTarget != null && elytraTarget.isEnabled()) {
                     leadTicks = elytraTarget.getForward();
                 }
-                Vec3d eye = client.player.getEyePos();
-                Vec3d enemy = target.getBoundingBox().getCenter();
+                Vec3 eye = client.player.getEyePosition();
+                Vec3 enemy = target.getBoundingBox().getCenter();
                 double dx = enemy.x - eye.x;
                 double dz = enemy.z - eye.z;
                 double horizontal = Math.sqrt(dx * dx + dz * dz);
                 double nx = horizontal == 0.0d ? 0.0d : dx / horizontal;
                 double nz = horizontal == 0.0d ? 0.0d : dz / horizontal;
                 double distanceToGround = 2.0;
-                BlockHitResult raycast = client.world.raycast(new RaycastContext(
-                    client.player.getEntityPos(), client.player.getEntityPos().subtract(0, 2, 0),
-                    RaycastContext.ShapeType.COLLIDER,
-                    RaycastContext.FluidHandling.NONE, client.player
+                BlockHitResult raycast = client.level.clip(new ClipContext(
+                    client.player.position(), client.player.position().subtract(0, 2, 0),
+                    ClipContext.Block.COLLIDER,
+                    ClipContext.Fluid.NONE, client.player
                 ));
                 if (raycast.getType() != HitResult.Type.MISS) {
-                    distanceToGround = client.player.getEntityPos().y - raycast.getPos().y;
+                    distanceToGround = client.player.position().y - raycast.getLocation().y;
                 }
                 double lift = Math.max(0.0d, 3.0d - distanceToGround);
-                Vec3d targetVelocity = target.getVelocity();
-                Vec3d predictedTargetPos = target.getEntityPos().add(targetVelocity.multiply((double)leadTicks));
+                Vec3 targetVelocity = target.getDeltaMovement();
+                Vec3 predictedTargetPos = target.position().add(targetVelocity.scale((double)leadTicks));
                 double forwardOffset = leadTicks > 0 ? leadTicks : 4.0d;
-                computedPoint = new Vec3d(predictedTargetPos.x + (nx * forwardOffset), predictedTargetPos.y + lift, predictedTargetPos.z + (nz * forwardOffset));
-                box = this.adjustAttackBox(new Box(
-                    predictedTargetPos.x - (double)target.getWidth() / 2.0,
+                computedPoint = new Vec3(predictedTargetPos.x + (nx * forwardOffset), predictedTargetPos.y + lift, predictedTargetPos.z + (nz * forwardOffset));
+                box = this.adjustAttackBox(new AABB(
+                    predictedTargetPos.x - (double)target.getBbWidth() / 2.0,
                     predictedTargetPos.y,
-                    predictedTargetPos.z - (double)target.getWidth() / 2.0,
-                    predictedTargetPos.x + (double)target.getWidth() / 2.0,
-                    predictedTargetPos.y + target.getHeight(),
-                    predictedTargetPos.z + (double)target.getWidth() / 2.0
+                    predictedTargetPos.z - (double)target.getBbWidth() / 2.0,
+                    predictedTargetPos.x + (double)target.getBbWidth() / 2.0,
+                    predictedTargetPos.y + target.getBbHeight(),
+                    predictedTargetPos.z + (double)target.getBbWidth() / 2.0
                 ));
             }
-            Angle angle = MathAngle.fromVec3d(computedPoint.subtract(client.player.getEyePos()));
+            Angle angle = MathAngle.fromVec3d(computedPoint.subtract(client.player.getEyePosition()));
             return new StrikerConstructor.AttackPerpetratorConfigurable(
                 target,
                 angle,
@@ -836,12 +836,12 @@ public class AuraModule extends Module {
                 this.mode,
                 box,
                 computedPoint,
-                this.onlyCriticals.getValue() && !client.player.isGliding(),
+                this.onlyCriticals.getValue() && !client.player.isFallFlying(),
                 this.isSyncWithTpsEnabled(),
                 false
             );
         } else {
-            Box fallbackBox = client.player != null ? client.player.getBoundingBox() : new Box(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+            AABB fallbackBox = client.player != null ? client.player.getBoundingBox() : new AABB(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
             return new StrikerConstructor.AttackPerpetratorConfigurable(
                 client.player,
                 MathAngle.cameraAngle(),
@@ -849,7 +849,7 @@ public class AuraModule extends Module {
                 this.options.getValue(),
                 this.mode,
                 fallbackBox,
-                client.player.getEyePos(),
+                client.player.getEyePosition(),
                 this.onlyCriticals.getValue(),
                 this.isSyncWithTpsEnabled(),
                 false
@@ -862,9 +862,9 @@ public class AuraModule extends Module {
     }
 
     public RotateConstructor getSmoothMode() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         ElytraTarget elytraTarget = ElytraTarget.getInstance();
-        if (client.player != null && client.player.isGliding() && elytraTarget != null && elytraTarget.isEnabled()
+        if (client.player != null && client.player.isFallFlying() && elytraTarget != null && elytraTarget.isEnabled()
             && !this.mode.is("Shard") && !this.mode.is("Matrix/Fast 2")
             && !this.mode.is("WhiteRise") && !this.mode.is("NoRotate")) {
             return new LinearConstructor();
@@ -897,9 +897,9 @@ public class AuraModule extends Module {
         }
     }
 
-    private void applyTargetOrChaseCorrection(InputEvent event, MinecraftClient client) {
+    private void applyTargetOrChaseCorrection(InputEvent event, Minecraft client) {
         LivingEntity currentTarget = target;
-        if (currentTarget != null && currentTarget.isAlive() && !client.player.isTouchingWater() && !client.player.isSubmergedInWater()) {
+        if (currentTarget != null && currentTarget.isAlive() && !client.player.isInWater() && !client.player.isUnderWater()) {
             if (this.moveFix.is( "Target") || this.moveFix.is( "Chase") || this.moveFix.is( "Focused")) {
                 StrikeManager attackHandler = this.getAttackHandlerRaw();
                 if (attackHandler != null) {
@@ -909,31 +909,31 @@ public class AuraModule extends Module {
                             event.setDirectionalLow(false, false, false, false);
                         }
                     } else if (this.moveFix.is( "Target")) {
-                        this.moveToward(event, client.player.getEntityPos(), currentTarget.getEntityPos(), AngleConnection.INSTANCE.getMoveRotation().getYaw());
+                        this.moveToward(event, client.player.position(), currentTarget.position(), AngleConnection.INSTANCE.getMoveRotation().getYaw());
                     } else {
-                        PlayerInput input = event.getInput();
+                        Input input = event.getInput();
                         if (input.forward() || input.backward() || input.left() || input.right()) {
-                            Vec3d playerPos = client.player.getEntityPos();
-                            Vec3d center = currentTarget.getBoundingBox().getCenter();
-                            float targetYaw = currentTarget.getYaw();
+                            Vec3 playerPos = client.player.position();
+                            Vec3 center = currentTarget.getBoundingBox().getCenter();
+                            float targetYaw = currentTarget.getYRot();
                             double rad = Math.toRadians((double)targetYaw);
-                            Vec3d forwardDir = new Vec3d(-Math.sin(rad), 0.0, Math.cos(rad)).normalize(); 
-                            Vec3d rightDir = new Vec3d(-forwardDir.z, 0.0, forwardDir.x).normalize();
-                            Vec3d offsetVec = Vec3d.ZERO;
+                            Vec3 forwardDir = new Vec3(-Math.sin(rad), 0.0, Math.cos(rad)).normalize(); 
+                            Vec3 rightDir = new Vec3(-forwardDir.z, 0.0, forwardDir.x).normalize();
+                            Vec3 offsetVec = Vec3.ZERO;
                             if (input.forward()) {
                                 offsetVec = offsetVec.add(forwardDir);
                             }
                             if (input.backward()) {
-                                offsetVec = offsetVec.add(forwardDir.multiply(-1.0));
+                                offsetVec = offsetVec.add(forwardDir.scale(-1.0));
                             }
                             if (input.left()) {
-                                offsetVec = offsetVec.add(rightDir.multiply(-1.0));
+                                offsetVec = offsetVec.add(rightDir.scale(-1.0));
                             }
                             if (input.right()) {
                                 offsetVec = offsetVec.add(rightDir);
                             }
-                            double offset = (double)currentTarget.getWidth() / 2.0 + 0.1;
-                            Vec3d moveTarget = offsetVec.lengthSquared() > 0.0 ? center.add(offsetVec.normalize().multiply(offset)) : center;
+                            double offset = (double)currentTarget.getBbWidth() / 2.0 + 0.1;
+                            Vec3 moveTarget = offsetVec.lengthSqr() > 0.0 ? center.add(offsetVec.normalize().scale(offset)) : center;
                             this.moveToward(event, playerPos, moveTarget, AngleConnection.INSTANCE.getMoveRotation().getYaw());
                         }
                     }
@@ -942,14 +942,14 @@ public class AuraModule extends Module {
         }
     }
 
-    private void moveToward(InputEvent event, Vec3d playerPos, Vec3d targetPos, float yaw) {
-        Vec3d targetFlat = new Vec3d(targetPos.x, playerPos.y, targetPos.z);
-        Vec3d dir = targetFlat.subtract(playerPos);
-        if (dir.lengthSquared() < 1.0E-7) {
+    private void moveToward(InputEvent event, Vec3 playerPos, Vec3 targetPos, float yaw) {
+        Vec3 targetFlat = new Vec3(targetPos.x, playerPos.y, targetPos.z);
+        Vec3 dir = targetFlat.subtract(playerPos);
+        if (dir.lengthSqr() < 1.0E-7) {
             event.setDirectionalLow(false, false, false, false);
         } else {
             float moveAngle = (float)Math.toDegrees(Math.atan2(dir.z, dir.x)) - 90.0F;
-            float angleDiff = MathHelper.wrapDegrees(moveAngle - yaw);
+            float angleDiff = Mth.wrapDegrees(moveAngle - yaw);
             boolean forward = false;
             boolean back = false;
             boolean left = false;
@@ -979,7 +979,7 @@ public class AuraModule extends Module {
         }
     }
 
-    public boolean shouldCancelInteractItem(Hand hand) {
+    public boolean shouldCancelInteractItem(InteractionHand hand) {
         if (this.isInventoryScreenOpen()) {
             return false;
         } else if (this.shouldCancelUseInteractions()) {
@@ -990,7 +990,7 @@ public class AuraModule extends Module {
         }
     }
 
-    public boolean shouldSuppressAirUsePacket(Hand hand) {
+    public boolean shouldSuppressAirUsePacket(InteractionHand hand) {
         return this.shouldCancelInteractItem(hand);
     }
 
@@ -1037,7 +1037,7 @@ public class AuraModule extends Module {
     }
 
     private boolean isInventoryScreenOpen() {
-        return MinecraftClient.getInstance().currentScreen instanceof InventoryScreen;
+        return Minecraft.getInstance().screen instanceof InventoryScreen;
     }
 
     public boolean isSyncWithTpsEnabled() {
@@ -1214,8 +1214,8 @@ public class AuraModule extends Module {
     }
 
     private LivingEntity updateTarget() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.player != null && client.world != null) {
+        Minecraft client = Minecraft.getInstance();
+        if (client.player != null && client.level != null) {
             TargetFinder.EntityFilter filter = new TargetFinder.EntityFilter(this.targetType.getValue());
             float dynamicFov = this.mode.isSelected("Legit Snap") ? 35.0F : 360.0F;
             this.cachedDynamicFov = dynamicFov;
@@ -1227,7 +1227,7 @@ public class AuraModule extends Module {
                     this.targetSelector.releaseTarget();
                 }
                 this.targetSelector
-                    .searchTargets(client.world.getEntities(), this.finalDistance(), dynamicFov, this.options.isSelected("Ignore Walls"), filter::isValid);
+                    .searchTargets(client.level.entitiesForRendering(), this.finalDistance(), dynamicFov, this.options.isSelected("Ignore Walls"), filter::isValid);
                 this.targetSelector.validateTarget(filter::isValid);
                 LivingEntity found = this.targetSelector.getCurrentTarget();
                 if (found != null && !this.isTargetInsideFov(found)) {
@@ -1243,10 +1243,10 @@ public class AuraModule extends Module {
         }
     }
 
-    private boolean shouldKeepLockedTarget(MinecraftClient client, LivingEntity lockedTarget, TargetFinder.EntityFilter filter) {
+    private boolean shouldKeepLockedTarget(Minecraft client, LivingEntity lockedTarget, TargetFinder.EntityFilter filter) {
         if (lockedTarget != null && filter.isValid(lockedTarget)) {
             float holdRange = Math.max(this.finalDistance(), this.keepTargetRange.getFloat());
-            return client.player.squaredDistanceTo(lockedTarget) <= (double)(holdRange * holdRange) && this.isTargetInsideFov(lockedTarget);
+            return client.player.distanceToSqr(lockedTarget) <= (double)(holdRange * holdRange) && this.isTargetInsideFov(lockedTarget);
         } else {
             return false;
         }
@@ -1254,7 +1254,7 @@ public class AuraModule extends Module {
 
     public boolean isTargetInsideFov(LivingEntity entity) {
         if (this.usesFovCircle() && entity != null) {
-            MinecraftClient client = MinecraftClient.getInstance();
+            Minecraft client = Minecraft.getInstance();
             if (client.player == null) {
                 return false;
             } else {
@@ -1267,7 +1267,7 @@ public class AuraModule extends Module {
         }
     }
 
-    private void finishRotationOnRelease(MinecraftClient client) {
+    private void finishRotationOnRelease(Minecraft client) {
         AngleConnection controller = AngleConnection.INSTANCE;
         if (this.mode.is("HolyWorld")) {
             HWangle.INSTANCE.reset();
@@ -1308,7 +1308,7 @@ public class AuraModule extends Module {
                     StrikeManager attackHandler = this.attackPerpetrator.getAttackHandler();
                     if (!this.mode.is("Legit Snap") || attackHandler.canAttack(config, 1) || !attackHandler.getAttackTimer().finished(40.0)) {
                         AngleConnection controller = AngleConnection.INSTANCE;
-                        Vec3d aimPoint = config.getAimPoint() != null ? config.getAimPoint() : config.getAngle().toVector();
+                        Vec3 aimPoint = config.getAimPoint() != null ? config.getAimPoint() : config.getAngle().toVector();
                         Angle.VecRotation rotation = new Angle.VecRotation(config.getAngle(), aimPoint);
                         controller.rotateTo(rotation, target, 1, this.getRotationConfig(), TaskPriority.HIGH_IMPORTANCE_1, this);
                     }
@@ -1317,8 +1317,8 @@ public class AuraModule extends Module {
                     if (controller.getCurrentAngle() != null || controller.getCurrentRotationPlan() != null) {
                         controller.restoreVanillaLook();
                     }
-                    Vec3d aimPoint = config.getAimPoint() != null ? config.getAimPoint() : config.getAngle().toVector();
-                    Angle current = new Angle(mc.player.getYaw(), mc.player.getPitch());
+                    Vec3 aimPoint = config.getAimPoint() != null ? config.getAimPoint() : config.getAngle().toVector();
+                    Angle current = new Angle(mc.player.getYRot(), mc.player.getXRot());
                     HWangle.INSTANCE.limitAngleChange(current, config.getAngle(), aimPoint, target);
                 }
             }
@@ -1339,12 +1339,12 @@ public class AuraModule extends Module {
         }
     }
 
-    private Box adjustAttackBox(Box box) {
+    private AABB adjustAttackBox(AABB box) {
         if (box != null && this.shouldUseReducedHitbox()) {
-            Vec3d center = box.getCenter();
-            double halfX = Math.max(box.getLengthX() * 0.4, 0.01);
-            double halfZ = Math.max(box.getLengthZ() * 0.4, 0.01);
-            return new Box(center.x - halfX, box.minY, center.z - halfZ, center.x + halfX, box.maxY, center.z + halfZ);
+            Vec3 center = box.getCenter();
+            double halfX = Math.max(box.getXsize() * 0.4, 0.01);
+            double halfZ = Math.max(box.getZsize() * 0.4, 0.01);
+            return new AABB(center.x - halfX, box.minY, center.z - halfZ, center.x + halfX, box.maxY, center.z + halfZ);
         } else {
             return box;
         }
@@ -1361,14 +1361,14 @@ public class AuraModule extends Module {
     private double computeHumanHitChance(
         double deltaLength, double distanceRatio, double targetSpeed, boolean canAttackNow, boolean canAttackSoon, boolean raytraceSuccess, double attackCooldown
     ) {
-        double alignment = 1.0 - MathHelper.clamp(deltaLength / 35.0, 0.0, 1.0);
-        double rangeFit = 1.0 - MathHelper.clamp(distanceRatio, 0.0, 1.0);
-        double motionPenalty = MathHelper.clamp(targetSpeed / 0.9, 0.0, 1.0);
+        double alignment = 1.0 - Mth.clamp(deltaLength / 35.0, 0.0, 1.0);
+        double rangeFit = 1.0 - Mth.clamp(distanceRatio, 0.0, 1.0);
+        double motionPenalty = Mth.clamp(targetSpeed / 0.9, 0.0, 1.0);
         double attackReadiness = canAttackNow ? 1.0 : (canAttackSoon ? 0.72 : 0.28);
         double raytraceFactor = raytraceSuccess ? 1.0 : 0.0;
-        double cooldownFactor = MathHelper.clamp(attackCooldown, 0.0, 1.0);
+        double cooldownFactor = Mth.clamp(attackCooldown, 0.0, 1.0);
         double chance = alignment * 0.4 + rangeFit * 0.15 + attackReadiness * 0.16 + raytraceFactor * 0.17 + cooldownFactor * 0.22 - motionPenalty * 0.1;
-        return MathHelper.clamp(chance, 0.0, 1.0);
+        return Mth.clamp(chance, 0.0, 1.0);
     }
 
     private String formatSessionClock(long sessionElapsedMs) {
@@ -1378,21 +1378,21 @@ public class AuraModule extends Module {
         return String.format("%02d:%02d", minutes, seconds);
     }
 
-    private int computeHumanInputMask(MinecraftClient client) {
+    private int computeHumanInputMask(Minecraft client) {
         if (client != null && client.options != null) {
             int mask = 0;
-            mask = this.setHumanInput(mask, 1, client.options.attackKey.isPressed());
-            mask = this.setHumanInput(mask, 2, client.options.useKey.isPressed());
-            mask = this.setHumanInput(mask, 4, client.options.pickItemKey.isPressed());
-            mask = this.setHumanInput(mask, 8, client.options.forwardKey.isPressed());
-            mask = this.setHumanInput(mask, 16, client.options.backKey.isPressed());
-            mask = this.setHumanInput(mask, 32, client.options.leftKey.isPressed());
-            mask = this.setHumanInput(mask, 64, client.options.rightKey.isPressed());
-            mask = this.setHumanInput(mask, 128, client.options.jumpKey.isPressed());
-            mask = this.setHumanInput(mask, 256, client.options.sneakKey.isPressed());
-            mask = this.setHumanInput(mask, 512, client.options.sprintKey.isPressed());
+            mask = this.setHumanInput(mask, 1, client.options.keyAttack.isDown());
+            mask = this.setHumanInput(mask, 2, client.options.keyUse.isDown());
+            mask = this.setHumanInput(mask, 4, client.options.keyPickItem.isDown());
+            mask = this.setHumanInput(mask, 8, client.options.keyUp.isDown());
+            mask = this.setHumanInput(mask, 16, client.options.keyDown.isDown());
+            mask = this.setHumanInput(mask, 32, client.options.keyLeft.isDown());
+            mask = this.setHumanInput(mask, 64, client.options.keyRight.isDown());
+            mask = this.setHumanInput(mask, 128, client.options.keyJump.isDown());
+            mask = this.setHumanInput(mask, 256, client.options.keyShift.isDown());
+            mask = this.setHumanInput(mask, 512, client.options.keySprint.isDown());
             if (client.getWindow() != null) {
-                long handle = client.getWindow().getHandle();
+                long handle = client.getWindow().handle();
                 mask = this.setHumanInput(mask, 1024, GLFW.glfwGetMouseButton(handle, 0) == 1);
                 mask = this.setHumanInput(mask, 2048, GLFW.glfwGetMouseButton(handle, 1) == 1);
                 mask = this.setHumanInput(mask, 4096, GLFW.glfwGetMouseButton(handle, 2) == 1);

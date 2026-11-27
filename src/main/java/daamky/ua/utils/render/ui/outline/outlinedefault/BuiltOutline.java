@@ -1,7 +1,7 @@
 package daamky.ua.utils.render.ui.outline.outlinedefault;
 
-import net.minecraft.client.gui.DrawContext;
 import daamky.ua.utils.render.color.ColorUtil;
+import net.minecraft.client.gui.GuiGraphics;
 
 public record BuiltOutline(
    float x,
@@ -79,7 +79,7 @@ public record BuiltOutline(
       );
    }
 
-   public void render(DrawContext graphics) {
+   public void render(GuiGraphics graphics) {
       DefaultOutlineRenderer.getInstance().draw(graphics, this);
    }
 

@@ -1,22 +1,22 @@
 package daamky.ua.api.module.impl.visual;
 
-import net.minecraft.block.AbstractPlantBlock;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.BushBlock;
-import net.minecraft.block.CropBlock;
-import net.minecraft.block.FlowerBlock;
-import net.minecraft.block.FlowerPotBlock;
-import net.minecraft.block.MushroomPlantBlock;
-import net.minecraft.block.PlantBlock;
-import net.minecraft.block.SaplingBlock;
-import net.minecraft.block.ShortPlantBlock;
-import net.minecraft.block.SweetBerryBushBlock;
-import net.minecraft.block.TallPlantBlock;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.registry.tag.BlockTags;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.settings.impl.MultiModeSetting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.world.level.block.BushBlock;
+import net.minecraft.world.level.block.CropBlock;
+import net.minecraft.world.level.block.DoublePlantBlock;
+import net.minecraft.world.level.block.FlowerBlock;
+import net.minecraft.world.level.block.FlowerPotBlock;
+import net.minecraft.world.level.block.GrowingPlantBodyBlock;
+import net.minecraft.world.level.block.MushroomBlock;
+import net.minecraft.world.level.block.SaplingBlock;
+import net.minecraft.world.level.block.SweetBerryBushBlock;
+import net.minecraft.world.level.block.TallGrassBlock;
+import net.minecraft.world.level.block.VegetationBlock;
+import net.minecraft.world.level.block.state.BlockState;
 
 public class NoRender extends Module {
    private static NoRender instance;
@@ -84,7 +84,7 @@ public class NoRender extends Module {
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
+   public void onTick(Minecraft client) {
       boolean hidePlants = this.shouldHidePlants();
       if (hidePlants != this.plantsReloadState) {
          this.plantsReloadState = hidePlants;
@@ -107,24 +107,24 @@ public class NoRender extends Module {
    public boolean isPlantState(BlockState state) {
       return state == null
          ? false
-         : state.getBlock() instanceof PlantBlock
+         : state.getBlock() instanceof VegetationBlock
             || state.getBlock() instanceof BushBlock
-            || state.getBlock() instanceof AbstractPlantBlock
+            || state.getBlock() instanceof GrowingPlantBodyBlock
             || state.getBlock() instanceof CropBlock
             || state.getBlock() instanceof SaplingBlock
-            || state.getBlock() instanceof MushroomPlantBlock
+            || state.getBlock() instanceof MushroomBlock
             || state.getBlock() instanceof SweetBerryBushBlock
-            || state.getBlock() instanceof ShortPlantBlock
-            || state.getBlock() instanceof TallPlantBlock
+            || state.getBlock() instanceof TallGrassBlock
+            || state.getBlock() instanceof DoublePlantBlock
             || state.getBlock() instanceof FlowerBlock
             || state.getBlock() instanceof FlowerPotBlock
-            || state.isIn(BlockTags.FLOWERS)
-            || state.isIn(BlockTags.SAPLINGS);
+            || state.is(BlockTags.FLOWERS)
+            || state.is(BlockTags.SAPLINGS);
    }
 
    private void reloadWorldRenderer() {
-      if (mc.world != null && mc.worldRenderer != null) {
-         mc.worldRenderer.reload();
+      if (mc.level != null && mc.levelRenderer != null) {
+         mc.levelRenderer.allChanged();
       }
    }
 }

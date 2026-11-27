@@ -1,13 +1,13 @@
 package daamky.ua.api.module.impl.player;
 
-import net.minecraft.block.ShulkerBoxBlock;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.ContainerComponent;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.ItemStack;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.settings.impl.BooleanSetting;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.ItemContainerContents;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
 
 public final class AntiDrop extends Module {
    private static AntiDrop instance;
@@ -32,7 +32,7 @@ public final class AntiDrop extends Module {
    }
 
    private static boolean hasLoot(ItemStack stack) {
-      ContainerComponent contents = (ContainerComponent)stack.get(DataComponentTypes.CONTAINER);
-      return contents != null && contents.streamNonEmpty().findAny().isPresent();
+      ItemContainerContents contents = (ItemContainerContents)stack.get(DataComponents.CONTAINER);
+      return contents != null && contents.nonEmptyStream().findAny().isPresent();
    }
 }

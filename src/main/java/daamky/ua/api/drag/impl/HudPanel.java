@@ -1,7 +1,5 @@
 package daamky.ua.api.drag.impl;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ChatScreen;
 import daamky.ua.api.drag.core.ElementComponent;
 import daamky.ua.api.drag.core.ElementManager;
 import daamky.ua.api.drag.core.ElementScreen;
@@ -12,6 +10,8 @@ import daamky.ua.utils.render.animation.SmoothAnimation;
 import daamky.ua.utils.render.color.ColorUtil;
 import daamky.ua.utils.render.ui.Render2D;
 import daamky.ua.utils.render.ui.font.FontType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.ChatScreen;
 
 public abstract class HudPanel implements HudElement {
    protected static final FontType TITLE_FONT = FontType.BOLD;
@@ -21,7 +21,7 @@ public abstract class HudPanel implements HudElement {
    protected static final int ACCENT_COLOR = ColorUtil.rgba(127, 242, 255, 230);
    private static final float CONTENT_ANIM = 0.24F;
    private static final String[] ASCII_CHARS = new String[128];
-   protected final MinecraftClient mc = MinecraftClient.getInstance();
+   protected final Minecraft mc = Minecraft.getInstance();
    protected final ElementComponent drag;
    private final String elementName;
    private float animatedWidth;
@@ -64,7 +64,7 @@ public abstract class HudPanel implements HudElement {
    }
 
    protected boolean editPreview() {
-      return this.mc.currentScreen instanceof ChatScreen;
+      return this.mc.screen instanceof ChatScreen;
    }
 
    protected void size(float targetWidth, float targetHeight) {

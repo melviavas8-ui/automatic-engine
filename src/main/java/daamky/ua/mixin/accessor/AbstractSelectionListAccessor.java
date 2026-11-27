@@ -1,11 +1,11 @@
 package daamky.ua.mixin.accessor;
 
-import net.minecraft.client.gui.widget.EntryListWidget;
+import net.minecraft.client.gui.components.AbstractSelectionList;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
-@Mixin({EntryListWidget.class})
+@Mixin({AbstractSelectionList.class})
 public interface AbstractSelectionListAccessor {
-   @Invoker("swapEntriesOnPositions")
+   @Invoker("swap")
    void daamky$swapEntries(int var1, int var2);
 }

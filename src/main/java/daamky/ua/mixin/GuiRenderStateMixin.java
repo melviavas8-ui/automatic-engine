@@ -22,7 +22,7 @@ public abstract class GuiRenderStateMixin implements GuiRenderStateLayerAccessor
    }
 
    @Inject(
-      method = {"createNewRootLayer"},
+      method = {"nextStratum"},
       at = {@At("RETURN")}
    )
    private void daamky$trackNextStratum(CallbackInfo ci) {
@@ -30,7 +30,7 @@ public abstract class GuiRenderStateMixin implements GuiRenderStateLayerAccessor
    }
 
    @Inject(
-      method = {"goUpLayer"},
+      method = {"up"},
       at = {@At("RETURN")}
    )
    private void daamky$trackUpLayer(CallbackInfo ci) {
@@ -38,7 +38,7 @@ public abstract class GuiRenderStateMixin implements GuiRenderStateLayerAccessor
    }
 
    @Inject(
-      method = {"clear"},
+      method = {"reset"},
       at = {@At("HEAD")}
    )
    private void daamky$resetLayerSerial(CallbackInfo ci) {

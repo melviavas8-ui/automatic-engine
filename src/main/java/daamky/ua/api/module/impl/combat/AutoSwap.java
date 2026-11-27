@@ -4,23 +4,23 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.function.Predicate;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ingame.InventoryScreen;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.AttributeModifiersComponent;
-import net.minecraft.component.type.AttributeModifiersComponent.Entry;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.text.Text;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.ItemAttributeModifiers;
+import net.minecraft.world.item.component.ItemAttributeModifiers.Entry;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.InputEvent;
 import daamky.ua.api.events.impl.RotationUpdateEvent;
@@ -74,7 +74,7 @@ public class AutoSwap extends Module {
    private Slot auraHitSlot;
    private Runnable auraAttack;
    private long auraAttackBlockedUntilMs;
-   private Text lastSwapDisplayName;
+   private Component lastSwapDisplayName;
    private long lastSwapTimeMs;
 
    public AutoSwap() {
@@ -92,16 +92,16 @@ public class AutoSwap extends Module {
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
+   public void onTick(Minecraft client) {
       this.syncWheelSlotsFromSettings();
-      if (client.player != null && client.world != null && client.getWindow() != null) {
+      if (client.player != null && client.level != null && client.getWindow() != null) {
          if (this.autoDamageSwapExecutor.isRunning()) {
             this.holdAutoDamageStop();
             this.autoDamageSwapExecutor.tick();
          }
 
-         boolean bindDown = this.swapBind.getValue().isDown(client.getWindow().getHandle());
-         if (client.currentScreen != null) {
+         boolean bindDown = this.swapBind.getValue().isDown(client.getWindow().handle());
+         if (client.screen != null) {
             this.swapBindWasDown = bindDown;
          } else if (this.mode.is("MaxDamage")) {
             this.swapBindWasDown = bindDown;
@@ -170,15 +170,15 @@ public class AutoSwap extends Module {
    }
 
    private void useSwap() {
-      MinecraftClient mc = MinecraftClient.getInstance();
-      if (mc.player != null && mc.world != null && mc.currentScreen == null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.player != null && mc.level != null && mc.screen == null) {
          if (!this.mode.is("MaxDamage")) {
             if (this.mode.isSelected("Triple")) {
                mc.setScreen(new AutoSwapWheelScreen(this));
             } else {
                Slot first = this.findConfiguredSlot(this.getItemByType(this.firstItem.getValue()));
                Slot second = this.findConfiguredSlot(this.getItemByType(this.secondItem.getValue()));
-               Slot validSlot = first != null && mc.player.getOffHandStack().getItem() != first.getStack().getItem() ? first : second;
+               Slot validSlot = first != null && mc.player.getOffhandItem().getItem() != first.getItem().getItem() ? first : second;
                if (validSlot != null) {
                   this.swapToSlot(validSlot);
                }
@@ -188,8 +188,8 @@ public class AutoSwap extends Module {
    }
 
    private void handleAutoDamage() {
-      MinecraftClient mc = MinecraftClient.getInstance();
-      if (mc.player != null && mc.world != null && mc.currentScreen == null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.player != null && mc.level != null && mc.screen == null) {
          if (!this.autoDamageSwapExecutor.isRunning()) {
             LivingEntity target = AuraModule.target;
             boolean shouldSwapToDamage = false;
@@ -201,8 +201,8 @@ public class AutoSwap extends Module {
                      && target.getHealth() <= this.lowHpThreshold.getFloat()
                      && target.getHealth() < mc.player.getHealth();
                   if (this.autoDamageConditions.isSelected("Target No Sword")
-                     && target instanceof PlayerEntity player
-                     && this.getAttackDamage(player.getMainHandStack()) <= 0.0) {
+                     && target instanceof Player player
+                     && this.getAttackDamage(player.getMainHandItem()) <= 0.0) {
                      var10000 = true;
                      break label64;
                   }
@@ -215,7 +215,7 @@ public class AutoSwap extends Module {
             }
 
             if (shouldSwapToDamage && !this.autoDamageActive) {
-               this.savedOffhandItem = mc.player.getOffHandStack().copy();
+               this.savedOffhandItem = mc.player.getOffhandItem().copy();
                ItemStack bestDamageItem = this.findBestDamageItem();
                if (!bestDamageItem.isEmpty()) {
                   Slot damageSlot = this.findSlotByStack(bestDamageItem);
@@ -242,15 +242,15 @@ public class AutoSwap extends Module {
    }
 
    private ItemStack findBestDamageItem() {
-      MinecraftClient mc = MinecraftClient.getInstance();
+      Minecraft mc = Minecraft.getInstance();
       if (mc.player == null) {
          return ItemStack.EMPTY;
       } else {
          List<ItemStack> damageItems = new ArrayList<>();
-         PlayerInventory inventory = mc.player.getInventory();
+         Inventory inventory = mc.player.getInventory();
 
-         for (int i = 0; i < inventory.size(); i++) {
-            ItemStack stack = inventory.getStack(i);
+         for (int i = 0; i < inventory.getContainerSize(); i++) {
+            ItemStack stack = inventory.getItem(i);
             if (!stack.isEmpty() && (stack.getItem() == Items.PLAYER_HEAD || stack.getItem() == Items.TOTEM_OF_UNDYING) && this.getAttackDamage(stack) > 0.0) {
                damageItems.add(stack);
             }
@@ -261,15 +261,15 @@ public class AutoSwap extends Module {
    }
 
    private double getAttackDamage(ItemStack stack) {
-      AttributeModifiersComponent modifiers = (AttributeModifiersComponent)stack.get(DataComponentTypes.ATTRIBUTE_MODIFIERS);
+      ItemAttributeModifiers modifiers = (ItemAttributeModifiers)stack.get(DataComponents.ATTRIBUTE_MODIFIERS);
       if (modifiers == null) {
          return 0.0;
       } else {
          double totalDamage = 0.0;
 
          for (Entry entry : modifiers.modifiers()) {
-            if (entry.attribute().value() == EntityAttributes.ATTACK_DAMAGE.value()) {
-               totalDamage += entry.modifier().value();
+            if (entry.attribute().value() == Attributes.ATTACK_DAMAGE.value()) {
+               totalDamage += entry.modifier().amount();
             }
          }
 
@@ -278,8 +278,8 @@ public class AutoSwap extends Module {
    }
 
    private void swapToItemStack(ItemStack targetStack) {
-      MinecraftClient mc = MinecraftClient.getInstance();
-      if (mc.currentScreen == null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.screen == null) {
          if (targetStack != null && !targetStack.isEmpty()) {
             Slot foundSlot = this.findSlotByStack(targetStack);
             if (foundSlot != null) {
@@ -294,18 +294,18 @@ public class AutoSwap extends Module {
    }
 
    private void swapToSlot(Slot slot, boolean task) {
-      MinecraftClient mc = MinecraftClient.getInstance();
-      if (mc.currentScreen == null && mc.player != null && slot != null && slot.hasStack() && this.isValidInventorySlot(slot)) {
-         ItemStack swappedTo = slot.getStack().copy();
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.screen == null && mc.player != null && slot != null && slot.hasItem() && this.isValidInventorySlot(slot)) {
+         ItemStack swappedTo = slot.getItem().copy();
          mc.player.setSprinting(false);
          this.blockAuraAttack();
          if (task) {
             InventoryFlowManager.addTask(() -> {
                this.blockAuraAttack();
-               InventoryTask.swapHand(slot, Hand.OFF_HAND, false, true);
+               InventoryTask.swapHand(slot, InteractionHand.OFF_HAND, false, true);
             });
          } else {
-            InventoryTask.swapHand(slot, Hand.OFF_HAND, false, true);
+            InventoryTask.swapHand(slot, InteractionHand.OFF_HAND, false, true);
          }
 
          this.triggerSwapToast(swappedTo);
@@ -353,16 +353,16 @@ public class AutoSwap extends Module {
    }
 
    private void holdAutoDamageStop() {
-      MinecraftClient mc = MinecraftClient.getInstance();
+      Minecraft mc = Minecraft.getInstance();
       if (mc.options != null) {
          InventoryFlowManager.disableMoveKeys();
-         mc.options.forwardKey.setPressed(false);
-         mc.options.backKey.setPressed(false);
-         mc.options.leftKey.setPressed(false);
-         mc.options.rightKey.setPressed(false);
-         mc.options.jumpKey.setPressed(false);
-         mc.options.sneakKey.setPressed(false);
-         mc.options.sprintKey.setPressed(false);
+         mc.options.keyUp.setDown(false);
+         mc.options.keyDown.setDown(false);
+         mc.options.keyLeft.setDown(false);
+         mc.options.keyRight.setDown(false);
+         mc.options.keyJump.setDown(false);
+         mc.options.keyShift.setDown(false);
+         mc.options.keySprint.setDown(false);
          if (mc.player != null) {
             mc.player.setSprinting(false);
          }
@@ -377,7 +377,7 @@ public class AutoSwap extends Module {
    private void unlockAuraMovement() {
       if (this.auraMovementLocked) {
          this.auraMovementLocked = false;
-         MinecraftClient mc = MinecraftClient.getInstance();
+         Minecraft mc = Minecraft.getInstance();
          if (mc.options != null && mc.getWindow() != null) {
             InventoryFlowManager.restoreMoveKeysOnly();
          }
@@ -385,9 +385,9 @@ public class AutoSwap extends Module {
    }
 
    private void holdAuraStop() {
-      MinecraftClient mc = MinecraftClient.getInstance();
+      Minecraft mc = Minecraft.getInstance();
       if (mc.options != null) {
-         mc.options.sprintKey.setPressed(false);
+         mc.options.keySprint.setDown(false);
          if (mc.player != null) {
             mc.player.setSprinting(false);
          }
@@ -395,11 +395,11 @@ public class AutoSwap extends Module {
    }
 
    public void swapBeforeAttack() {
-      MinecraftClient mc = MinecraftClient.getInstance();
-      if (mc.player != null && mc.world != null && mc.currentScreen == null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.player != null && mc.level != null && mc.screen == null) {
          Slot first = this.findConfiguredSlot(this.getItemByType(this.firstItem.getValue()));
          Slot second = this.findConfiguredSlot(this.getItemByType(this.secondItem.getValue()));
-         Slot validSlot = first != null && mc.player.getOffHandStack().getItem() != first.getStack().getItem() ? first : second;
+         Slot validSlot = first != null && mc.player.getOffhandItem().getItem() != first.getItem().getItem() ? first : second;
          if (validSlot != null) {
             this.swapToSlot(validSlot);
          }
@@ -407,32 +407,32 @@ public class AutoSwap extends Module {
    }
 
    public boolean runMaxDamageAuraAttack(Runnable attack) {
-      MinecraftClient mc = MinecraftClient.getInstance();
+      Minecraft mc = Minecraft.getInstance();
       if (this.isEnabled()
          && this.mode.is("MaxDamage")
          && attack != null
          && mc.player != null
-         && mc.world != null
-         && (mc.currentScreen == null || mc.currentScreen instanceof InventoryScreen)) {
+         && mc.level != null
+         && (mc.screen == null || mc.screen instanceof InventoryScreen)) {
          if (this.auraSwapPending) {
             this.holdAuraStop();
             return true;
-         } else if (MaxDamageAttribute.isKaratelTalisman(mc.player.getOffHandStack())) {
+         } else if (MaxDamageAttribute.isKaratelTalisman(mc.player.getOffhandItem())) {
             attack.run();
             return true;
          } else {
             Slot hitSlot = InventoryTask.getSlot(
-               (Predicate<Slot>)(slot -> this.isValidInventorySlot(slot) && MaxDamageAttribute.isKaratelTalisman(slot.getStack()))
+               (Predicate<Slot>)(slot -> this.isValidInventorySlot(slot) && MaxDamageAttribute.isKaratelTalisman(slot.getItem()))
             );
-            if (hitSlot == null || !hitSlot.hasStack()) {
+            if (hitSlot == null || !hitSlot.hasItem()) {
                return false;
-            } else if (mc.currentScreen instanceof InventoryScreen) {
-               InventoryTask.swapHand(hitSlot, Hand.OFF_HAND, false, true);
+            } else if (mc.screen instanceof InventoryScreen) {
+               InventoryTask.swapHand(hitSlot, InteractionHand.OFF_HAND, false, true);
 
                try {
                   attack.run();
                } finally {
-                  InventoryTask.swapHand(hitSlot, Hand.OFF_HAND, false, true);
+                  InventoryTask.swapHand(hitSlot, InteractionHand.OFF_HAND, false, true);
                }
 
                return true;
@@ -452,15 +452,15 @@ public class AutoSwap extends Module {
    }
 
    private void runPendingAuraSwap() {
-      MinecraftClient mc = MinecraftClient.getInstance();
-      if (mc.player != null && mc.world != null && mc.currentScreen == null && this.auraHitSlot != null && this.auraAttack != null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.player != null && mc.level != null && mc.screen == null && this.auraHitSlot != null && this.auraAttack != null) {
          try {
             this.holdAuraStop();
             this.swapToSlot(this.auraHitSlot, false);
             this.holdAuraStop();
             this.auraAttack.run();
             this.holdAuraStop();
-            InventoryTask.swapHand(this.auraHitSlot, Hand.OFF_HAND, false, true);
+            InventoryTask.swapHand(this.auraHitSlot, InteractionHand.OFF_HAND, false, true);
          } finally {
             this.clearPendingAuraSwap();
             this.unlockAuraMovement();
@@ -482,15 +482,15 @@ public class AutoSwap extends Module {
    private Slot findSlotByStack(ItemStack targetStack) {
       return InventoryTask.slots()
          .filter(this::isValidInventorySlot)
-         .filter(slot -> slot.getStack().getItem() == targetStack.getItem())
-         .filter(slot -> slot.getStack().getName().getString().equals(targetStack.getName().getString()))
+         .filter(slot -> slot.getItem().getItem() == targetStack.getItem())
+         .filter(slot -> slot.getItem().getHoverName().getString().equals(targetStack.getHoverName().getString()))
          .findFirst()
-         .or(() -> InventoryTask.slots().filter(this::isValidInventorySlot).filter(slot -> slot.getStack().getItem() == targetStack.getItem()).findFirst())
+         .or(() -> InventoryTask.slots().filter(this::isValidInventorySlot).filter(slot -> slot.getItem().getItem() == targetStack.getItem()).findFirst())
          .orElse(null);
    }
 
    private Slot findConfiguredSlot(Item item) {
-      return InventoryTask.getSlot(item, Comparator.comparing(slot -> slot.getStack().hasGlint()), this::isValidInventorySlot);
+      return InventoryTask.getSlot(item, Comparator.comparing(slot -> slot.getItem().hasFoil()), this::isValidInventorySlot);
    }
 
    private boolean isValidInventorySlot(Slot slot) {
@@ -501,7 +501,7 @@ public class AutoSwap extends Module {
    private void triggerSwapToast(ItemStack swappedTo) {
       if (swappedTo != null && !swappedTo.isEmpty()) {
          this.lastSwapTimeMs = System.currentTimeMillis();
-         this.lastSwapDisplayName = swappedTo.getName();
+         this.lastSwapDisplayName = swappedTo.getHoverName();
       }
    }
 
@@ -520,7 +520,7 @@ public class AutoSwap extends Module {
          if (item != null && item != Items.AIR) {
             String normalizedName = itemName == null ? "" : itemName;
             this.wheelSlots[index] = new AutoSwap.WheelSlotItem(item, normalizedName);
-            this.updateWheelSlotSettings(index, Registries.ITEM.getId(item).toString(), normalizedName);
+            this.updateWheelSlotSettings(index, BuiltInRegistries.ITEM.getKey(item).toString(), normalizedName);
          } else {
             this.wheelSlots[index] = null;
             this.updateWheelSlotSettings(index, "", "");
@@ -529,7 +529,7 @@ public class AutoSwap extends Module {
    }
 
    public void startSelectingItem(int wheelSlotIndex) {
-      MinecraftClient mc = MinecraftClient.getInstance();
+      Minecraft mc = Minecraft.getInstance();
       if (mc.player != null) {
          mc.setScreen(new AutoSwapItemSelectScreen(this, wheelSlotIndex));
       }
@@ -540,22 +540,22 @@ public class AutoSwap extends Module {
       if (index >= 0 && index < this.wheelSlots.length) {
          AutoSwap.WheelSlotItem slotItem = this.wheelSlots[index];
          if (slotItem != null && slotItem.item() != null && slotItem.item() != Items.AIR) {
-            MinecraftClient mc = MinecraftClient.getInstance();
+            Minecraft mc = Minecraft.getInstance();
             if (mc.player == null) {
                return ItemStack.EMPTY;
             } else {
-               PlayerInventory inventory = mc.player.getInventory();
+               Inventory inventory = mc.player.getInventory();
 
-               for (int i = 0; i < inventory.size(); i++) {
-                  ItemStack stack = inventory.getStack(i);
-                  if (!stack.isEmpty() && stack.getItem() == slotItem.item() && stack.getName().getString().equals(slotItem.itemName())) {
+               for (int i = 0; i < inventory.getContainerSize(); i++) {
+                  ItemStack stack = inventory.getItem(i);
+                  if (!stack.isEmpty() && stack.getItem() == slotItem.item() && stack.getHoverName().getString().equals(slotItem.itemName())) {
                      return stack;
                   }
                }
 
                if (slotItem.itemName().isEmpty()) {
-                  for (int ix = 0; ix < inventory.size(); ix++) {
-                     ItemStack stack = inventory.getStack(ix);
+                  for (int ix = 0; ix < inventory.getContainerSize(); ix++) {
+                     ItemStack stack = inventory.getItem(ix);
                      if (!stack.isEmpty() && stack.getItem() == slotItem.item()) {
                         return stack;
                      }
@@ -589,8 +589,8 @@ public class AutoSwap extends Module {
          this.wheelSlots[index] = null;
       } else {
          Identifier identifier = Identifier.tryParse(itemId);
-         if (identifier != null && Registries.ITEM.containsId(identifier)) {
-            Item item = (Item)Registries.ITEM.get(identifier);
+         if (identifier != null && BuiltInRegistries.ITEM.containsKey(identifier)) {
+            Item item = (Item)BuiltInRegistries.ITEM.getValue(identifier);
             AutoSwap.WheelSlotItem current = this.wheelSlots[index];
             if (current == null || current.item() != item || !current.itemName().equals(itemName)) {
                this.wheelSlots[index] = new AutoSwap.WheelSlotItem(item, itemName);

@@ -1,11 +1,11 @@
 package daamky.ua.api.module.impl.combat.aura.rotations;
 
 import java.util.Random;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.api.module.impl.combat.aura.impl.RotateConstructor;
 
@@ -18,24 +18,24 @@ public final class ShardSnapAngle extends RotateConstructor {
     }
 
     @Override
-    public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3d aimPoint, Entity entity) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.player == null || client.world == null || currentAngle == null || targetAngle == null || entity == null) {
+    public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3 aimPoint, Entity entity) {
+        Minecraft client = Minecraft.getInstance();
+        if (client.player == null || client.level == null || currentAngle == null || targetAngle == null || entity == null) {
             reset();
             return currentAngle == null ? Angle.DEFAULT : currentAngle;
         }
 
         State state = STATE;
-        if (state.targetId != entity.getId() || state.world != client.world) {
-            state.reset(entity.getId(), client.world, currentAngle);
+        if (state.targetId != entity.getId() || state.world != client.level) {
+            state.reset(entity.getId(), client.level, currentAngle);
         }
 
-        Box box = entity.getBoundingBox();
-        Vec3d eye = client.player.getEyePos();
-        float yawDelta = MathHelper.wrapDegrees(targetAngle.getYaw() - state.yaw);
+        AABB box = entity.getBoundingBox();
+        Vec3 eye = client.player.getEyePosition();
+        float yawDelta = Mth.wrapDegrees(targetAngle.getYaw() - state.yaw);
         float pitchDelta = targetAngle.getPitch() - state.pitch;
         boolean rayHitsTarget = rayHits(new Angle(state.yaw, state.pitch), box, eye);
-        float cooldown = client.player.getAttackCooldownProgress(1.5F);
+        float cooldown = client.player.getAttackStrengthScale(1.5F);
 
         float nextYaw = state.yaw;
         float nextPitch = state.pitch;
@@ -98,8 +98,8 @@ public final class ShardSnapAngle extends RotateConstructor {
         }
 
         Angle result = new Angle(
-            MathHelper.wrapDegrees(nextYaw),
-            MathHelper.clamp(nextPitch, -89.0F, 89.0F)
+            Mth.wrapDegrees(nextYaw),
+            Mth.clamp(nextPitch, -89.0F, 89.0F)
         ).adjustSensitivity();
         state.yaw = result.getYaw();
         state.pitch = result.getPitch();
@@ -120,13 +120,13 @@ public final class ShardSnapAngle extends RotateConstructor {
     }
 
     @Override
-    public Vec3d randomValue() {
-        return Vec3d.ZERO;
+    public Vec3 randomValue() {
+        return Vec3.ZERO;
     }
 
-    private static boolean rayHits(Angle angle, Box box, Vec3d eye) {
-        Vec3d end = eye.add(angle.toVector().multiply(100.0));
-        return box.expand(-0.3).contains(eye) || box.expand(-0.3).raycast(eye, end).isPresent();
+    private static boolean rayHits(Angle angle, AABB box, Vec3 eye) {
+        Vec3 end = eye.add(angle.toVector().scale(100.0));
+        return box.inflate(-0.3).contains(eye) || box.inflate(-0.3).clip(eye, end).isPresent();
     }
 
     private static final class State {

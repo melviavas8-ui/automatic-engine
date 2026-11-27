@@ -3,15 +3,15 @@ package daamky.ua.api.module.impl.player;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import net.minecraft.block.ShulkerBoxBlock;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.screen.GenericContainerScreenHandler;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.InputEvent;
 import daamky.ua.api.events.impl.TickEvent;
@@ -77,9 +77,9 @@ public final class ChestStealer extends Module {
 
    @SubscribeEvent
    private void onTick(TickEvent.Post event) {
-      MinecraftClient client = event.getClient();
-      if (client.player != null && client.world != null && client.interactionManager != null) {
-         if (client.player.currentScreenHandler instanceof GenericContainerScreenHandler menu) {
+      Minecraft client = event.getClient();
+      if (client.player != null && client.level != null && client.gameMode != null) {
+         if (client.player.containerMenu instanceof ChestMenu menu) {
             if (this.mode.is("FT Warden")) {
                if (!this.chestSessionActive) {
                   this.chestSessionActive = true;
@@ -112,23 +112,23 @@ public final class ChestStealer extends Module {
 
    @SubscribeEvent
    private void onInput(InputEvent event) {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (this.mode.is("FT Warden")
          && this.chestSessionActive
          && client.player != null
-         && client.player.currentScreenHandler instanceof GenericContainerScreenHandler) {
+         && client.player.containerMenu instanceof ChestMenu) {
          event.inputNone();
          client.player.setSprinting(false);
       }
    }
 
-   private void quickMoveNextSlot(GenericContainerScreenHandler menu) {
-      int chestSlots = menu.getRows() * 9;
+   private void quickMoveNextSlot(ChestMenu menu) {
+      int chestSlots = menu.getRowCount() * 9;
 
       for (int slotIndex = 0; slotIndex < chestSlots; slotIndex++) {
          Slot slot = (Slot)menu.slots.get(slotIndex);
-         if (slot.hasStack() && this.shouldLoot(slot.getStack())) {
-            InventoryTask.clickSlot(slotIndex, 0, SlotActionType.QUICK_MOVE, true);
+         if (slot.hasItem() && this.shouldLoot(slot.getItem())) {
+            InventoryTask.clickSlot(slotIndex, 0, ClickType.QUICK_MOVE, true);
             break;
          }
       }
@@ -136,25 +136,25 @@ public final class ChestStealer extends Module {
       this.closeIfChestEmpty(menu);
    }
 
-   private void stealAllFromChest(GenericContainerScreenHandler menu) {
-      int chestSlots = menu.getRows() * 9;
+   private void stealAllFromChest(ChestMenu menu) {
+      int chestSlots = menu.getRowCount() * 9;
 
       for (int slotIndex = 0; slotIndex < chestSlots; slotIndex++) {
          Slot slot = (Slot)menu.slots.get(slotIndex);
-         if (slot.hasStack() && this.shouldLoot(slot.getStack())) {
-            InventoryTask.clickSlot(slotIndex, 0, SlotActionType.QUICK_MOVE, true);
+         if (slot.hasItem() && this.shouldLoot(slot.getItem())) {
+            InventoryTask.clickSlot(slotIndex, 0, ClickType.QUICK_MOVE, true);
          }
       }
 
       this.closeIfChestEmpty(menu);
    }
 
-   private void closeIfChestEmpty(GenericContainerScreenHandler menu) {
-      int chestSlots = menu.getRows() * 9;
+   private void closeIfChestEmpty(ChestMenu menu) {
+      int chestSlots = menu.getRowCount() * 9;
 
       for (int slotIndex = 0; slotIndex < chestSlots; slotIndex++) {
          Slot slot = (Slot)menu.slots.get(slotIndex);
-         if (slot.hasStack() && this.shouldLoot(slot.getStack())) {
+         if (slot.hasItem() && this.shouldLoot(slot.getItem())) {
             return;
          }
       }

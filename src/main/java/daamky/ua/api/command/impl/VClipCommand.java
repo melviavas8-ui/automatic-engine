@@ -4,16 +4,16 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Stream;
-import net.minecraft.block.Blocks;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
-import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket.Mode;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket.OnGroundOnly;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket.PositionAndOnGround;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.Pos;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.StatusOnly;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Blocks;
 import daamky.ua.IMinecraft;
 import daamky.ua.api.command.Command;
 import daamky.ua.api.command.helpers.TabCompleteHelper;
@@ -27,7 +27,7 @@ public final class VClipCommand extends Command implements IMinecraft {
 
    @Override
    public void execute(String label, String[] args) {
-      if (mc.player != null && mc.world != null && mc.interactionManager != null) {
+      if (mc.player != null && mc.level != null && mc.gameMode != null) {
          if (args.length != 1) {
             this.printUsage();
          } else {
@@ -40,13 +40,13 @@ public final class VClipCommand extends Command implements IMinecraft {
                try {
                   this.clip(Double.parseDouble(value.replace(',', '.')));
                } catch (NumberFormatException var5) {
-                  this.logDirect("Неверное расстояние: " + args[0], Formatting.RED);
+                  this.logDirect("Неверное расстояние: " + args[0], ChatFormatting.RED);
                   this.printUsage();
                }
             }
          }
       } else {
-         this.logDirect("Команда доступна только в мире.", Formatting.RED);
+         this.logDirect("Команда доступна только в мире.", ChatFormatting.RED);
       }
    }
 
@@ -61,9 +61,9 @@ public final class VClipCommand extends Command implements IMinecraft {
    }
 
    private void clipToFreeSpace(boolean up) {
-      double offset = this.scanVerticalOffset(mc.player.getBlockPos(), up);
+      double offset = this.scanVerticalOffset(mc.player.blockPosition(), up);
       if (offset == 0.0) {
-         this.logDirect("Не удалось найти свободное место.", Formatting.RED);
+         this.logDirect("Не удалось найти свободное место.", ChatFormatting.RED);
       } else {
          this.clip(offset);
       }
@@ -71,7 +71,7 @@ public final class VClipCommand extends Command implements IMinecraft {
 
    private void clip(double yOffset) {
       if (Double.isFinite(yOffset) && yOffset != 0.0) {
-         boolean elytraEquipped = mc.player.getEquippedStack(EquipmentSlot.CHEST).isOf(Items.ELYTRA);
+         boolean elytraEquipped = mc.player.getItemBySlot(EquipmentSlot.CHEST).is(Items.ELYTRA);
          int elytraInventorySlot = elytraEquipped ? -1 : this.findElytraInventorySlot();
          boolean useElytra = elytraEquipped || elytraInventorySlot >= 0;
          if (elytraInventorySlot >= 0) {
@@ -86,9 +86,9 @@ public final class VClipCommand extends Command implements IMinecraft {
             }
          }
 
-         this.logDirect(String.format(Locale.ROOT, "Перемещение по Y: %+.1f блока.", yOffset), Formatting.GREEN);
+         this.logDirect(String.format(Locale.ROOT, "Перемещение по Y: %+.1f блока.", yOffset), ChatFormatting.GREEN);
       } else {
-         this.logDirect("Расстояние должно быть конечным числом и не может быть равно 0.", Formatting.RED);
+         this.logDirect("Расстояние должно быть конечным числом и не может быть равно 0.", ChatFormatting.RED);
       }
    }
 
@@ -108,22 +108,22 @@ public final class VClipCommand extends Command implements IMinecraft {
          int packets = Math.max((int)(Math.abs(yOffset) / 1000.0), 3);
 
          for (int i = 0; i < packets; i++) {
-            mc.player.networkHandler.sendPacket(new OnGroundOnly(mc.player.isOnGround(), mc.player.horizontalCollision));
+            mc.player.connection.send(new StatusOnly(mc.player.onGround(), mc.player.horizontalCollision));
          }
 
          this.sendPosition(x, y + yOffset, z);
       }
 
-      mc.player.setPosition(x, y + yOffset, z);
+      mc.player.setPos(x, y + yOffset, z);
       mc.player.fallDistance = 0.0;
    }
 
    private void sendPosition(double x, double y, double z) {
-      mc.player.networkHandler.sendPacket(new PositionAndOnGround(x, y, z, false, mc.player.horizontalCollision));
+      mc.player.connection.send(new Pos(x, y, z, false, mc.player.horizontalCollision));
    }
 
    private void startFallFlying() {
-      mc.player.networkHandler.sendPacket(new ClientCommandC2SPacket(mc.player, Mode.START_FALL_FLYING));
+      mc.player.connection.send(new ServerboundPlayerCommandPacket(mc.player, Action.START_FALL_FLYING));
    }
 
    private double scanVerticalOffset(BlockPos playerPos, boolean up) {
@@ -132,13 +132,13 @@ public final class VClipCommand extends Command implements IMinecraft {
       int step = up ? 1 : -1;
 
       for (int offset = start; offset != end; offset += step) {
-         BlockPos targetPos = playerPos.add(0, offset, 0);
-         if (!up && mc.world.getBlockState(targetPos).isOf(Blocks.BEDROCK)) {
-            this.logDirect("Нельзя переместиться ниже бедрока.", Formatting.RED);
+         BlockPos targetPos = playerPos.offset(0, offset, 0);
+         if (!up && mc.level.getBlockState(targetPos).is(Blocks.BEDROCK)) {
+            this.logDirect("Нельзя переместиться ниже бедрока.", ChatFormatting.RED);
             return 0.0;
          }
 
-         if (mc.world.getBlockState(targetPos).isAir()) {
+         if (mc.level.getBlockState(targetPos).isAir()) {
             return (double)offset + (up ? 1.0 : -1.0);
          }
       }
@@ -148,7 +148,7 @@ public final class VClipCommand extends Command implements IMinecraft {
 
    private int findElytraInventorySlot() {
       for (int slot = 0; slot < 36; slot++) {
-         if (mc.player.getInventory().getStack(slot).isOf(Items.ELYTRA)) {
+         if (mc.player.getInventory().getItem(slot).is(Items.ELYTRA)) {
             return slot;
          }
       }
@@ -158,13 +158,13 @@ public final class VClipCommand extends Command implements IMinecraft {
 
    private void swapInventoryWithChest(int inventorySlot) {
       int menuSlot = inventorySlot < 9 ? inventorySlot + 36 : inventorySlot;
-      int containerId = mc.player.playerScreenHandler.syncId;
-      mc.interactionManager.clickSlot(containerId, menuSlot, 0, SlotActionType.PICKUP, mc.player);
-      mc.interactionManager.clickSlot(containerId, 6, 0, SlotActionType.PICKUP, mc.player);
-      mc.interactionManager.clickSlot(containerId, menuSlot, 0, SlotActionType.PICKUP, mc.player);
+      int containerId = mc.player.inventoryMenu.containerId;
+      mc.gameMode.handleInventoryMouseClick(containerId, menuSlot, 0, ClickType.PICKUP, mc.player);
+      mc.gameMode.handleInventoryMouseClick(containerId, 6, 0, ClickType.PICKUP, mc.player);
+      mc.gameMode.handleInventoryMouseClick(containerId, menuSlot, 0, ClickType.PICKUP, mc.player);
    }
 
    private void printUsage() {
-      this.logDirect("Использование: .vclip <число|up|down>", Formatting.RED);
+      this.logDirect("Использование: .vclip <число|up|down>", ChatFormatting.RED);
    }
 }

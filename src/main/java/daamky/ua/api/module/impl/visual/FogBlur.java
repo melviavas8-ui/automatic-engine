@@ -1,6 +1,6 @@
 package daamky.ua.api.module.impl.visual;
 
-import net.minecraft.client.gl.Framebuffer;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.settings.impl.ModeSetting;
@@ -27,8 +27,8 @@ public class FogBlur extends Module {
       FogBlurRenderer.clear();
    }
 
-   public void onAfterTranslucent(Framebuffer renderTarget) {
-      if (mc.player != null && mc.world != null && mc.gameRenderer != null) {
+   public void onAfterTranslucent(RenderTarget renderTarget) {
+      if (mc.player != null && mc.level != null && mc.gameRenderer != null) {
          if (!FogBlurRenderer.isDisabledAfterError()) {
             FogBlurRenderer.apply(renderTarget, this.strength.getFloat(), this.distance.getFloat(), 100.0F, this.renderScale(), this.maxPasses());
          }

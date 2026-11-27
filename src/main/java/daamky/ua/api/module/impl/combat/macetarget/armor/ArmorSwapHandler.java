@@ -1,13 +1,13 @@
 package daamky.ua.api.module.impl.combat.macetarget.armor;
 
-import net.minecraft.client.MinecraftClient;
 import daamky.ua.api.module.impl.combat.macetarget.state.MaceState;
 import daamky.ua.utils.inventory.lookup.InventoryUtils;
 import daamky.ua.utils.inventory.movement.MovementController;
 import daamky.ua.utils.inventory.swap.SwapSettings;
+import net.minecraft.client.Minecraft;
 
 public class ArmorSwapHandler {
-   private static final MinecraftClient MC = MinecraftClient.getInstance();
+   private static final Minecraft MC = Minecraft.getInstance();
    private final MovementController movement = new MovementController();
    private final ArmorSwapHandler.SwapSettingsProvider settingsProvider;
    private MaceState.SwapPhase phase = MaceState.SwapPhase.IDLE;

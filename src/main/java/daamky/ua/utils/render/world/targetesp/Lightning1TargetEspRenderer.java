@@ -2,13 +2,13 @@ package daamky.ua.utils.render.world.targetesp;
 
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider.Immediate;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import daamky.ua.utils.render.color.ColorUtil;
 import daamky.ua.utils.render.pipeline.ClientPipelines;
 
@@ -20,14 +20,14 @@ public final class Lightning1TargetEspRenderer {
    private Lightning1TargetEspRenderer() {
    }
 
-   public static void render(MatrixStack stack, Immediate provider, TargetEspRenderContext context, float glow) {
+   public static void render(PoseStack stack, BufferSource provider, TargetEspRenderContext context, float glow) {
       LivingEntity target = context.target();
       if (target != null) {
-         float height = Math.max(0.6F, target.getHeight());
-         float width = Math.max(0.3F, target.getWidth());
-         float scale = MathHelper.clamp(height / 1.8F, 0.55F, 2.2F);
+         float height = Math.max(0.6F, target.getBbHeight());
+         float width = Math.max(0.3F, target.getBbWidth());
+         float scale = Mth.clamp(height / 1.8F, 0.55F, 2.2F);
          float radius = Math.max(0.5F, width * 0.92F);
-         Vec3d cameraLocal = MinecraftClient.getInstance().gameRenderer.getCamera().getCameraPos().subtract(target.getLerpedPos(context.partialTicks()));
+         Vec3 cameraLocal = Minecraft.getInstance().gameRenderer.getMainCamera().position().subtract(target.getPosition(context.partialTicks()));
          int tint = tintColor(context);
          long now = context.frameTimeMs();
          List<Lightning1TargetEspRenderer.Stroke> strokes = new ArrayList<>();
@@ -57,7 +57,7 @@ public final class Lightning1TargetEspRenderer {
                   emitGlow(stack, consumer, stroke, cameraLocal, 3.2F + glow * 1.8F, Math.min(1.0F, 0.16F * glow));
                }
 
-               provider.draw(ClientPipelines.TARGET_LIGHTNING_GLOW);
+               provider.endBatch(ClientPipelines.TARGET_LIGHTNING_GLOW);
             }
 
             VertexConsumer consumer = provider.getBuffer(ClientPipelines.TARGET_LIGHTNING);
@@ -66,14 +66,14 @@ public final class Lightning1TargetEspRenderer {
                emitRibbon(stack, consumer, stroke, cameraLocal);
             }
 
-            provider.draw(ClientPipelines.TARGET_LIGHTNING);
+            provider.endBatch(ClientPipelines.TARGET_LIGHTNING);
          }
       }
    }
 
-   public static void endBatch(Immediate provider) {
-      provider.draw(ClientPipelines.TARGET_LIGHTNING_GLOW);
-      provider.draw(ClientPipelines.TARGET_LIGHTNING);
+   public static void endBatch(BufferSource provider) {
+      provider.endBatch(ClientPipelines.TARGET_LIGHTNING_GLOW);
+      provider.endBatch(ClientPipelines.TARGET_LIGHTNING);
    }
 
    private static Lightning1TargetEspRenderer.Stroke buildStroke(
@@ -88,7 +88,7 @@ public final class Lightning1TargetEspRenderer {
       float branchSpan = 0.2F + hash(seed + 281) * 0.18F;
       float branchAngle = (hash(seed + 313) - 0.5F) * 2.6F;
       float branchLift = (hash(seed + 349) - 0.5F) * 1.5F;
-      Vec3d[] points = new Vec3d[31];
+      Vec3[] points = new Vec3[31];
       float[] widths = new float[31];
       int[] colors = new int[31];
       float baseWidth = 0.042F * scale * (0.75F + alpha * 0.55F) * (branch ? 0.62F : 1.0F);
@@ -96,7 +96,7 @@ public final class Lightning1TargetEspRenderer {
       for (int i = 0; i <= 30; i++) {
          float t = (float)i / 30.0F;
          float pathT = branch ? branchStart + t * branchSpan * 0.5F : t;
-         Vec3d point = pathPoint(seed, pathT, startAngle, span, swirl, lowY, highY, radius, scale);
+         Vec3 point = pathPoint(seed, pathT, startAngle, span, swirl, lowY, highY, radius, scale);
          if (branch) {
             float pull = (float)Math.pow((double)t, 1.35) * 0.55F * scale;
             float angle = startAngle + span * pathT + branchAngle;
@@ -107,31 +107,31 @@ public final class Lightning1TargetEspRenderer {
          float taper = (float)Math.pow(Math.sin((double)t * Math.PI), 0.45);
          widths[i] = baseWidth * (0.3F + 0.7F * taper);
          float travel = 0.68F + 0.32F * (float)Math.sin((double)t * 17.0 - (double)now * 0.013 + (double)seed);
-         int vertexAlpha = Math.round(MathHelper.clamp(alpha * travel, 0.0F, 1.0F) * 255.0F);
+         int vertexAlpha = Math.round(Mth.clamp(alpha * travel, 0.0F, 1.0F) * 255.0F);
          colors[i] = ColorUtil.withAlpha(tint, vertexAlpha);
       }
 
       return new Lightning1TargetEspRenderer.Stroke(points, widths, colors);
    }
 
-   private static void emitRibbon(MatrixStack stack, VertexConsumer consumer, Lightning1TargetEspRenderer.Stroke stroke, Vec3d cameraLocal) {
+   private static void emitRibbon(PoseStack stack, VertexConsumer consumer, Lightning1TargetEspRenderer.Stroke stroke, Vec3 cameraLocal) {
       TargetEspRibbon.ribbon(stack, consumer, stroke.points(), stroke.widths(), stroke.colors(), cameraLocal);
    }
 
    private static void emitGlow(
-      MatrixStack stack, VertexConsumer consumer, Lightning1TargetEspRenderer.Stroke stroke, Vec3d cameraLocal, float widthScale, float alphaScale
+      PoseStack stack, VertexConsumer consumer, Lightning1TargetEspRenderer.Stroke stroke, Vec3 cameraLocal, float widthScale, float alphaScale
    ) {
       TargetEspRibbon.sprites(stack, consumer, stroke.points(), stroke.widths(), stroke.colors(), cameraLocal, widthScale, alphaScale);
    }
 
-   private static Vec3d pathPoint(int seed, float t, float startAngle, float span, float swirl, float lowY, float highY, float radius, float scale) {
+   private static Vec3 pathPoint(int seed, float t, float startAngle, float span, float swirl, float lowY, float highY, float radius, float scale) {
       float angle = startAngle + span * t + swirl * (float)Math.sin((double)t * Math.PI * 2.0);
       float y = lowY + (highY - lowY) * t;
       float r = radius * (0.82F + 0.3F * (float)Math.sin((double)t * Math.PI));
       r += fractal(seed, t, 3.1F) * 0.21F * scale;
       y += fractal(seed + 53, t, 3.7F) * 0.17F * scale;
       angle += fractal(seed + 29, t, 2.9F) * 0.24F;
-      return new Vec3d(Math.cos((double)angle) * (double)r, (double)y, Math.sin((double)angle) * (double)r);
+      return new Vec3(Math.cos((double)angle) * (double)r, (double)y, Math.sin((double)angle) * (double)r);
    }
 
    private static float fractal(int seed, float t, float frequency) {
@@ -139,27 +139,27 @@ public final class Lightning1TargetEspRenderer {
    }
 
    private static float strokeLife(float phase) {
-      float attack = MathHelper.clamp(phase / 0.07F, 0.0F, 1.0F);
+      float attack = Mth.clamp(phase / 0.07F, 0.0F, 1.0F);
       float decay = (float)Math.pow((double)(1.0F - phase), 1.4);
       return attack * decay;
    }
 
    private static int tintColor(TargetEspRenderContext context) {
-      float hurt = MathHelper.clamp(context.hurtProgress(), 0.0F, 1.0F);
+      float hurt = Mth.clamp(context.hurtProgress(), 0.0F, 1.0F);
       return hurt <= 0.001F ? context.primaryColor() : lerpColor(context.primaryColor(), context.secondaryColor(), hurt * 0.85F);
    }
 
    private static int lerpColor(int from, int to, float progress) {
       return ColorUtil.rgba(
-         Math.round(MathHelper.lerp(progress, (float)ColorUtil.getRed(from), (float)ColorUtil.getRed(to))),
-         Math.round(MathHelper.lerp(progress, (float)ColorUtil.getGreen(from), (float)ColorUtil.getGreen(to))),
-         Math.round(MathHelper.lerp(progress, (float)ColorUtil.getBlue(from), (float)ColorUtil.getBlue(to))),
+         Math.round(Mth.lerp(progress, (float)ColorUtil.getRed(from), (float)ColorUtil.getRed(to))),
+         Math.round(Mth.lerp(progress, (float)ColorUtil.getGreen(from), (float)ColorUtil.getGreen(to))),
+         Math.round(Mth.lerp(progress, (float)ColorUtil.getBlue(from), (float)ColorUtil.getBlue(to))),
          255
       );
    }
 
    private static float noise(int seed, float x) {
-      int cell = MathHelper.floor(x);
+      int cell = Mth.floor(x);
       float local = x - (float)cell;
       local = local * local * (3.0F - 2.0F * local);
       float a = hash(seed * 73856093 + cell);
@@ -177,6 +177,6 @@ public final class Lightning1TargetEspRenderer {
       return (float)(x >>> 8) / 1.6777216E7F;
    }
 
-   private static record Stroke(Vec3d[] points, float[] widths, int[] colors) {
+   private static record Stroke(Vec3[] points, float[] widths, int[] colors) {
    }
 }

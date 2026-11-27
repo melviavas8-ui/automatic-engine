@@ -1,14 +1,14 @@
 package daamky.ua.utils.render;
 
 import java.util.Locale;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 public final class LoadingVisualGuard {
    private LoadingVisualGuard() {
    }
 
-   public static boolean shouldSuppressHud(MinecraftClient client) {
-      return client == null ? true : isLoadingVisual(client.currentScreen) || isLoadingVisual(client.getOverlay());
+   public static boolean shouldSuppressHud(Minecraft client) {
+      return client == null ? true : isLoadingVisual(client.screen) || isLoadingVisual(client.getOverlay());
    }
 
    private static boolean isLoadingVisual(Object visual) {

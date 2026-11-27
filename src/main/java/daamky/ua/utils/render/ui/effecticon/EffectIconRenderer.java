@@ -4,25 +4,25 @@ import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import com.mojang.blaze3d.vertex.VertexFormatElement;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.hud.InGameHud;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.render.TextureSetup;
 import net.minecraft.client.gui.render.state.GuiRenderState;
-import net.minecraft.client.texture.AbstractTexture;
-import net.minecraft.client.texture.Sprite;
-import net.minecraft.client.texture.SpriteAtlasTexture;
-import net.minecraft.client.texture.TextureSetup;
-import net.minecraft.util.Atlases;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.renderer.texture.AbstractTexture;
+import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.data.AtlasIds;
+import net.minecraft.resources.Identifier;
 import org.joml.Matrix3x2f;
 import daamky.ua.access.GuiRenderStateLayerAccessor;
 import daamky.ua.mixin.accessor.GuiGraphicsExtractorAccessor;
@@ -39,7 +39,7 @@ public final class EffectIconRenderer implements AutoCloseable {
       .withLocation(id("pipeline/effect_icon"))
       .withVertexShader(id("ui/effect_icon/effect_icon"))
       .withFragmentShader(id("ui/effect_icon/effect_icon"))
-      .withVertexFormat(EFFECT_ICON_VERTEX_FORMAT, DrawMode.QUADS)
+      .withVertexFormat(EFFECT_ICON_VERTEX_FORMAT, Mode.QUADS)
       .withBlend(BlendFunction.TRANSLUCENT)
       .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
       .withCull(false)
@@ -49,7 +49,7 @@ public final class EffectIconRenderer implements AutoCloseable {
       .build();
    private final Map<Identifier, EffectIconRenderer.CachedTexture> textures = new HashMap<>();
    private final Map<EffectIconRenderer.FrameBatchKey, EffectIconRenderState> frameBatches = new LinkedHashMap<>(16);
-   private DrawContext activeGraphics;
+   private GuiGraphics activeGraphics;
 
    private EffectIconRenderer() {
    }
@@ -77,7 +77,7 @@ public final class EffectIconRenderer implements AutoCloseable {
       }
    }
 
-   public void beginFrame(DrawContext graphics) {
+   public void beginFrame(GuiGraphics graphics) {
       if (this.activeGraphics != graphics) {
          this.frameBatches.clear();
       }
@@ -98,14 +98,14 @@ public final class EffectIconRenderer implements AutoCloseable {
       this.frameBatches.clear();
    }
 
-   private void submit(DrawContext graphics, BuiltEffectIcon icon) {
+   private void submit(GuiGraphics graphics, BuiltEffectIcon icon) {
       if (graphics != null && icon != null && icon.visible()) {
-         Sprite sprite = this.resolveSprite(icon);
+         TextureAtlasSprite sprite = this.resolveSprite(icon);
          if (sprite != null) {
-            EffectIconTexture texture = this.resolveTexture(sprite.getAtlasId());
+            EffectIconTexture texture = this.resolveTexture(sprite.atlasLocation());
             if (texture != null) {
                EffectIconQuad quad = new EffectIconQuad(
-                  icon.x(), icon.y(), icon.size(), sprite.getMinU(), sprite.getMinV(), sprite.getMaxU(), sprite.getMaxV(), normalizeColor(icon.color())
+                  icon.x(), icon.y(), icon.size(), sprite.getU0(), sprite.getV0(), sprite.getU1(), sprite.getV1(), normalizeColor(icon.color())
                );
 
                try {
@@ -120,7 +120,7 @@ public final class EffectIconRenderer implements AutoCloseable {
                      state = new EffectIconRenderState(pose, texture);
                      state.add(quad);
                      this.frameBatches.put(key, state);
-                     guiState.addSimpleElement(state);
+                     guiState.submitGuiElement(state);
                   } else {
                      state.add(quad);
                   }
@@ -131,11 +131,11 @@ public final class EffectIconRenderer implements AutoCloseable {
       }
    }
 
-   private Sprite resolveSprite(BuiltEffectIcon icon) {
-      MinecraftClient minecraft = MinecraftClient.getInstance();
+   private TextureAtlasSprite resolveSprite(BuiltEffectIcon icon) {
+      Minecraft minecraft = Minecraft.getInstance();
       if (minecraft != null && icon.effect() != null) {
-         SpriteAtlasTexture atlas = minecraft.getAtlasManager().getAtlasTexture(Atlases.GUI);
-         Identifier spriteId = InGameHud.getEffectTexture(icon.effect());
+         TextureAtlas atlas = minecraft.getAtlasManager().getAtlasOrThrow(AtlasIds.GUI);
+         Identifier spriteId = Gui.getMobEffectSprite(icon.effect());
          return atlas.getSprite(spriteId);
       } else {
          return null;
@@ -146,15 +146,15 @@ public final class EffectIconRenderer implements AutoCloseable {
       if (atlasLocation == null) {
          return null;
       } else {
-         MinecraftClient minecraft = MinecraftClient.getInstance();
+         Minecraft minecraft = Minecraft.getInstance();
          if (minecraft != null && minecraft.getTextureManager() != null) {
             AbstractTexture texture = minecraft.getTextureManager().getTexture(atlasLocation);
-            if (texture != null && texture.getGlTextureView() != null) {
+            if (texture != null && texture.getTextureView() != null) {
                EffectIconRenderer.CachedTexture cached = this.textures.get(atlasLocation);
                if (cached != null && cached.texture() == texture) {
                   return cached.value();
                } else {
-                  TextureSetup setup = TextureSetup.of(texture.getGlTextureView(), RenderSystem.getSamplerCache().get(FilterMode.NEAREST));
+                  TextureSetup setup = TextureSetup.singleTexture(texture.getTextureView(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
                   EffectIconTexture value = new EffectIconTexture(atlasLocation, setup);
                   this.textures.put(atlasLocation, new EffectIconRenderer.CachedTexture(texture, value));
                   return value;
@@ -173,7 +173,7 @@ public final class EffectIconRenderer implements AutoCloseable {
    }
 
    private static Identifier id(String path) {
-      return Identifier.of("daamky", path);
+      return Identifier.fromNamespaceAndPath("daamky", path);
    }
 
    @Override

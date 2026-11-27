@@ -2,16 +2,16 @@ package daamky.ua.api.module.impl.combat;
 
 import java.util.Locale;
 import java.util.function.Predicate;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.decoration.EndCrystalEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import com.mojang.blaze3d.platform.InputConstants;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.settings.impl.BooleanSetting;
@@ -75,8 +75,8 @@ public class AutoTotem extends Module {
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
-      if (client.player != null && client.interactionManager != null && client.world != null) {
+   public void onTick(Minecraft client) {
+      if (client.player != null && client.gameMode != null && client.level != null) {
          this.updateFallTracking(client);
          if (this.phase != AutoTotem.Phase.READY) {
             this.execute(client);
@@ -109,8 +109,8 @@ public class AutoTotem extends Module {
       this.clearReturnState();
    }
 
-   private void tryEquipTotem(MinecraftClient client) {
-      if (this.phase == AutoTotem.Phase.READY && client.currentScreen == null && !this.isPreferredTotemAlreadyInOffhand(client)) {
+   private void tryEquipTotem(Minecraft client) {
+      if (this.phase == AutoTotem.Phase.READY && client.screen == null && !this.isPreferredTotemAlreadyInOffhand(client)) {
          this.lastEquipAttemptMs = System.currentTimeMillis();
          Slot slot = this.findPreferredTotemSlot(client);
          if (slot != null) {
@@ -118,7 +118,7 @@ public class AutoTotem extends Module {
             if (slotId != -1) {
                this.savedSlot = client.player.getInventory().getSelectedSlot();
                this.totemSlot = slotId;
-               this.previousOffhandStack = client.player.getOffHandStack().copy();
+               this.previousOffhandStack = client.player.getOffhandItem().copy();
                this.previousOffhandSourceSlot = slotId;
                this.needsReturn = !this.previousOffhandStack.isEmpty();
                this.startLegitEquip(client);
@@ -127,22 +127,22 @@ public class AutoTotem extends Module {
       }
    }
 
-   private void startLegitEquip(MinecraftClient client) {
+   private void startLegitEquip(Minecraft client) {
       this.captureKeyStates(client);
       this.phase = AutoTotem.Phase.SLOWING_DOWN;
       this.actionStartTime = System.currentTimeMillis();
       this.keysOverridden = false;
    }
 
-   private void startLegitReturn(MinecraftClient client) {
+   private void startLegitReturn(Minecraft client) {
       this.captureKeyStates(client);
       this.phase = AutoTotem.Phase.RETURN_SLOWING_DOWN;
       this.actionStartTime = System.currentTimeMillis();
       this.keysOverridden = false;
    }
 
-   private void execute(MinecraftClient client) {
-      if (client.player != null && client.interactionManager != null && client.currentScreen == null) {
+   private void execute(Minecraft client) {
+      if (client.player != null && client.gameMode != null && client.screen == null) {
          long elapsed = System.currentTimeMillis() - this.actionStartTime;
          switch (this.phase) {
             case READY:
@@ -222,27 +222,27 @@ public class AutoTotem extends Module {
       }
    }
 
-   private void updateFallTracking(MinecraftClient client) {
-      boolean falling = client.player.getVelocity().y < -0.1 && !client.player.isOnGround() && !client.player.isClimbing() && !client.player.isTouchingWater();
+   private void updateFallTracking(Minecraft client) {
+      boolean falling = client.player.getDeltaMovement().y < -0.1 && !client.player.onGround() && !client.player.onClimbable() && !client.player.isInWater();
       if (falling && !this.wasFalling) {
          this.fallStartY = (float)client.player.getY();
       }
 
-      if (client.player.isOnGround() || client.player.isTouchingWater() || client.player.isClimbing()) {
+      if (client.player.onGround() || client.player.isInWater() || client.player.onClimbable()) {
          this.fallStartY = (float)client.player.getY();
       }
 
       this.wasFalling = falling;
    }
 
-   private boolean shouldEquipTotem(MinecraftClient client) {
+   private boolean shouldEquipTotem(Minecraft client) {
       if (client.player.getHealth() <= this.healthThreshold.getFloat()) {
          return true;
-      } else if (this.triggers.isSelected("Elytra") && client.player.isGliding() && client.player.getHealth() <= this.elytraHealth.getFloat()) {
+      } else if (this.triggers.isSelected("Elytra") && client.player.isFallFlying() && client.player.getHealth() <= this.elytraHealth.getFloat()) {
          return true;
       } else if (this.triggers.isSelected("Fall")
          && this.fallStartY - (float)client.player.getY() >= this.fallHeight.getFloat()
-         && client.player.getVelocity().y < -0.1) {
+         && client.player.getDeltaMovement().y < -0.1) {
          return true;
       } else {
          return this.triggers.isSelected("Mace") && this.checkMaceDanger(client)
@@ -251,10 +251,10 @@ public class AutoTotem extends Module {
       }
    }
 
-   private boolean checkMaceDanger(MinecraftClient client) {
+   private boolean checkMaceDanger(Minecraft client) {
       double maxHorizontal = this.maceDistance.getValue();
 
-      for (PlayerEntity other : client.world.getPlayers()) {
+      for (Player other : client.level.players()) {
          if (other != client.player
             && other.isAlive()
             && !other.isSpectator()
@@ -264,7 +264,7 @@ public class AutoTotem extends Module {
             double dy = other.getY() - client.player.getY();
             if (!(dy < -2.0)) {
                double horizontal = Math.hypot(other.getX() - client.player.getX(), other.getZ() - client.player.getZ());
-               if (!(horizontal > maxHorizontal) && (!this.maceOnlyAir.getValue() || !other.isOnGround())) {
+               if (!(horizontal > maxHorizontal) && (!this.maceOnlyAir.getValue() || !other.onGround())) {
                   return true;
                }
             }
@@ -274,16 +274,16 @@ public class AutoTotem extends Module {
       return false;
    }
 
-   private boolean isHoldingMace(PlayerEntity player) {
-      return player.getMainHandStack().getItem() == Items.MACE || player.getOffHandStack().getItem() == Items.MACE;
+   private boolean isHoldingMace(Player player) {
+      return player.getMainHandItem().getItem() == Items.MACE || player.getOffhandItem().getItem() == Items.MACE;
    }
 
-   private boolean checkCrystalDanger(MinecraftClient client) {
+   private boolean checkCrystalDanger(Minecraft client) {
       double maxHorizontal = this.crystalDistance.getValue();
       double maxVertical = this.crystalHeight.getValue();
 
-      for (Entity entity : client.world.getEntities()) {
-         if (entity instanceof EndCrystalEntity) {
+      for (Entity entity : client.level.entitiesForRendering()) {
+         if (entity instanceof EndCrystal) {
             double vertical = Math.abs(entity.getY() - client.player.getY());
             if (!(vertical > maxVertical)) {
                double horizontal = Math.hypot(entity.getX() - client.player.getX(), entity.getZ() - client.player.getZ());
@@ -297,7 +297,7 @@ public class AutoTotem extends Module {
       return false;
    }
 
-   private Slot findPreferredTotemSlot(MinecraftClient client) {
+   private Slot findPreferredTotemSlot(Minecraft client) {
       Slot plain = this.findSlot(client, this::isPlainTotem);
       if (plain != null) {
          return plain;
@@ -307,11 +307,11 @@ public class AutoTotem extends Module {
       }
    }
 
-   private Slot findSlot(MinecraftClient client, Predicate<ItemStack> predicate) {
-      for (int i = 0; i < client.player.playerScreenHandler.slots.size(); i++) {
-         Slot slot = client.player.playerScreenHandler.getSlot(i);
+   private Slot findSlot(Minecraft client, Predicate<ItemStack> predicate) {
+      for (int i = 0; i < client.player.inventoryMenu.slots.size(); i++) {
+         Slot slot = client.player.inventoryMenu.getSlot(i);
          if (this.isValidInventorySlot(client, i, slot)) {
-            ItemStack stack = slot.getStack();
+            ItemStack stack = slot.getItem();
             if (!stack.isEmpty() && predicate.test(stack)) {
                return slot;
             }
@@ -321,12 +321,12 @@ public class AutoTotem extends Module {
       return null;
    }
 
-   private boolean isValidInventorySlot(MinecraftClient client, int slotId, Slot slot) {
-      return slot != null && slot.inventory == client.player.getInventory() && slotId != 45 && slotId != 46;
+   private boolean isValidInventorySlot(Minecraft client, int slotId, Slot slot) {
+      return slot != null && slot.container == client.player.getInventory() && slotId != 45 && slotId != 46;
    }
 
    private boolean isPlainTotem(ItemStack stack) {
-      return this.isTotemButNotSphere(stack) && !stack.hasEnchantments();
+      return this.isTotemButNotSphere(stack) && !stack.isEnchanted();
    }
 
    private boolean isTotemButNotSphere(ItemStack stack) {
@@ -337,29 +337,29 @@ public class AutoTotem extends Module {
       if (stack.getItem() != Items.TOTEM_OF_UNDYING) {
          return false;
       } else {
-         String name = stack.getName().getString().toLowerCase(Locale.ROOT);
+         String name = stack.getHoverName().getString().toLowerCase(Locale.ROOT);
          return name.contains("sphere");
       }
    }
 
-   private boolean isTotemInOffhand(MinecraftClient client) {
-      return client.player.getOffHandStack().getItem() == Items.TOTEM_OF_UNDYING;
+   private boolean isTotemInOffhand(Minecraft client) {
+      return client.player.getOffhandItem().getItem() == Items.TOTEM_OF_UNDYING;
    }
 
-   private boolean isPreferredTotemAlreadyInOffhand(MinecraftClient client) {
+   private boolean isPreferredTotemAlreadyInOffhand(Minecraft client) {
       if (!this.isTotemInOffhand(client)) {
          return false;
       } else {
-         ItemStack offhand = client.player.getOffHandStack();
+         ItemStack offhand = client.player.getOffhandItem();
          return this.isPlainTotem(offhand) || this.findSlot(client, this::isPlainTotem) == null;
       }
    }
 
-   private boolean attemptReturnPreviousItem(MinecraftClient client) {
+   private boolean attemptReturnPreviousItem(Minecraft client) {
       if (this.returnItem.getValue() && !this.previousOffhandStack.isEmpty() && this.isTotemInOffhand(client)) {
          if (this.isValidMenuSlot(client, this.previousOffhandSourceSlot)) {
-            Slot restoreSlot = client.player.playerScreenHandler.getSlot(this.previousOffhandSourceSlot);
-            if (this.stackMatchesForReturn(restoreSlot.getStack())) {
+            Slot restoreSlot = client.player.inventoryMenu.getSlot(this.previousOffhandSourceSlot);
+            if (this.stackMatchesForReturn(restoreSlot.getItem())) {
                return this.clickOffhandSwap(client, this.previousOffhandSourceSlot);
             }
          }
@@ -379,30 +379,30 @@ public class AutoTotem extends Module {
    private boolean stackMatchesForReturn(ItemStack stack) {
       return stack != null && !stack.isEmpty() && !this.previousOffhandStack.isEmpty()
          ? stack.getItem() == this.previousOffhandStack.getItem()
-            && stack.hasEnchantments() == this.previousOffhandStack.hasEnchantments()
-            && stack.getName().getString().equals(this.previousOffhandStack.getName().getString())
+            && stack.isEnchanted() == this.previousOffhandStack.isEnchanted()
+            && stack.getHoverName().getString().equals(this.previousOffhandStack.getHoverName().getString())
          : false;
    }
 
-   private boolean clickOffhandSwap(MinecraftClient client, int slotId) {
+   private boolean clickOffhandSwap(Minecraft client, int slotId) {
       if (!this.isValidMenuSlot(client, slotId)) {
          return false;
       } else {
-         client.interactionManager.clickSlot(client.player.playerScreenHandler.syncId, slotId, 40, SlotActionType.SWAP, client.player);
+         client.gameMode.handleInventoryMouseClick(client.player.inventoryMenu.containerId, slotId, 40, ClickType.SWAP, client.player);
          return true;
       }
    }
 
-   private boolean isValidMenuSlot(MinecraftClient client, int slotId) {
-      return slotId >= 0 && slotId < client.player.playerScreenHandler.slots.size();
+   private boolean isValidMenuSlot(Minecraft client, int slotId) {
+      return slotId >= 0 && slotId < client.player.inventoryMenu.slots.size();
    }
 
-   private int getMenuSlotId(MinecraftClient client, Slot slot) {
+   private int getMenuSlotId(Minecraft client, Slot slot) {
       if (slot == null) {
          return -1;
       } else {
-         for (int i = 0; i < client.player.playerScreenHandler.slots.size(); i++) {
-            if (client.player.playerScreenHandler.getSlot(i) == slot) {
+         for (int i = 0; i < client.player.inventoryMenu.slots.size(); i++) {
+            if (client.player.inventoryMenu.getSlot(i) == slot) {
                return i;
             }
          }
@@ -411,43 +411,43 @@ public class AutoTotem extends Module {
       }
    }
 
-   private void captureKeyStates(MinecraftClient client) {
-      this.wasForwardPressed = this.isCurrentlyPressed(client, client.options.forwardKey);
-      this.wasBackPressed = this.isCurrentlyPressed(client, client.options.backKey);
-      this.wasLeftPressed = this.isCurrentlyPressed(client, client.options.leftKey);
-      this.wasRightPressed = this.isCurrentlyPressed(client, client.options.rightKey);
-      this.wasJumpPressed = this.isCurrentlyPressed(client, client.options.jumpKey);
-      this.wasSprintPressed = this.isCurrentlyPressed(client, client.options.sprintKey);
+   private void captureKeyStates(Minecraft client) {
+      this.wasForwardPressed = this.isCurrentlyPressed(client, client.options.keyUp);
+      this.wasBackPressed = this.isCurrentlyPressed(client, client.options.keyDown);
+      this.wasLeftPressed = this.isCurrentlyPressed(client, client.options.keyLeft);
+      this.wasRightPressed = this.isCurrentlyPressed(client, client.options.keyRight);
+      this.wasJumpPressed = this.isCurrentlyPressed(client, client.options.keyJump);
+      this.wasSprintPressed = this.isCurrentlyPressed(client, client.options.keySprint);
    }
 
-   private void stopPlayerInput(MinecraftClient client) {
+   private void stopPlayerInput(Minecraft client) {
       client.player.setSprinting(false);
       if (client.options != null) {
-         client.options.forwardKey.setPressed(false);
-         client.options.backKey.setPressed(false);
-         client.options.leftKey.setPressed(false);
-         client.options.rightKey.setPressed(false);
-         client.options.jumpKey.setPressed(false);
-         client.options.sprintKey.setPressed(false);
+         client.options.keyUp.setDown(false);
+         client.options.keyDown.setDown(false);
+         client.options.keyLeft.setDown(false);
+         client.options.keyRight.setDown(false);
+         client.options.keyJump.setDown(false);
+         client.options.keySprint.setDown(false);
          this.keysOverridden = true;
       }
    }
 
-   private void restoreKeyStates(MinecraftClient client) {
+   private void restoreKeyStates(Minecraft client) {
       if (this.keysOverridden && client.options != null) {
-         client.options.forwardKey.setPressed(this.wasForwardPressed && this.isCurrentlyPressed(client, client.options.forwardKey));
-         client.options.backKey.setPressed(this.wasBackPressed && this.isCurrentlyPressed(client, client.options.backKey));
-         client.options.leftKey.setPressed(this.wasLeftPressed && this.isCurrentlyPressed(client, client.options.leftKey));
-         client.options.rightKey.setPressed(this.wasRightPressed && this.isCurrentlyPressed(client, client.options.rightKey));
-         client.options.jumpKey.setPressed(this.wasJumpPressed && this.isCurrentlyPressed(client, client.options.jumpKey));
-         client.options.sprintKey.setPressed(this.wasSprintPressed && this.isCurrentlyPressed(client, client.options.sprintKey));
+         client.options.keyUp.setDown(this.wasForwardPressed && this.isCurrentlyPressed(client, client.options.keyUp));
+         client.options.keyDown.setDown(this.wasBackPressed && this.isCurrentlyPressed(client, client.options.keyDown));
+         client.options.keyLeft.setDown(this.wasLeftPressed && this.isCurrentlyPressed(client, client.options.keyLeft));
+         client.options.keyRight.setDown(this.wasRightPressed && this.isCurrentlyPressed(client, client.options.keyRight));
+         client.options.keyJump.setDown(this.wasJumpPressed && this.isCurrentlyPressed(client, client.options.keyJump));
+         client.options.keySprint.setDown(this.wasSprintPressed && this.isCurrentlyPressed(client, client.options.keySprint));
          this.keysOverridden = false;
       }
    }
 
-   private boolean isCurrentlyPressed(MinecraftClient client, KeyBinding key) {
+   private boolean isCurrentlyPressed(Minecraft client, KeyMapping key) {
       return client.getWindow() != null && key != null
-         ? InputUtil.isKeyPressed(client.getWindow(), InputUtil.fromTranslationKey(key.getBoundKeyTranslationKey()).getCode())
+         ? InputConstants.isKeyDown(client.getWindow(), InputConstants.getKey(key.saveString()).getValue())
          : false;
    }
 
@@ -458,7 +458,7 @@ public class AutoTotem extends Module {
    }
 
    private void resetState() {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (client.player != null) {
          this.restoreKeyStates(client);
       }

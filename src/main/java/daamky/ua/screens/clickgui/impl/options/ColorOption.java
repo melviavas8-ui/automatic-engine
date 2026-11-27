@@ -1,8 +1,8 @@
 package daamky.ua.screens.clickgui.impl.options;
 
 import java.awt.Color;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.MouseButtonEvent;
 import daamky.ua.api.settings.impl.ColorSetting;
 import daamky.ua.utils.render.animation.Easings;
 import daamky.ua.utils.render.animation.SmoothAnimation;
@@ -50,7 +50,7 @@ public class ColorOption extends ClickGuiOption {
    }
 
    @Override
-   protected void renderControl(DrawContext graphics, float x, float y, float width, float height, float scale, float alpha) {
+   protected void renderControl(GuiGraphics graphics, float x, float y, float width, float height, float scale, float alpha) {
       if (this.dragMode == 0) {
          this.applyColor(this.setting.getValue());
       }
@@ -91,7 +91,7 @@ public class ColorOption extends ClickGuiOption {
    }
 
    @Override
-   public void renderOverlay(DrawContext graphics) {
+   public void renderOverlay(GuiGraphics graphics) {
       this.openAnimation.update();
       float progress = this.openAnimation.get();
       if (!(progress <= 0.01F)) {
@@ -150,7 +150,7 @@ public class ColorOption extends ClickGuiOption {
    }
 
    @Override
-   public boolean mouseClicked(Click event, boolean doubled) {
+   public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
       if (event.button() != 0) {
          return false;
       } else {
@@ -191,7 +191,7 @@ public class ColorOption extends ClickGuiOption {
    }
 
    @Override
-   public boolean wantsMousePriority(Click event) {
+   public boolean wantsMousePriority(MouseButtonEvent event) {
       return this.isPopupVisible() && this.hovered(event.x(), event.y(), this.popupX, this.popupY, this.popupWidth, this.popupHeight);
    }
 
@@ -201,7 +201,7 @@ public class ColorOption extends ClickGuiOption {
    }
 
    @Override
-   public boolean mouseReleased(Click event) {
+   public boolean mouseReleased(MouseButtonEvent event) {
       if (this.dragMode == 0) {
          return false;
       } else {
@@ -211,7 +211,7 @@ public class ColorOption extends ClickGuiOption {
    }
 
    @Override
-   public boolean mouseDragged(Click event, double dragX, double dragY) {
+   public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
       if (this.dragMode == 0) {
          return false;
       } else {

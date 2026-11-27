@@ -3,11 +3,11 @@ package daamky.ua.api.module.impl.visual;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.gui.screen.ingame.InventoryScreen;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.option.Perspective;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.player.Player;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.DrawEvent;
 import daamky.ua.api.events.types.EventPriority;
@@ -46,17 +46,17 @@ public class Arrows extends Module {
       priority = EventPriority.MONITOR
    )
    private void onDraw(DrawEvent event) {
-      if (mc.player != null && mc.world != null && mc.options.getPerspective() == Perspective.FIRST_PERSON) {
+      if (mc.player != null && mc.level != null && mc.options.getCameraType() == CameraType.FIRST_PERSON) {
          this.distanceAnimation.update();
          this.yawAnimation.update();
          this.pitchAnimation.update();
          this.cameraYawAnimation.update();
          float size = 45.0F + this.arrowsDistance.getFloat();
-         if (mc.currentScreen instanceof InventoryScreen) {
+         if (mc.screen instanceof InventoryScreen) {
             size += 80.0F;
          }
 
-         if (mc.player.isSneaking()) {
+         if (mc.player.isShiftKeyDown()) {
             size -= 20.0F;
          }
 
@@ -64,18 +64,18 @@ public class Arrows extends Module {
             size += 10.0F;
          }
 
-         float strafeInput = mc.player.input.getMovementInput().x;
-         float forwardInput = mc.player.input.getMovementInput().y;
+         float strafeInput = mc.player.input.getMoveVector().x;
+         float forwardInput = mc.player.input.getMoveVector().y;
          this.yawAnimation.run((double)(strafeInput * 5.0F), 0.75, Easings.EXPO_OUT, true);
          this.pitchAnimation.run((double)(forwardInput * 5.0F), 0.75, Easings.EXPO_OUT, true);
-         this.cameraYawAnimation.run((double)mc.gameRenderer.getCamera().getYaw(), 0.75, Easings.EXPO_OUT, true);
+         this.cameraYawAnimation.run((double)mc.gameRenderer.getMainCamera().yRot(), 0.75, Easings.EXPO_OUT, true);
          this.distanceAnimation.run((double)size, 1.0, Easings.EXPO_OUT, true);
 
          for (Arrows.Arrow arrow : this.arrows) {
             arrow.active = false;
          }
 
-         for (AbstractClientPlayerEntity player : mc.world.getPlayers()) {
+         for (AbstractClientPlayer player : mc.level.players()) {
             if (this.isValidPlayer(player)) {
                Arrows.Arrow arrow = this.findArrow(player);
                if (arrow == null) {
@@ -98,33 +98,33 @@ public class Arrows extends Module {
             }
          }
 
-         int screenWidth = mc.getWindow().getScaledWidth();
-         int screenHeight = mc.getWindow().getScaledHeight();
+         int screenWidth = mc.getWindow().getGuiScaledWidth();
+         int screenHeight = mc.getWindow().getGuiScaledHeight();
          float centerX = (float)screenWidth / 2.0F;
          float centerY = (float)screenHeight / 2.0F;
          double cameraYaw = this.cameraYawAnimation.getValue();
-         double cos = (double)MathHelper.cos((double)((float)(cameraYaw * (Math.PI / 180.0))));
-         double sin = (double)MathHelper.sin((double)((float)(cameraYaw * (Math.PI / 180.0))));
+         double cos = (double)Mth.cos((double)((float)(cameraYaw * (Math.PI / 180.0))));
+         double sin = (double)Mth.sin((double)((float)(cameraYaw * (Math.PI / 180.0))));
 
          for (Arrows.Arrow arrow : this.arrows) {
             arrow.fade.update();
             float alpha = arrow.fade.get();
             if (!(alpha <= 0.01F)) {
-               PlayerEntity playerx = arrow.player;
-               double playerX = MathHelper.lerp((double)event.getPartialTicks(), playerx.lastRenderX, playerx.getX())
-                  - mc.gameRenderer.getCamera().getCameraPos().x;
-               double playerZ = MathHelper.lerp((double)event.getPartialTicks(), playerx.lastRenderZ, playerx.getZ())
-                  - mc.gameRenderer.getCamera().getCameraPos().z;
+               Player playerx = arrow.player;
+               double playerX = Mth.lerp((double)event.getPartialTicks(), playerx.xOld, playerx.getX())
+                  - mc.gameRenderer.getMainCamera().position().x;
+               double playerZ = Mth.lerp((double)event.getPartialTicks(), playerx.zOld, playerx.getZ())
+                  - mc.gameRenderer.getMainCamera().position().z;
                double rotY = -(playerZ * cos - playerX * sin);
                double rotX = -(playerX * cos + playerZ * sin);
                float angle = (float)(Math.atan2(rotY, rotX) * 180.0 / Math.PI);
                float x = (float)(
-                  this.distanceAnimation.getValue() * (double)alpha * (double)MathHelper.cos((double)((float)Math.toRadians((double)angle)))
+                  this.distanceAnimation.getValue() * (double)alpha * (double)Mth.cos((double)((float)Math.toRadians((double)angle)))
                      + (double)centerX
                      + this.yawAnimation.getValue()
                );
                float y = (float)(
-                  this.distanceAnimation.getValue() * (double)alpha * (double)MathHelper.sin((double)((float)Math.toRadians((double)angle)))
+                  this.distanceAnimation.getValue() * (double)alpha * (double)Mth.sin((double)((float)Math.toRadians((double)angle)))
                      + (double)centerY
                      + this.pitchAnimation.getValue()
                );
@@ -142,7 +142,7 @@ public class Arrows extends Module {
       Render2D.image("daamky:textures/particles/ghost-triangle.png", x - halfSize, y - halfSize, size, 0.0F, angle + 90.0F, x, y, color);
    }
 
-   private Arrows.Arrow findArrow(PlayerEntity player) {
+   private Arrows.Arrow findArrow(Player player) {
       for (Arrows.Arrow arrow : this.arrows) {
          if (arrow.player == player) {
             return arrow;
@@ -152,20 +152,20 @@ public class Arrows extends Module {
       return null;
    }
 
-   private boolean isValidPlayer(PlayerEntity player) {
+   private boolean isValidPlayer(Player player) {
       return player != mc.player && !player.isRemoved();
    }
 
    private boolean isMoving() {
-      return mc.player.input.getMovementInput().y != 0.0F || mc.player.input.getMovementInput().x != 0.0F;
+      return mc.player.input.getMoveVector().y != 0.0F || mc.player.input.getMoveVector().x != 0.0F;
    }
 
    private static final class Arrow {
-      private final PlayerEntity player;
+      private final Player player;
       private final SmoothAnimation fade = new SmoothAnimation();
       private boolean active;
 
-      private Arrow(PlayerEntity player) {
+      private Arrow(Player player) {
          this.player = player;
          this.fade.set(0.0);
       }

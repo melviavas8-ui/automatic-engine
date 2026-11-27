@@ -1,18 +1,18 @@
 package daamky.ua.api.module.impl.misc;
 
 import java.util.Locale;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket.Action;
-import net.minecraft.registry.tag.BlockTags;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket.Action;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.module.impl.combat.aura.util.StopWatch;
@@ -47,13 +47,13 @@ public final class AutoLes extends Module {
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
+   public void onTick(Minecraft client) {
       if (!Network.isReallyWorld()) {
          this.setEnabled(false);
       } else {
-         ClientPlayerEntity player = client.player;
-         ClientWorld level = client.world;
-         ClientPlayNetworkHandler connection = client.getNetworkHandler();
+         LocalPlayer player = client.player;
+         ClientLevel level = client.level;
+         ClientPacketListener connection = client.getConnection();
          if (player != null && level != null && connection != null) {
             this.runRestartTimer();
             if (this.isEnabled()) {
@@ -69,8 +69,8 @@ public final class AutoLes extends Module {
 
    @Override
    protected void onEnable() {
-      MinecraftClient client = MinecraftClient.getInstance();
-      if (Network.isReallyWorld() && client.player != null && client.world != null && client.getNetworkHandler() != null) {
+      Minecraft client = Minecraft.getInstance();
+      if (Network.isReallyWorld() && client.player != null && client.level != null && client.getConnection() != null) {
          this.resetTimers();
          this.resetBreakState();
       } else {
@@ -94,27 +94,27 @@ public final class AutoLes extends Module {
       }
    }
 
-   private void runSell(ClientPlayerEntity player) {
+   private void runSell(LocalPlayer player) {
       if (this.sellWatch.finished(70500.0)) {
-         player.networkHandler.sendChatCommand("sellwood");
+         player.connection.sendCommand("sellwood");
          this.sellWatch.reset();
       }
    }
 
-   private void runPay(ClientPlayerEntity player) {
+   private void runPay(LocalPlayer player) {
       if (this.autoPay.getValue()) {
          String targetName = this.payName.getValue() == null ? "" : this.payName.getValue().trim();
          if (!targetName.isEmpty()) {
             if (this.payWatch.finished(this.delay.getValue() * 500.0 + 200.0)) {
-               player.networkHandler.sendChatCommand("pay " + targetName + " " + this.payAmount.getValue().intValue());
+               player.connection.sendCommand("pay " + targetName + " " + this.payAmount.getValue().intValue());
                this.payWatch.reset();
             }
          }
       }
    }
 
-   private void runNuker(ClientPlayerEntity player, ClientWorld level, ClientPlayNetworkHandler connection) {
-      BlockPos target = this.resolveTarget(player.getBlockPos(), level);
+   private void runNuker(LocalPlayer player, ClientLevel level, ClientPacketListener connection) {
+      BlockPos target = this.resolveTarget(player.blockPosition(), level);
       if (target == null) {
          this.currentTarget = null;
          this.clearBreakingState();
@@ -145,7 +145,7 @@ public final class AutoLes extends Module {
                this.currentTarget = null;
                this.clearBreakingState(false);
             } else {
-               player.swingHand(Hand.MAIN_HAND);
+               player.swing(InteractionHand.MAIN_HAND);
             }
          } else {
             this.currentTarget = null;
@@ -154,12 +154,12 @@ public final class AutoLes extends Module {
       }
    }
 
-   private BlockPos resolveTarget(BlockPos playerPos, ClientWorld level) {
+   private BlockPos resolveTarget(BlockPos playerPos, ClientLevel level) {
       return this.currentTarget != null && this.isValidWoodTarget(this.currentTarget, level) ? this.currentTarget : this.findNearestWood(playerPos, level);
    }
 
-   private BlockPos findNearestWood(BlockPos playerPos, ClientWorld level) {
-      ClientPlayerEntity player = MinecraftClient.getInstance().player;
+   private BlockPos findNearestWood(BlockPos playerPos, ClientLevel level) {
+      LocalPlayer player = Minecraft.getInstance().player;
       if (player == null) {
          return null;
       } else {
@@ -169,9 +169,9 @@ public final class AutoLes extends Module {
          for (int x = -6; x <= 6; x++) {
             for (int y = -6; y <= 6; y++) {
                for (int z = -6; z <= 6; z++) {
-                  BlockPos position = playerPos.add(x, y, z);
+                  BlockPos position = playerPos.offset(x, y, z);
                   if (this.isValidWoodTarget(position, level)) {
-                     double distance = player.squaredDistanceTo(Vec3d.ofCenter(position));
+                     double distance = player.distanceToSqr(Vec3.atCenterOf(position));
                      if (distance < closestDistance) {
                         closest = position;
                         closestDistance = distance;
@@ -185,7 +185,7 @@ public final class AutoLes extends Module {
       }
    }
 
-   private boolean isValidWoodTarget(BlockPos position, ClientWorld level) {
+   private boolean isValidWoodTarget(BlockPos position, ClientLevel level) {
       if (!this.isWithinRange(position)) {
          return false;
       } else {
@@ -195,21 +195,21 @@ public final class AutoLes extends Module {
    }
 
    private boolean isWoodState(BlockState state) {
-      String name = state.getBlock().getTranslationKey().toLowerCase(Locale.ROOT);
-      return name.contains("log") || name.contains("wood") || name.contains("stem") || state.isIn(BlockTags.LOGS);
+      String name = state.getBlock().getDescriptionId().toLowerCase(Locale.ROOT);
+      return name.contains("log") || name.contains("wood") || name.contains("stem") || state.is(BlockTags.LOGS);
    }
 
-   private boolean canBreak(BlockState state, ClientWorld level, BlockPos position) {
-      return !state.isAir() && state.getHardness(level, position) >= 0.0F;
+   private boolean canBreak(BlockState state, ClientLevel level, BlockPos position) {
+      return !state.isAir() && state.getDestroySpeed(level, position) >= 0.0F;
    }
 
-   private void sendBreakPacket(ClientPlayNetworkHandler connection, Action action, BlockPos target) {
-      connection.sendPacket(new PlayerActionC2SPacket(action, target, Direction.UP));
+   private void sendBreakPacket(ClientPacketListener connection, Action action, BlockPos target) {
+      connection.send(new ServerboundPlayerActionPacket(action, target, Direction.UP));
    }
 
    private boolean isWithinRange(BlockPos position) {
-      ClientPlayerEntity player = MinecraftClient.getInstance().player;
-      return player != null && player.squaredDistanceTo(Vec3d.ofCenter(position)) <= 36.0;
+      LocalPlayer player = Minecraft.getInstance().player;
+      return player != null && player.distanceToSqr(Vec3.atCenterOf(position)) <= 36.0;
    }
 
    private void clearBreakingState() {
@@ -217,7 +217,7 @@ public final class AutoLes extends Module {
    }
 
    private void clearBreakingState(boolean abort) {
-      ClientPlayNetworkHandler connection = MinecraftClient.getInstance().getNetworkHandler();
+      ClientPacketListener connection = Minecraft.getInstance().getConnection();
       if (abort && this.breakingTarget != null && connection != null) {
          this.sendBreakPacket(connection, Action.ABORT_DESTROY_BLOCK, this.breakingTarget);
       }

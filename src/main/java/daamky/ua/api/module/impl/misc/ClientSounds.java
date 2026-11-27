@@ -1,6 +1,5 @@
 package daamky.ua.api.module.impl.misc;
 
-import net.minecraft.sound.SoundEvent;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.ModuleToggleEvent;
 import daamky.ua.api.module.Module;
@@ -9,6 +8,7 @@ import daamky.ua.api.settings.impl.BooleanSetting;
 import daamky.ua.api.settings.impl.ModeSetting;
 import daamky.ua.api.settings.impl.NumberSetting;
 import daamky.ua.utils.sounds.SoundManager;
+import net.minecraft.sounds.SoundEvent;
 
 public final class ClientSounds extends Module {
    private static final long CLICK_GUI_SOUND_DEBOUNCE_MS = 120L;

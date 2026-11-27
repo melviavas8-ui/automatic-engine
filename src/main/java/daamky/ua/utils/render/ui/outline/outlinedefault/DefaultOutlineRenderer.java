@@ -5,16 +5,16 @@ import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.resources.Identifier;
 import org.joml.Matrix3x2f;
 import org.lwjgl.system.MemoryStack;
 import daamky.ua.mixin.accessor.GuiGraphicsExtractorAccessor;
@@ -31,7 +31,7 @@ public final class DefaultOutlineRenderer implements AutoCloseable {
       .withLocation(id("pipeline/outline_default"))
       .withVertexShader(id("ui/shared/outline_quad"))
       .withFragmentShader(id("ui/outline_default/outline_default"))
-      .withVertexFormat(VertexFormats.POSITION_COLOR_LINE_WIDTH, DrawMode.QUADS)
+      .withVertexFormat(DefaultVertexFormat.POSITION_COLOR_LINE_WIDTH, Mode.QUADS)
       .withBlend(BlendFunction.TRANSLUCENT)
       .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
       .withCull(false)
@@ -40,7 +40,7 @@ public final class DefaultOutlineRenderer implements AutoCloseable {
       .withUniform("OutlineParamsArray", UniformType.UNIFORM_BUFFER)
       .build();
    private final List<BuiltOutline> preparedOutlines = new ArrayList<>(128);
-   private DrawContext activeGraphics;
+   private GuiGraphics activeGraphics;
    private GpuBuffer paramsBuffer;
    private boolean paramsDirty = true;
 
@@ -70,11 +70,11 @@ public final class DefaultOutlineRenderer implements AutoCloseable {
       }
    }
 
-   public void beginFrame(DrawContext graphics) {
+   public void beginFrame(GuiGraphics graphics) {
       this.activeGraphics = graphics;
    }
 
-   public void draw(DrawContext graphics, BuiltOutline outline) {
+   public void draw(GuiGraphics graphics, BuiltOutline outline) {
       this.beginFrame(graphics);
       this.enqueue(outline);
       this.flush();
@@ -150,14 +150,14 @@ public final class DefaultOutlineRenderer implements AutoCloseable {
       }
    }
 
-   private void submit(DrawContext graphics, BuiltOutline outline) {
+   private void submit(GuiGraphics graphics, BuiltOutline outline) {
       if (graphics != null && outline != null && outline.visible()) {
          try {
             BuiltOutline normalized = this.normalize(outline);
             Matrix3x2f pose = Render2DCoordinateSpace.pose(graphics);
             ((GuiGraphicsExtractorAccessor)graphics)
                .daamky$getGuiRenderState()
-               .addSimpleElement(new DefaultOutlineRenderState(pose, normalized, ScissorUtil.current()));
+               .submitGuiElement(new DefaultOutlineRenderState(pose, normalized, ScissorUtil.current()));
          } catch (RuntimeException var5) {
          }
       }
@@ -294,7 +294,7 @@ public final class DefaultOutlineRenderer implements AutoCloseable {
    }
 
    private static Identifier id(String path) {
-      return Identifier.of("daamky", path);
+      return Identifier.fromNamespaceAndPath("daamky", path);
    }
 
    @Override

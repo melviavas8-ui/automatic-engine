@@ -1,11 +1,11 @@
 package daamky.ua.api.module.impl.combat.aura.rotations;
 
 import java.security.SecureRandom;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.api.module.impl.combat.aura.impl.RotateConstructor;
 public class SpookyTime3Angle extends RotateConstructor {
@@ -23,20 +23,20 @@ public class SpookyTime3Angle extends RotateConstructor {
     }
 
     @Override
-    public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3d aimPoint, Entity entity) {
+    public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3 aimPoint, Entity entity) {
         if (entity == null || targetAngle == null) return currentAngle.adjustSensitivity();
 
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return currentAngle.adjustSensitivity();
 
         // Защита от повторного вызова в одном тике
-        int tick = mc.player.age;
+        int tick = mc.player.tickCount;
         if (lastTick == tick) return currentAngle.adjustSensitivity();
         lastTick = tick;
 
-        Vec3d eyePos = mc.player.getEyePos();
-        float margin = entity.getTargetingMargin();          // в оригинале было getPickRadius()
-        Box box = entity.getBoundingBox().expand(margin);
+        Vec3 eyePos = mc.player.getEyePosition();
+        float margin = entity.getPickRadius();          // в оригинале было getPickRadius()
+        AABB box = entity.getBoundingBox().inflate(margin);
 
         // Если мы уже внутри хитбокса — не двигаемся
         if (box.contains(eyePos)) return currentAngle.adjustSensitivity();
@@ -48,8 +48,8 @@ public class SpookyTime3Angle extends RotateConstructor {
         float tgtYaw   = targetAngle.getYaw();
         float tgtPitch = targetAngle.getPitch();
 
-        float yawDiff   = MathHelper.wrapDegrees(tgtYaw - curYaw);
-        float pitchDiff = MathHelper.wrapDegrees(tgtPitch - curPitch);
+        float yawDiff   = Mth.wrapDegrees(tgtYaw - curYaw);
+        float pitchDiff = Mth.wrapDegrees(tgtPitch - curPitch);
 
         // Попадаем ли лучом в box прямо сейчас?
         boolean hit = intersects(eyePos, box, curYaw, curPitch, range);
@@ -72,10 +72,10 @@ public class SpookyTime3Angle extends RotateConstructor {
         smoothedPitch += (randomPitch - smoothedPitch) * 0.7f;
 
         newYaw   += smoothedYaw;
-        newPitch  = MathHelper.clamp(newPitch + smoothedPitch, -90.0f, 90.0f);
+        newPitch  = Mth.clamp(newPitch + smoothedPitch, -90.0f, 90.0f);
 
         // GCD-квантование через mouse sensitivity (как в оригинале)
-        double sensitivity = mc.options.getMouseSensitivity().getValue();
+        double sensitivity = mc.options.sensitivity().get();
         float f   = (float) (sensitivity * 0.6 + 0.2);
         float gcd = f * f * f * 8.0f * 0.15f;
 
@@ -103,16 +103,16 @@ public class SpookyTime3Angle extends RotateConstructor {
      * Портированный yd.intersects():
      * проверяет, попадает ли луч (eye → look * maxDist) в box
      */
-    private static boolean intersects(Vec3d eye, Box box, float yaw, float pitch, double maxDist) {
+    private static boolean intersects(Vec3 eye, AABB box, float yaw, float pitch, double maxDist) {
         float pitchRad = (float) ( pitch * Math.PI / 180.0);
         float yawRad   = (float) (-yaw   * Math.PI / 180.0);
 
-        double dx =  MathHelper.sin(yawRad) * MathHelper.cos(pitchRad);
-        double dy = -MathHelper.sin(pitchRad);
-        double dz =  MathHelper.cos(yawRad) * MathHelper.cos(pitchRad);
+        double dx =  Mth.sin(yawRad) * Mth.cos(pitchRad);
+        double dy = -Mth.sin(pitchRad);
+        double dz =  Mth.cos(yawRad) * Mth.cos(pitchRad);
 
-        Vec3d look = new Vec3d(dx, dy, dz);
-        if (!box.contains(eye) && box.raycast(eye, eye.add(look.multiply(maxDist))).isEmpty()) {
+        Vec3 look = new Vec3(dx, dy, dz);
+        if (!box.contains(eye) && box.clip(eye, eye.add(look.scale(maxDist))).isEmpty()) {
             return false;
         }
         return true;
@@ -128,7 +128,7 @@ public class SpookyTime3Angle extends RotateConstructor {
     }
 
     @Override
-    public Vec3d randomValue() {
-        return Vec3d.ZERO;
+    public Vec3 randomValue() {
+        return Vec3.ZERO;
     }
 }

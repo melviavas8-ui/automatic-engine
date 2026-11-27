@@ -1,7 +1,7 @@
 package daamky.ua.api.events.impl;
 
-import net.minecraft.block.Block;
 import daamky.ua.api.events.CancellableEvent;
+import net.minecraft.world.level.block.Block;
 
 public final class PlayerCollisionEvent extends CancellableEvent {
    private final Block block;

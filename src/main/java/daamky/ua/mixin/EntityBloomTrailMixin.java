@@ -1,23 +1,23 @@
 package daamky.ua.mixin;
 
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.entity.EntityRenderManager;
-import net.minecraft.client.render.entity.state.EntityRenderState;
-import net.minecraft.client.render.state.CameraRenderState;
-import net.minecraft.client.util.math.MatrixStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import com.mojang.blaze3d.vertex.PoseStack;
 import daamky.ua.utils.render.post.entitybloom.EntityBloomWorldTrail;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
+import net.minecraft.client.renderer.entity.state.EntityRenderState;
+import net.minecraft.client.renderer.state.CameraRenderState;
 
-@Mixin({EntityRenderManager.class})
+@Mixin({EntityRenderDispatcher.class})
 public abstract class EntityBloomTrailMixin {
    public EntityBloomTrailMixin() {
    }
 
    @Inject(
-      method = {"render"},
+      method = {"submit"},
       at = {@At("TAIL")}
    )
    private <S extends EntityRenderState> void daamky$submitWorldTrail(
@@ -26,11 +26,11 @@ public abstract class EntityBloomTrailMixin {
       double relativeX,
       double relativeY,
       double relativeZ,
-      MatrixStack poseStack,
-      OrderedRenderCommandQueue collector,
+      PoseStack poseStack,
+      SubmitNodeCollector collector,
       CallbackInfo ci
    ) {
-      EntityBloomWorldTrail.submitGhosts((EntityRenderManager)(Object)this, state, cameraState, relativeX, relativeY, relativeZ, poseStack, collector);
+      EntityBloomWorldTrail.submitGhosts((EntityRenderDispatcher)(Object)this, state, cameraState, relativeX, relativeY, relativeZ, poseStack, collector);
    }
 }
 

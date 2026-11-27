@@ -16,7 +16,7 @@ import daamky.ua.api.module.impl.combat.ElyaysxAutoExplosion;
 import lightning.sdk.LightningSDK;
 import lightning.sdk.annotation.LgVM;
 import lightning.sdk.annotation.LgVM.Level;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.bus.EventBus;
 import daamky.ua.api.events.impl.TickEvent;
@@ -233,7 +233,7 @@ public final class ModuleManager {
 
    @SubscribeEvent
    private void onTick(TickEvent.Post event) {
-      MinecraftClient client = event.getClient();
+      Minecraft client = event.getClient();
       Network.tick();
       this.handleBinds(client);
 
@@ -348,9 +348,9 @@ public final class ModuleManager {
       }
    }
 
-   private void handleBinds(MinecraftClient client) {
-      if (client != null && client.getWindow() != null && client.currentScreen == null) {
-         long handle = client.getWindow().getHandle();
+   private void handleBinds(Minecraft client) {
+      if (client != null && client.getWindow() != null && client.screen == null) {
+         long handle = client.getWindow().handle();
 
          for (Module module : this.modules) {
             KeyBind bind = module.getBind();

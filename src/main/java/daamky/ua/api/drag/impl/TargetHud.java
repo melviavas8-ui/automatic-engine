@@ -3,9 +3,9 @@ package daamky.ua.api.drag.impl;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import daamky.ua.api.module.impl.combat.AuraModule;
 import daamky.ua.api.module.impl.visual.ESP;
 import daamky.ua.api.module.impl.visual.Hud;
@@ -128,7 +128,7 @@ public final class TargetHud extends HudPanel {
       float nameFadeWidth = Math.min(8.0F, Math.max(2.0F, nameClipWidth * 0.35F));
       float nameFadeStrength = Render2D.textWidth(TEXT_FONT, name, nameSize) > nameClipWidth + 0.5F ? 0.88F : 0.0F;
       HudRenderCompat.background(state.x, state.y, state.width, state.height, 6.0F, 15.0F, 1.2F, ColorUtil.rgba(0, 0, 0, Math.round(255.0F * state.alpha)));
-      if (state.target instanceof AbstractClientPlayerEntity player) {
+      if (state.target instanceof AbstractClientPlayer player) {
          String texture = player.getSkin().body().texturePath().toString();
          int imageAlpha = Math.round(255.0F * state.alpha);
          if (imageAlpha > 3) {
@@ -143,7 +143,7 @@ public final class TargetHud extends HudPanel {
          }
       } else {
          String targetName = state.target.getName().getString();
-         String letter = state.target instanceof PlayerEntity && !targetName.isEmpty() ? targetName.substring(0, 1).toUpperCase() : "?";
+         String letter = state.target instanceof Player && !targetName.isEmpty() ? targetName.substring(0, 1).toUpperCase() : "?";
          float tw = Render2D.textWidth(TITLE_FONT, letter, 10.0F);
          int baseHeadBackColor = ColorUtil.rgba(128, 128, 128, Math.round(24.0F * state.alpha));
          int hurtHeadBackColor = ColorUtil.rgba(255, 70, 70, Math.round(58.0F * state.alpha));
@@ -292,7 +292,7 @@ public final class TargetHud extends HudPanel {
       if (AuraModule.target != null && AuraModule.target.isAlive()) {
          return AuraModule.target;
       } else {
-         if (this.mc.targetedEntity instanceof LivingEntity living && living.isAlive()) {
+         if (this.mc.crosshairPickEntity instanceof LivingEntity living && living.isAlive()) {
             return living;
          }
 

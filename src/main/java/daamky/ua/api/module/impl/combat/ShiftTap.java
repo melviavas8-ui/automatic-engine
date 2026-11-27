@@ -1,21 +1,21 @@
 package daamky.ua.api.module.impl.combat;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.client.util.InputUtil.Key;
 import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.blaze3d.platform.InputConstants.Key;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.AttackEvent;
 import daamky.ua.api.events.impl.TickEvent;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
 
 public final class ShiftTap extends Module {
    private long shiftTapEndTime = 0L;
    private boolean isModuleControllingSneak = false;
    private int shiftTapDuration = 1;
-   private final MinecraftClient mc = MinecraftClient.getInstance();
+   private final Minecraft mc = Minecraft.getInstance();
 
    public ShiftTap() {
       super("Shift Tap", "Автоматический шифт в бою", ModuleCategory.COMBAT);
@@ -24,14 +24,14 @@ public final class ShiftTap extends Module {
    private void startShiftTap() {
       this.shiftTapEndTime = System.currentTimeMillis() + (long)this.shiftTapDuration;
       if (!this.isModuleControllingSneak) {
-         this.mc.options.sneakKey.setPressed(true);
+         this.mc.options.keyShift.setDown(true);
          this.isModuleControllingSneak = true;
       }
    }
 
    private void stopShiftTap() {
       if (this.isModuleControllingSneak) {
-         this.mc.options.sneakKey.setPressed(this.isKeyPhysicallyPressed(this.mc.options.sneakKey));
+         this.mc.options.keyShift.setDown(this.isKeyPhysicallyPressed(this.mc.options.keyShift));
          this.isModuleControllingSneak = false;
       }
    }
@@ -59,16 +59,16 @@ public final class ShiftTap extends Module {
       this.stopShiftTap();
    }
 
-   private boolean isKeyPhysicallyPressed(KeyBinding key) {
+   private boolean isKeyPhysicallyPressed(KeyMapping key) {
       if (this.mc.getWindow() == null) {
          return false;
       } else {
-         Key inputKey = InputUtil.fromTranslationKey(key.getBoundKeyTranslationKey());
-         long windowHandle = this.mc.getWindow().getHandle();
+         Key inputKey = InputConstants.getKey(key.saveString());
+         long windowHandle = this.mc.getWindow().handle();
 
-         return switch (inputKey.getCategory()) {
-            case KEYSYM -> InputUtil.isKeyPressed(this.mc.getWindow(), inputKey.getCode());
-            case MOUSE -> GLFW.glfwGetMouseButton(windowHandle, inputKey.getCode()) == 1;
+         return switch (inputKey.getType()) {
+            case KEYSYM -> InputConstants.isKeyDown(this.mc.getWindow(), inputKey.getValue());
+            case MOUSE -> GLFW.glfwGetMouseButton(windowHandle, inputKey.getValue()) == 1;
             default -> false;
          };
       }

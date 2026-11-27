@@ -3,8 +3,8 @@ package daamky.ua.utils.world;
 import daamky.ua.utils.render.Render3D;
 import it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap;
 import java.util.List;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Builds translucent faces and silhouette edges for clusters of found blocks using only the standard
@@ -33,7 +33,7 @@ public final class BlockEspMesh {
    }
 
    public static void build(
-      long[] pos, byte[] type, int count, Vec3d camera, float fadeStart, float fadeEnd, List<Render3D.Quad> quads, List<Render3D.Line> lines
+      long[] pos, byte[] type, int count, Vec3 camera, float fadeStart, float fadeEnd, List<Render3D.Quad> quads, List<Render3D.Line> lines
    ) {
       Long2ByteOpenHashMap map = new Long2ByteOpenHashMap(Math.max(16, count * 2));
       map.defaultReturnValue((byte)-1);
@@ -48,9 +48,9 @@ public final class BlockEspMesh {
             return;
          }
 
-         int x = BlockPos.unpackLongX(pos[i]);
-         int y = BlockPos.unpackLongY(pos[i]);
-         int z = BlockPos.unpackLongZ(pos[i]);
+         int x = BlockPos.getX(pos[i]);
+         int y = BlockPos.getY(pos[i]);
+         int z = BlockPos.getZ(pos[i]);
          byte t = type[i];
          double dx = x + 0.5 - camera.x;
          double dy = y + 0.5 - camera.y;
@@ -112,7 +112,7 @@ public final class BlockEspMesh {
                b[edgeAxis] = cell[edgeAxis];
                a[third] = base[third];
                b[third] = base[third] + 1;
-               lines.add(new Render3D.Line(null, new Vec3d(a[0], a[1], a[2]), new Vec3d(b[0], b[1], b[2]), lineColor, lineColor, LINE_WIDTH));
+               lines.add(new Render3D.Line(null, new Vec3(a[0], a[1], a[2]), new Vec3(b[0], b[1], b[2]), lineColor, lineColor, LINE_WIDTH));
             }
          }
       }
@@ -125,52 +125,52 @@ public final class BlockEspMesh {
       double x2 = bx + 1;
       double y2 = by + 1;
       double z2 = bz + 1;
-      Vec3d a;
-      Vec3d b;
-      Vec3d c;
-      Vec3d d;
+      Vec3 a;
+      Vec3 b;
+      Vec3 c;
+      Vec3 d;
       switch (face) {
          case 0 -> {
             double px = x1 - EPS;
-            a = new Vec3d(px, y1, z1);
-            b = new Vec3d(px, y1, z2);
-            c = new Vec3d(px, y2, z2);
-            d = new Vec3d(px, y2, z1);
+            a = new Vec3(px, y1, z1);
+            b = new Vec3(px, y1, z2);
+            c = new Vec3(px, y2, z2);
+            d = new Vec3(px, y2, z1);
          }
          case 1 -> {
             double px = x2 + EPS;
-            a = new Vec3d(px, y1, z1);
-            b = new Vec3d(px, y2, z1);
-            c = new Vec3d(px, y2, z2);
-            d = new Vec3d(px, y1, z2);
+            a = new Vec3(px, y1, z1);
+            b = new Vec3(px, y2, z1);
+            c = new Vec3(px, y2, z2);
+            d = new Vec3(px, y1, z2);
          }
          case 2 -> {
             double py = y1 - EPS;
-            a = new Vec3d(x1, py, z1);
-            b = new Vec3d(x2, py, z1);
-            c = new Vec3d(x2, py, z2);
-            d = new Vec3d(x1, py, z2);
+            a = new Vec3(x1, py, z1);
+            b = new Vec3(x2, py, z1);
+            c = new Vec3(x2, py, z2);
+            d = new Vec3(x1, py, z2);
          }
          case 3 -> {
             double py = y2 + EPS;
-            a = new Vec3d(x1, py, z1);
-            b = new Vec3d(x1, py, z2);
-            c = new Vec3d(x2, py, z2);
-            d = new Vec3d(x2, py, z1);
+            a = new Vec3(x1, py, z1);
+            b = new Vec3(x1, py, z2);
+            c = new Vec3(x2, py, z2);
+            d = new Vec3(x2, py, z1);
          }
          case 4 -> {
             double pz = z1 - EPS;
-            a = new Vec3d(x1, y1, pz);
-            b = new Vec3d(x1, y2, pz);
-            c = new Vec3d(x2, y2, pz);
-            d = new Vec3d(x2, y1, pz);
+            a = new Vec3(x1, y1, pz);
+            b = new Vec3(x1, y2, pz);
+            c = new Vec3(x2, y2, pz);
+            d = new Vec3(x2, y1, pz);
          }
          default -> {
             double pz = z2 + EPS;
-            a = new Vec3d(x1, y1, pz);
-            b = new Vec3d(x2, y1, pz);
-            c = new Vec3d(x2, y2, pz);
-            d = new Vec3d(x1, y2, pz);
+            a = new Vec3(x1, y1, pz);
+            b = new Vec3(x2, y1, pz);
+            c = new Vec3(x2, y2, pz);
+            d = new Vec3(x1, y2, pz);
          }
       }
 

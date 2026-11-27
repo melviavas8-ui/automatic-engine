@@ -4,8 +4,8 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.Mth;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.JumpEvent;
 import daamky.ua.api.events.impl.WorldRenderEvent;
@@ -23,7 +23,7 @@ public final class JumpCircle extends Module {
    private final NumberSetting duration = this.register(new NumberSetting("Duration", "Jump circle lifetime in milliseconds.", 900.0, 200.0, 2500.0, 25.0));
    private final ColorSetting color1 = this.register(new ColorSetting("Color", "Primary jump circle color.", new Color(247, 133, 255)));
    private long lastSpawnTime;
-   private Vec3d lastSpawnPos;
+   private Vec3 lastSpawnPos;
 
    public JumpCircle() {
       super("Jump Circle", "Draws a fading circle when you jump.", ModuleCategory.VISUAL);
@@ -39,11 +39,11 @@ public final class JumpCircle extends Module {
    @SubscribeEvent
    private void onJump(JumpEvent event) {
       if (mc.player != null && event.getPlayer() == mc.player) {
-         Vec3d playerPos = mc.player.getEntityPos();
+         Vec3 playerPos = mc.player.position();
          if (this.isFiniteAndSafe(playerPos)) {
-            Vec3d spawnPos = new Vec3d(playerPos.x, Math.floor(playerPos.y) + 0.01, playerPos.z);
+            Vec3 spawnPos = new Vec3(playerPos.x, Math.floor(playerPos.y) + 0.01, playerPos.z);
             long now = System.currentTimeMillis();
-            if (this.lastSpawnPos == null || now - this.lastSpawnTime >= 120L || !(this.lastSpawnPos.squaredDistanceTo(spawnPos) <= 0.1225)) {
+            if (this.lastSpawnPos == null || now - this.lastSpawnTime >= 120L || !(this.lastSpawnPos.distanceToSqr(spawnPos) <= 0.1225)) {
                if (this.circles.size() >= 8) {
                   this.circles.remove(0);
                }
@@ -58,10 +58,10 @@ public final class JumpCircle extends Module {
 
    @SubscribeEvent
    private void onWorldRender(WorldRenderEvent event) {
-      if (mc.gameRenderer != null && mc.getBufferBuilders() != null) {
+      if (mc.gameRenderer != null && mc.renderBuffers() != null) {
          this.purgeExpired();
          if (!this.circles.isEmpty()) {
-            if (!this.isFiniteAndSafe(mc.gameRenderer.getCamera().getCameraPos())) {
+            if (!this.isFiniteAndSafe(mc.gameRenderer.getMainCamera().position())) {
                this.circles.clear();
             } else {
                for (JumpCircle.Circle circle : this.circles) {
@@ -74,7 +74,7 @@ public final class JumpCircle extends Module {
 
    private void renderRefraction(JumpCircle.Circle circle) {
       float durationMs = Math.max(1.0F, this.duration.getFloat());
-      float progress = MathHelper.clamp((float)circle.timer().elapsedTime() / durationMs, 0.0F, 1.0F);
+      float progress = Mth.clamp((float)circle.timer().elapsedTime() / durationMs, 0.0F, 1.0F);
       float radius = this.size.getFloat() * 1.35F * this.easeOutQuad(progress);
       float alpha = this.alphaFor(progress);
       if (!(progress >= 1.0F) && !(radius <= 0.01F) && !(alpha <= 0.01F)) {
@@ -109,7 +109,7 @@ public final class JumpCircle extends Module {
       return 1.0F - (1.0F - value) * (1.0F - value);
    }
 
-   private boolean isFiniteAndSafe(Vec3d value) {
+   private boolean isFiniteAndSafe(Vec3 value) {
       return value != null && this.isFiniteAndSafe(value.x) && this.isFiniteAndSafe(value.y) && this.isFiniteAndSafe(value.z);
    }
 
@@ -117,6 +117,6 @@ public final class JumpCircle extends Module {
       return Double.isFinite(value) && Math.abs(value) <= 3.0E7;
    }
 
-   private static record Circle(Vec3d pos, StopWatch timer) {
+   private static record Circle(Vec3 pos, StopWatch timer) {
    }
 }

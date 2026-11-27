@@ -1,8 +1,5 @@
 package daamky.ua.screens.modernui.impl;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.input.CharInput;
-import net.minecraft.client.input.KeyInput;
 import org.lwjgl.glfw.GLFW;
 import daamky.ua.api.module.impl.misc.ClientSounds;
 import daamky.ua.utils.math.MathUtils;
@@ -11,6 +8,9 @@ import daamky.ua.utils.render.animation.modernfx.Direction;
 import daamky.ua.utils.render.ui.Render2D;
 import daamky.ua.utils.render.ui.font.FontType;
 import daamky.ua.utils.sounds.SoundManager;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
 
 public final class SearchHandler {
    private static final float TEXT_SIZE = 7.0F;
@@ -57,16 +57,16 @@ public final class SearchHandler {
       this.textScroll = this.textScroll + (this.targetTextScroll - this.textScroll) * MathUtils.clamp(delta * 12.0F, 0.0F, 1.0F);
    }
 
-   public boolean handleSearchChar(CharInput event) {
-      if (this.active && event.isValidChar()) {
-         this.insert(event.asString());
+   public boolean handleSearchChar(CharacterEvent event) {
+      if (this.active && event.isAllowedChatCharacter()) {
+         this.insert(event.codepointAsString());
          return true;
       } else {
          return false;
       }
    }
 
-   public boolean handleSearchKey(KeyInput event) {
+   public boolean handleSearchKey(KeyEvent event) {
       if (!this.active) {
          return false;
       } else {
@@ -171,9 +171,9 @@ public final class SearchHandler {
    }
 
    private void paste() {
-      MinecraftClient minecraft = MinecraftClient.getInstance();
+      Minecraft minecraft = Minecraft.getInstance();
       if (minecraft != null && minecraft.getWindow() != null) {
-         this.insert(GLFW.glfwGetClipboardString(minecraft.getWindow().getHandle()));
+         this.insert(GLFW.glfwGetClipboardString(minecraft.getWindow().handle()));
       }
    }
 

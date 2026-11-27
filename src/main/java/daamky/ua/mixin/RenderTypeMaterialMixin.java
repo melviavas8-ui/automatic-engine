@@ -2,14 +2,14 @@ package daamky.ua.mixin;
 
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderPass;
-import net.minecraft.client.render.BuiltBuffer;
-import net.minecraft.client.render.RenderLayer;
+import com.mojang.blaze3d.vertex.MeshData;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import daamky.ua.utils.render.hands.ShaderHandMaterialRenderer;
+import net.minecraft.client.renderer.rendertype.RenderType;
 
-@Mixin({RenderLayer.class})
+@Mixin({RenderType.class})
 public abstract class RenderTypeMaterialMixin {
    public RenderTypeMaterialMixin() {
    }
@@ -22,7 +22,7 @@ public abstract class RenderTypeMaterialMixin {
       ),
       require = 0
    )
-   private void daamky$bindShaderHandUniform(RenderPass renderPass, RenderPipeline pipeline, BuiltBuffer meshData) {
+   private void daamky$bindShaderHandUniform(RenderPass renderPass, RenderPipeline pipeline, MeshData meshData) {
       renderPass.setPipeline(pipeline);
       if (ShaderHandMaterialRenderer.isMaterialPipeline(pipeline)) {
          ShaderHandMaterialRenderer.bindUniform(renderPass);

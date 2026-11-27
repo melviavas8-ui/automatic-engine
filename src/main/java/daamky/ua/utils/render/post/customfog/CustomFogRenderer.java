@@ -4,30 +4,30 @@ import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.textures.TextureFormat;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.nio.ByteBuffer;
 import java.util.OptionalInt;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
 import org.lwjgl.system.MemoryStack;
 import daamky.ua.utils.render.RenderSampler;
 
 public final class CustomFogRenderer {
    private static final int UNIFORM_SIZE = 64;
-   private static final Identifier PIPELINE_ID = Identifier.of("daamky", "pipeline/post/custom_fog");
-   private static final Identifier VERTEX_SHADER = Identifier.of("daamky", "post/custom_fog/custom_fog");
-   private static final Identifier FRAGMENT_SHADER = Identifier.of("daamky", "post/custom_fog/custom_fog");
+   private static final Identifier PIPELINE_ID = Identifier.fromNamespaceAndPath("daamky", "pipeline/post/custom_fog");
+   private static final Identifier VERTEX_SHADER = Identifier.fromNamespaceAndPath("daamky", "post/custom_fog/custom_fog");
+   private static final Identifier FRAGMENT_SHADER = Identifier.fromNamespaceAndPath("daamky", "post/custom_fog/custom_fog");
    private static RenderPipeline pipeline;
    private static GpuBuffer uniformBuffer;
    private static GpuTexture sceneCopyTexture;
@@ -51,20 +51,20 @@ public final class CustomFogRenderer {
    }
 
    public static void apply(
-      Framebuffer renderTarget, int fogColor, float density, float waveSpeed, float waveScale, float waveStrength, float glowIntensity, String weatherMode
+      RenderTarget renderTarget, int fogColor, float density, float waveSpeed, float waveScale, float waveStrength, float glowIntensity, String weatherMode
    ) {
-      if (!disabledAfterError && renderTarget != null && renderTarget.getColorAttachmentView() != null && renderTarget.getDepthAttachment() != null) {
-         if (renderTarget.textureWidth > 0 && renderTarget.textureHeight > 0) {
+      if (!disabledAfterError && renderTarget != null && renderTarget.getColorTextureView() != null && renderTarget.getDepthTexture() != null) {
+         if (renderTarget.width > 0 && renderTarget.height > 0) {
             init();
             if (pipeline != null && uniformBuffer != null) {
-               if (ensureTextures(renderTarget.textureWidth, renderTarget.textureHeight)) {
+               if (ensureTextures(renderTarget.width, renderTarget.height)) {
                   try {
                      CommandEncoder copyEncoder = RenderSystem.getDevice().createCommandEncoder();
                      copyEncoder.copyTextureToTexture(
-                        renderTarget.getColorAttachment(), sceneCopyTexture, 0, 0, 0, 0, 0, renderTarget.textureWidth, renderTarget.textureHeight
+                        renderTarget.getColorTexture(), sceneCopyTexture, 0, 0, 0, 0, 0, renderTarget.width, renderTarget.height
                      );
                      copyEncoder.copyTextureToTexture(
-                        renderTarget.getDepthAttachment(), depthCopyTexture, 0, 0, 0, 0, 0, renderTarget.textureWidth, renderTarget.textureHeight
+                        renderTarget.getDepthTexture(), depthCopyTexture, 0, 0, 0, 0, 0, renderTarget.width, renderTarget.height
                      );
                      time += 0.016F;
                      if (time > 10000.0F) {
@@ -72,7 +72,7 @@ public final class CustomFogRenderer {
                      }
 
                      applyShader(
-                        renderTarget.getColorAttachmentView(),
+                        renderTarget.getColorTextureView(),
                         sceneCopyTextureView,
                         depthCopyTextureView,
                         fogColor,
@@ -104,7 +104,7 @@ public final class CustomFogRenderer {
                      .withLocation(PIPELINE_ID)
                      .withVertexShader(VERTEX_SHADER)
                      .withFragmentShader(FRAGMENT_SHADER)
-                     .withVertexFormat(VertexFormats.EMPTY, DrawMode.TRIANGLES)
+                     .withVertexFormat(DefaultVertexFormat.EMPTY, Mode.TRIANGLES)
                      .withUniform("CustomFogData", UniformType.UNIFORM_BUFFER)
                      .withSampler("SceneSampler")
                      .withSampler("DepthSampler")
@@ -266,9 +266,9 @@ public final class CustomFogRenderer {
    }
 
    private static float viewDistance() {
-      MinecraftClient minecraft = MinecraftClient.getInstance();
+      Minecraft minecraft = Minecraft.getInstance();
       return minecraft != null && minecraft.options != null
-         ? Math.max(96.0F, (float)((Integer)minecraft.options.getViewDistance().getValue() + 1) * 16.0F)
+         ? Math.max(96.0F, (float)((Integer)minecraft.options.renderDistance().get() + 1) * 16.0F)
          : 192.0F;
    }
 

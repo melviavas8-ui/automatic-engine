@@ -4,35 +4,34 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 import java.util.function.Predicate;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.ChestBlock;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.ChestBlockEntity;
-import net.minecraft.block.entity.SignBlockEntity;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.enchantment.Enchantments;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.registry.tag.BlockTags;
-import net.minecraft.registry.tag.ItemTags;
-import net.minecraft.registry.tag.TagKey;
-import net.minecraft.screen.GenericContainerScreenHandler;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.text.Text;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult.Type;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.RaycastContext;
-import net.minecraft.world.RaycastContext.FluidHandling;
-import net.minecraft.world.RaycastContext.ShapeType;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.ClipContext.Fluid;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.ChestBlockEntity;
+import net.minecraft.world.level.block.entity.SignBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult.Type;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.drag.impl.Notifications;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.RotationUpdateEvent;
@@ -101,8 +100,8 @@ public final class AutoMine extends Module {
    @Override
    protected void onEnable() {
       if (mc.player != null) {
-         this.previousYaw = mc.player.getYaw();
-         this.previousPitch = mc.player.getPitch();
+         this.previousYaw = mc.player.getYRot();
+         this.previousPitch = mc.player.getXRot();
          this.previousRotationCaptured = true;
       } else {
          this.previousRotationCaptured = false;
@@ -140,8 +139,8 @@ public final class AutoMine extends Module {
       this.restoreRepairInventory(true);
       this.resetBreaking(true);
       if (this.previousRotationCaptured && mc.player != null) {
-         mc.player.setYaw(this.previousYaw);
-         mc.player.setPitch(this.previousPitch);
+         mc.player.setYRot(this.previousYaw);
+         mc.player.setXRot(this.previousPitch);
       }
 
       this.previousRotationCaptured = false;
@@ -149,50 +148,50 @@ public final class AutoMine extends Module {
 
    @SubscribeEvent
    private void onTick(TickEvent.Post event) {
-      if (mc.player != null && mc.world != null && mc.interactionManager != null) {
+      if (mc.player != null && mc.level != null && mc.gameMode != null) {
          if (this.delay > 0) {
             this.delay--;
          }
 
          if (this.plantPos == null) {
-            this.plantPos = mc.player.getBlockPos().offset(mc.player.getHorizontalFacing(), 2);
+            this.plantPos = mc.player.blockPosition().relative(mc.player.getDirection(), 2);
          }
 
-         BlockPos ground = this.plantPos.down();
-         Vec3d groundTop = new Vec3d((double)ground.getX() + 0.5, (double)ground.getY() + 1.0, (double)ground.getZ() + 0.5);
-         Angle groundAngle = MathAngle.fromTo(mc.player.getEyePos(), groundTop);
-         mc.player.setYaw(groundAngle.getYaw());
-         mc.player.setPitch(groundAngle.getPitch());
-         if (this.stage == AutoMine.Stage.OPEN_CHEST && mc.player.currentScreenHandler instanceof GenericContainerScreenHandler) {
+         BlockPos ground = this.plantPos.below();
+         Vec3 groundTop = new Vec3((double)ground.getX() + 0.5, (double)ground.getY() + 1.0, (double)ground.getZ() + 0.5);
+         Angle groundAngle = MathAngle.fromTo(mc.player.getEyePosition(), groundTop);
+         mc.player.setYRot(groundAngle.getYaw());
+         mc.player.setXRot(groundAngle.getPitch());
+         if (this.stage == AutoMine.Stage.OPEN_CHEST && mc.player.containerMenu instanceof ChestMenu) {
             this.stage = AutoMine.Stage.TAKE_BONE_MEAL;
          }
 
-         if (this.stage == AutoMine.Stage.OPEN_BONE_CHEST && mc.player.currentScreenHandler instanceof GenericContainerScreenHandler) {
+         if (this.stage == AutoMine.Stage.OPEN_BONE_CHEST && mc.player.containerMenu instanceof ChestMenu) {
             this.stage = AutoMine.Stage.TAKE_BONES;
          }
 
-         if (this.stage == AutoMine.Stage.OPEN_EXPERIENCE_CHEST && mc.player.currentScreenHandler instanceof GenericContainerScreenHandler) {
+         if (this.stage == AutoMine.Stage.OPEN_EXPERIENCE_CHEST && mc.player.containerMenu instanceof ChestMenu) {
             this.stage = AutoMine.Stage.TAKE_EXPERIENCE;
          }
 
          if (this.stage == AutoMine.Stage.TAKE_BONE_MEAL) {
-            if (!(mc.player.currentScreenHandler instanceof GenericContainerScreenHandler menu) || this.delay > 0) {
+            if (!(mc.player.containerMenu instanceof ChestMenu menu) || this.delay > 0) {
                return;
             }
 
             if (!this.boneMealStackTaken) {
-               int chestSlots = menu.getRows() * 9;
+               int chestSlots = menu.getRowCount() * 9;
 
                for (int slot = 0; slot < chestSlots; slot++) {
-                  if (((Slot)menu.slots.get(slot)).getStack().isOf(Items.BONE_MEAL)) {
-                     InventoryTask.clickSlot(slot, 0, SlotActionType.QUICK_MOVE);
+                  if (((Slot)menu.slots.get(slot)).getItem().is(Items.BONE_MEAL)) {
+                     InventoryTask.clickSlot(slot, 0, ClickType.QUICK_MOVE);
                      this.boneMealStackTaken = true;
                      this.delay = 2;
                      return;
                   }
                }
 
-               mc.player.closeHandledScreen();
+               mc.player.closeContainer();
                if (this.chestPos != null) {
                   this.checkedChests.add(this.chestPos);
                }
@@ -201,7 +200,7 @@ public final class AutoMine extends Module {
                this.stage = AutoMine.Stage.FIND_CHEST;
                this.delay = 3;
             } else {
-               mc.player.closeHandledScreen();
+               mc.player.closeContainer();
                this.boneMealStackTaken = false;
                boolean receivedBoneMeal = InventoryTask.findHotbarSlot(Items.BONE_MEAL) != -1 || InventoryTask.findInventorySlot(Items.BONE_MEAL) != -1;
                if (!receivedBoneMeal && this.chestPos != null) {
@@ -213,13 +212,13 @@ public final class AutoMine extends Module {
                this.delay = 3;
             }
          } else if (this.stage == AutoMine.Stage.TAKE_BONES) {
-            if (mc.player.currentScreenHandler instanceof GenericContainerScreenHandler menu && this.delay <= 0) {
+            if (mc.player.containerMenu instanceof ChestMenu menu && this.delay <= 0) {
                if (this.boneStacksTaken < 2) {
-                  int chestSlots = menu.getRows() * 9;
+                  int chestSlots = menu.getRowCount() * 9;
 
                   for (int slotx = 0; slotx < chestSlots; slotx++) {
-                     if (((Slot)menu.slots.get(slotx)).getStack().isOf(Items.BONE)) {
-                        InventoryTask.clickSlot(slotx, 0, SlotActionType.QUICK_MOVE);
+                     if (((Slot)menu.slots.get(slotx)).getItem().is(Items.BONE)) {
+                        InventoryTask.clickSlot(slotx, 0, ClickType.QUICK_MOVE);
                         this.boneStacksTaken++;
                         this.delay = 2;
                         return;
@@ -227,7 +226,7 @@ public final class AutoMine extends Module {
                   }
                }
 
-               mc.player.closeHandledScreen();
+               mc.player.closeContainer();
                if (this.boneStacksTaken < 2) {
                   if (this.chestPos != null) {
                      this.checkedBoneChests.add(this.chestPos);
@@ -254,11 +253,11 @@ public final class AutoMine extends Module {
                return;
             }
          } else if (this.stage == AutoMine.Stage.TAKE_EXPERIENCE) {
-            if (mc.player.currentScreenHandler instanceof GenericContainerScreenHandler menu) {
+            if (mc.player.containerMenu instanceof ChestMenu menu) {
                if (this.delay <= 0) {
                   if (this.experienceStackTaken) {
                      BlockPos openedChest = this.experienceChestPos;
-                     mc.player.closeHandledScreen();
+                     mc.player.closeContainer();
                      this.experienceStackTaken = false;
                      this.experienceChestPos = null;
                      boolean receivedExperience = this.hasExperienceBottles();
@@ -269,18 +268,18 @@ public final class AutoMine extends Module {
                      this.stage = receivedExperience ? AutoMine.Stage.PREPARE_REPAIR : AutoMine.Stage.FIND_EXPERIENCE_CHEST;
                      this.delay = 3;
                   } else {
-                     int chestSlots = menu.getRows() * 9;
+                     int chestSlots = menu.getRowCount() * 9;
 
                      for (int slotxx = 0; slotxx < chestSlots; slotxx++) {
-                        if (((Slot)menu.slots.get(slotxx)).getStack().isOf(Items.EXPERIENCE_BOTTLE)) {
-                           InventoryTask.clickSlot(slotxx, 0, SlotActionType.QUICK_MOVE);
+                        if (((Slot)menu.slots.get(slotxx)).getItem().is(Items.EXPERIENCE_BOTTLE)) {
+                           InventoryTask.clickSlot(slotxx, 0, ClickType.QUICK_MOVE);
                            this.experienceStackTaken = true;
                            this.delay = 2;
                            return;
                         }
                      }
 
-                     mc.player.closeHandledScreen();
+                     mc.player.closeContainer();
                      if (this.experienceChestPos != null) {
                         this.checkedExperienceChests.add(this.experienceChestPos);
                      }
@@ -300,7 +299,7 @@ public final class AutoMine extends Module {
                }
             }
          } else if (this.stage == AutoMine.Stage.PREPARE_REPAIR) {
-            if (this.delay <= 0 && mc.currentScreen == null) {
+            if (this.delay <= 0 && mc.screen == null) {
                this.prepareRepair();
             }
          } else if (this.stage == AutoMine.Stage.CRAFT_BONE_MEAL) {
@@ -328,15 +327,15 @@ public final class AutoMine extends Module {
                   } else {
                      switch (this.craftStep) {
                         case 0:
-                           InventoryTask.clickSlot(this.craftBoneSlot, 0, SlotActionType.PICKUP);
+                           InventoryTask.clickSlot(this.craftBoneSlot, 0, ClickType.PICKUP);
                            this.craftStep = 1;
                            break;
                         case 1:
-                           InventoryTask.clickSlot(1, 0, SlotActionType.PICKUP);
+                           InventoryTask.clickSlot(1, 0, ClickType.PICKUP);
                            this.craftStep = 2;
                            break;
                         case 2:
-                           InventoryTask.clickSlot(0, 0, SlotActionType.QUICK_MOVE);
+                           InventoryTask.clickSlot(0, 0, ClickType.QUICK_MOVE);
                            this.craftStep = 3;
                            break;
                         case 3:
@@ -349,10 +348,10 @@ public final class AutoMine extends Module {
                   }
                }
             }
-         } else if (mc.currentScreen == null) {
+         } else if (mc.screen == null) {
             if (this.stage != AutoMine.Stage.FIND_EXPERIENCE_CHEST) {
-               BlockState plantState = mc.world.getBlockState(this.plantPos);
-               if (plantState.isIn(BlockTags.LOGS)
+               BlockState plantState = mc.level.getBlockState(this.plantPos);
+               if (plantState.is(BlockTags.LOGS)
                   && this.stage != AutoMine.Stage.BREAK_LEAVES
                   && this.stage != AutoMine.Stage.BREAK_LOGS
                   && !REPAIR_STAGES.contains(this.stage)) {
@@ -360,9 +359,9 @@ public final class AutoMine extends Module {
                   this.target = null;
                   this.breaking = null;
                   this.chestPos = null;
-               } else if (this.stage == AutoMine.Stage.PLANT && plantState.isIn(BlockTags.SAPLINGS)) {
+               } else if (this.stage == AutoMine.Stage.PLANT && plantState.is(BlockTags.SAPLINGS)) {
                   this.stage = AutoMine.Stage.GROW;
-               } else if (this.stage == AutoMine.Stage.GROW && !plantState.isIn(BlockTags.SAPLINGS)) {
+               } else if (this.stage == AutoMine.Stage.GROW && !plantState.is(BlockTags.SAPLINGS)) {
                   this.stage = AutoMine.Stage.PLANT;
                   this.plantRotationPrepared = false;
                }
@@ -403,11 +402,11 @@ public final class AutoMine extends Module {
                   && this.stage != AutoMine.Stage.GROW) {
                   TagKey<Block> wanted = this.stage == AutoMine.Stage.BREAK_LEAVES ? BlockTags.LEAVES : BlockTags.LOGS;
                   if (this.target != null) {
-                     Vec3d center = Vec3d.ofCenter(this.target);
-                     BlockHitResult hit = mc.world.raycast(new RaycastContext(mc.player.getEyePos(), center, ShapeType.OUTLINE, FluidHandling.NONE, mc.player));
-                     BlockState targetState = mc.world.getBlockState(this.target);
-                     if (!targetState.isIn(wanted)
-                        || mc.player.getEyePos().distanceTo(center) > 4.5
+                     Vec3 center = Vec3.atCenterOf(this.target);
+                     BlockHitResult hit = mc.level.clip(new ClipContext(mc.player.getEyePosition(), center, net.minecraft.world.level.ClipContext.Block.OUTLINE, Fluid.NONE, mc.player));
+                     BlockState targetState = mc.level.getBlockState(this.target);
+                     if (!targetState.is(wanted)
+                        || mc.player.getEyePosition().distanceTo(center) > 4.5
                         || hit.getType() != Type.BLOCK
                         || !hit.getBlockPos().equals(this.target)) {
                         if (targetState.isAir() && this.target.equals(this.breaking)) {
@@ -426,13 +425,13 @@ public final class AutoMine extends Module {
                         for (int x = -5; x <= 5; x++) {
                            for (int y = 0; y <= 16; y++) {
                               for (int z = -5; z <= 5; z++) {
-                                 BlockPos pos = this.plantPos.add(x, y, z);
-                                 if (mc.world.getBlockState(pos).isIn(searchTag)) {
-                                    Vec3d center = Vec3d.ofCenter(pos);
-                                    double distance = mc.player.getEyePos().distanceTo(center);
+                                 BlockPos pos = this.plantPos.offset(x, y, z);
+                                 if (mc.level.getBlockState(pos).is(searchTag)) {
+                                    Vec3 center = Vec3.atCenterOf(pos);
+                                    double distance = mc.player.getEyePosition().distanceTo(center);
                                     if (!(distance > 4.5) && !(distance >= bestDistance)) {
-                                       BlockHitResult hit = mc.world
-                                          .raycast(new RaycastContext(mc.player.getEyePos(), center, ShapeType.OUTLINE, FluidHandling.NONE, mc.player));
+                                       BlockHitResult hit = mc.level
+                                          .clip(new ClipContext(mc.player.getEyePosition(), center, net.minecraft.world.level.ClipContext.Block.OUTLINE, Fluid.NONE, mc.player));
                                        if (hit.getType() == Type.BLOCK && hit.getBlockPos().equals(pos)) {
                                           this.target = pos;
                                           bestDistance = distance;
@@ -459,7 +458,7 @@ public final class AutoMine extends Module {
                   this.target = null;
                   this.resetBreaking(true);
                }
-            } else if (this.repairToolInOffhand && mc.player.getOffHandStack().getDamage() <= 0) {
+            } else if (this.repairToolInOffhand && mc.player.getOffhandItem().getDamageValue() <= 0) {
                this.endRepair(true, "Инструмент починен до 100%.");
             } else if (this.hasExperienceBottles()) {
                this.stage = AutoMine.Stage.PREPARE_REPAIR;
@@ -481,29 +480,29 @@ public final class AutoMine extends Module {
 
    @SubscribeEvent
    private void onRotationUpdate(RotationUpdateEvent event) {
-      if (mc.player != null && mc.world != null && mc.interactionManager != null && mc.currentScreen == null && this.plantPos != null) {
-         Vec3d hitVec;
+      if (mc.player != null && mc.level != null && mc.gameMode != null && mc.screen == null && this.plantPos != null) {
+         Vec3 hitVec;
          if (this.stage == AutoMine.Stage.PLANT) {
-            BlockPos ground = this.plantPos.down();
-            hitVec = new Vec3d((double)ground.getX() + 0.5, (double)ground.getY() + 1.0, (double)ground.getZ() + 0.5);
+            BlockPos ground = this.plantPos.below();
+            hitVec = new Vec3((double)ground.getX() + 0.5, (double)ground.getY() + 1.0, (double)ground.getZ() + 0.5);
          } else if (this.stage == AutoMine.Stage.GROW) {
             if (!this.hasBoneMeal()) {
                this.beginSupplyRun();
                return;
             }
 
-            hitVec = Vec3d.ofCenter(this.plantPos);
+            hitVec = Vec3.atCenterOf(this.plantPos);
          } else if (this.stage != AutoMine.Stage.OPEN_CHEST
             && this.stage != AutoMine.Stage.OPEN_BONE_CHEST
             && this.stage != AutoMine.Stage.OPEN_EXPERIENCE_CHEST) {
             if (this.stage == AutoMine.Stage.REPAIR_TOOL) {
-               hitVec = mc.player.getEyePos().add(0.0, -1.0, 0.0);
+               hitVec = mc.player.getEyePosition().add(0.0, -1.0, 0.0);
             } else {
                if (this.target == null) {
                   return;
                }
 
-               hitVec = Vec3d.ofCenter(this.target);
+               hitVec = Vec3.atCenterOf(this.target);
             }
          } else {
             BlockPos openPos = this.stage == AutoMine.Stage.OPEN_EXPERIENCE_CHEST ? this.experienceChestPos : this.chestPos;
@@ -520,12 +519,12 @@ public final class AutoMine extends Module {
                return;
             }
 
-            hitVec = chestHit.getPos();
+            hitVec = chestHit.getLocation();
          }
 
-         if (!(mc.player.getEyePos().distanceTo(hitVec) > 4.5)) {
+         if (!(mc.player.getEyePosition().distanceTo(hitVec) > 4.5)) {
             if (event.isPre()) {
-               Angle angle = MathAngle.fromTo(mc.player.getEyePos(), hitVec);
+               Angle angle = MathAngle.fromTo(mc.player.getEyePosition(), hitVec);
                AngleConnection.INSTANCE
                   .rotateTo(
                      new Angle.VecRotation(angle, hitVec),
@@ -537,22 +536,22 @@ public final class AutoMine extends Module {
                   );
             } else if (event.isPost() && this.delay <= 0) {
                if (this.stage == AutoMine.Stage.PLANT) {
-                  if (!mc.world.getBlockState(this.plantPos).isAir()) {
+                  if (!mc.level.getBlockState(this.plantPos).isAir()) {
                      this.plantRotationPrepared = false;
                   } else {
-                     BlockPos ground = this.plantPos.down();
-                     BlockHitResult groundHit = RaycastAngle.raycast(mc.player.getEyePos(), 4.5, AngleConnection.INSTANCE.getRotation(), false);
+                     BlockPos ground = this.plantPos.below();
+                     BlockHitResult groundHit = RaycastAngle.raycast(mc.player.getEyePosition(), 4.5, AngleConnection.INSTANCE.getRotation(), false);
                      if (groundHit == null
                         || groundHit.getType() != Type.BLOCK
                         || !groundHit.getBlockPos().equals(ground)
-                        || groundHit.getSide() != Direction.UP) {
+                        || groundHit.getDirection() != Direction.UP) {
                         this.plantRotationPrepared = false;
                      } else if (!this.plantRotationPrepared) {
                         this.plantRotationPrepared = true;
                      } else {
-                        boolean used = this.runWithItem(stack -> stack.isIn(ItemTags.SAPLINGS), null, () -> {
-                           mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, groundHit);
-                           mc.player.swingHand(Hand.MAIN_HAND);
+                        boolean used = this.runWithItem(stack -> stack.is(ItemTags.SAPLINGS), null, () -> {
+                           mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, groundHit);
+                           mc.player.swing(InteractionHand.MAIN_HAND);
                         });
                         if (used) {
                            this.stage = AutoMine.Stage.GROW;
@@ -562,10 +561,10 @@ public final class AutoMine extends Module {
                      }
                   }
                } else if (this.stage == AutoMine.Stage.GROW) {
-                  if (mc.world.getBlockState(this.plantPos).isIn(BlockTags.SAPLINGS)) {
-                     if (this.runWithItem(stack -> stack.isOf(Items.BONE_MEAL), null, () -> {
-                        mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, new BlockHitResult(hitVec, Direction.UP, this.plantPos, false));
-                        mc.player.swingHand(Hand.MAIN_HAND);
+                  if (mc.level.getBlockState(this.plantPos).is(BlockTags.SAPLINGS)) {
+                     if (this.runWithItem(stack -> stack.is(Items.BONE_MEAL), null, () -> {
+                        mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(hitVec, Direction.UP, this.plantPos, false));
+                        mc.player.swing(InteractionHand.MAIN_HAND);
                      })) {
                         this.delay = 1;
                      }
@@ -577,8 +576,8 @@ public final class AutoMine extends Module {
                      this.chestPos = null;
                      this.stage = AutoMine.Stage.FIND_CHEST;
                   } else {
-                     mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, hit);
-                     mc.player.swingHand(Hand.MAIN_HAND);
+                     mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, hit);
+                     mc.player.swing(InteractionHand.MAIN_HAND);
                      this.delay = 5;
                   }
                } else if (this.stage == AutoMine.Stage.OPEN_BONE_CHEST) {
@@ -588,8 +587,8 @@ public final class AutoMine extends Module {
                      this.chestPos = null;
                      this.stage = AutoMine.Stage.FIND_BONE_CHEST;
                   } else {
-                     mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, hit);
-                     mc.player.swingHand(Hand.MAIN_HAND);
+                     mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, hit);
+                     mc.player.swing(InteractionHand.MAIN_HAND);
                      this.delay = 5;
                   }
                } else if (this.stage == AutoMine.Stage.OPEN_EXPERIENCE_CHEST) {
@@ -602,59 +601,59 @@ public final class AutoMine extends Module {
                      this.experienceChestPos = null;
                      this.stage = AutoMine.Stage.FIND_EXPERIENCE_CHEST;
                   } else {
-                     mc.interactionManager.interactBlock(mc.player, Hand.MAIN_HAND, hit);
-                     mc.player.swingHand(Hand.MAIN_HAND);
+                     mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, hit);
+                     mc.player.swing(InteractionHand.MAIN_HAND);
                      this.delay = 5;
                   }
                } else if (this.stage == AutoMine.Stage.REPAIR_TOOL) {
-                  ItemStack repairTool = mc.player.getOffHandStack();
-                  if (!this.repairToolInOffhand || repairTool.isEmpty() || !repairTool.isDamageable()) {
+                  ItemStack repairTool = mc.player.getOffhandItem();
+                  if (!this.repairToolInOffhand || repairTool.isEmpty() || !repairTool.isDamageableItem()) {
                      this.endRepair(false, "Инструмент для ремонта потерян.");
-                  } else if (repairTool.getDamage() <= 0) {
+                  } else if (repairTool.getDamageValue() <= 0) {
                      this.endRepair(true, "Инструмент починен до 100%.");
                   } else if (!this.repairRotationPrepared) {
                      this.repairRotationPrepared = true;
                   } else {
-                     ItemStack bottle = mc.player.getInventory().getStack(this.repairBottleHotbarSlot);
-                     if (!bottle.isOf(Items.EXPERIENCE_BOTTLE)) {
+                     ItemStack bottle = mc.player.getInventory().getItem(this.repairBottleHotbarSlot);
+                     if (!bottle.is(Items.EXPERIENCE_BOTTLE)) {
                         this.restoreRepairInventory(false);
                         this.stage = this.hasExperienceBottles() ? AutoMine.Stage.PREPARE_REPAIR : AutoMine.Stage.FIND_EXPERIENCE_CHEST;
                      } else {
                         InventoryUtils.syncSelectedHotbarSlot(this.repairBottleHotbarSlot);
-                        mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
-                        mc.player.swingHand(Hand.MAIN_HAND);
+                        mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
+                        mc.player.swing(InteractionHand.MAIN_HAND);
                         this.delay = 4;
                      }
                   }
                } else if (this.target != null) {
-                  BlockState state = mc.world.getBlockState(this.target);
+                  BlockState state = mc.level.getBlockState(this.target);
                   TagKey<Block> wanted = this.stage == AutoMine.Stage.BREAK_LEAVES ? BlockTags.LEAVES : BlockTags.LOGS;
-                  if (!state.isIn(wanted)) {
+                  if (!state.is(wanted)) {
                      if (state.isAir() && this.target.equals(this.breaking)) {
                      }
 
                      this.target = null;
                      this.resetBreaking(!state.isAir());
                   } else {
-                     BlockHitResult hit = RaycastAngle.raycast(mc.player.getEyePos(), 4.5, AngleConnection.INSTANCE.getRotation(), false);
+                     BlockHitResult hit = RaycastAngle.raycast(mc.player.getEyePosition(), 4.5, AngleConnection.INSTANCE.getRotation(), false);
                      if (hit != null && hit.getType() == Type.BLOCK && hit.getBlockPos().equals(this.target)) {
                         BlockPos current = this.target;
                         Predicate<ItemStack> toolType = this.stage == AutoMine.Stage.BREAK_LEAVES
-                           ? stack -> stack.isIn(ItemTags.HOES)
-                           : stack -> stack.isIn(ItemTags.AXES);
+                           ? stack -> stack.is(ItemTags.HOES)
+                           : stack -> stack.is(ItemTags.AXES);
                         int minimumDurability = this.minToolDurability.getValue().intValue();
                         Predicate<ItemStack> safeTool = stack -> toolType.test(stack)
-                              && (!stack.isDamageable() || this.remainingDurability(stack) > minimumDurability);
+                              && (!stack.isDamageableItem() || this.remainingDurability(stack) > minimumDurability);
                         boolean used = this.runWithItem(safeTool, state, () -> {
                            if (this.breaking != null && this.breaking.equals(current)) {
-                              mc.interactionManager.updateBlockBreakingProgress(current, hit.getSide());
+                              mc.gameMode.continueDestroyBlock(current, hit.getDirection());
                            } else {
-                              mc.interactionManager.attackBlock(current, hit.getSide());
+                              mc.gameMode.startDestroyBlock(current, hit.getDirection());
                               this.breaking = current;
                            }
 
                            this.accelerateBreaking(current, state);
-                           mc.player.swingHand(Hand.MAIN_HAND);
+                           mc.player.swing(InteractionHand.MAIN_HAND);
                         });
                         if (!used) {
                            this.resetBreaking(true);
@@ -680,7 +679,7 @@ public final class AutoMine extends Module {
                            }
                         } else {
                            this.toolDurabilityWarningShown = false;
-                           if (used && mc.world.getBlockState(current).isAir()) {
+                           if (used && mc.level.getBlockState(current).isAir()) {
                               this.target = null;
                               this.resetBreaking(false);
                            }
@@ -697,8 +696,8 @@ public final class AutoMine extends Module {
    }
 
    private void resetBreaking(boolean abort) {
-      if (abort && this.breaking != null && mc.interactionManager != null && mc.world != null && !mc.world.getBlockState(this.breaking).isAir()) {
-         mc.interactionManager.cancelBlockBreaking();
+      if (abort && this.breaking != null && mc.gameMode != null && mc.level != null && !mc.level.getBlockState(this.breaking).isAir()) {
+         mc.gameMode.stopDestroyBlock();
       }
 
       this.breaking = null;
@@ -707,21 +706,21 @@ public final class AutoMine extends Module {
    private void accelerateBreaking(BlockPos pos, BlockState state) {
       float multiplier = this.breakSpeed.getFloat();
       if (!(multiplier <= 1.0F) && !state.isAir()) {
-         MultiPlayerGameModeAccessor controller = (MultiPlayerGameModeAccessor)mc.interactionManager;
+         MultiPlayerGameModeAccessor controller = (MultiPlayerGameModeAccessor)mc.gameMode;
          controller.daamky$setDestroyDelay(0);
-         float vanillaProgress = state.calcBlockBreakingDelta(mc.player, mc.player.getEntityWorld(), pos);
+         float vanillaProgress = state.getDestroyProgress(mc.player, mc.player.level(), pos);
          float acceleratedProgress = controller.daamky$getDestroyProgress() + vanillaProgress * (multiplier - 1.0F);
          controller.daamky$setDestroyProgress(Math.min(1.0F, acceleratedProgress));
       }
    }
 
    private int remainingDurability(ItemStack stack) {
-      return stack.isDamageable() ? Math.max(0, stack.getMaxDamage() - stack.getDamage()) : Integer.MAX_VALUE;
+      return stack.isDamageableItem() ? Math.max(0, stack.getMaxDamage() - stack.getDamageValue()) : Integer.MAX_VALUE;
    }
 
    private boolean hasInventoryItem(Predicate<ItemStack> filter) {
       for (int slot = 0; slot < 36; slot++) {
-         ItemStack stack = mc.player.getInventory().getStack(slot);
+         ItemStack stack = mc.player.getInventory().getItem(slot);
          if (!stack.isEmpty() && filter.test(stack)) {
             return true;
          }
@@ -735,14 +734,14 @@ public final class AutoMine extends Module {
       int highestDamage = -1;
 
       for (int slot = 0; slot < 36; slot++) {
-         ItemStack stack = mc.player.getInventory().getStack(slot);
+         ItemStack stack = mc.player.getInventory().getItem(slot);
          if (!stack.isEmpty()
             && toolType.test(stack)
-            && stack.isDamageable()
-            && stack.getDamage() > 0
+            && stack.isDamageableItem()
+            && stack.getDamageValue() > 0
             && this.hasMending(stack)
-            && stack.getDamage() > highestDamage) {
-            highestDamage = stack.getDamage();
+            && stack.getDamageValue() > highestDamage) {
+            highestDamage = stack.getDamageValue();
             bestSlot = slot;
          }
       }
@@ -751,12 +750,12 @@ public final class AutoMine extends Module {
    }
 
    private boolean hasMending(ItemStack stack) {
-      if (mc.world == null) {
+      if (mc.level == null) {
          return false;
       } else {
          try {
-            RegistryEntry<Enchantment> mending = mc.world.getRegistryManager().getOrThrow(RegistryKeys.ENCHANTMENT).getOrThrow(Enchantments.MENDING);
-            return EnchantmentHelper.getLevel(mending, stack) > 0;
+            Holder<Enchantment> mending = mc.level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(Enchantments.MENDING);
+            return EnchantmentHelper.getItemEnchantmentLevel(mending, stack) > 0;
          } catch (Throwable var3) {
             return false;
          }
@@ -765,26 +764,26 @@ public final class AutoMine extends Module {
 
    private void prepareRepair() {
       ItemStack tool = this.repairToolInOffhand
-         ? mc.player.getOffHandStack()
-         : (this.repairToolSlot >= 0 && this.repairToolSlot < 36 ? mc.player.getInventory().getStack(this.repairToolSlot) : ItemStack.EMPTY);
-      if (!tool.isEmpty() && tool.isDamageable() && this.hasMending(tool)) {
+         ? mc.player.getOffhandItem()
+         : (this.repairToolSlot >= 0 && this.repairToolSlot < 36 ? mc.player.getInventory().getItem(this.repairToolSlot) : ItemStack.EMPTY);
+      if (!tool.isEmpty() && tool.isDamageableItem() && this.hasMending(tool)) {
          if (!this.repairToolInOffhand) {
             this.repairPreviousSelectedSlot = mc.player.getInventory().getSelectedSlot();
             InventoryTask.swap(this.repairToolSlot < 9 ? 36 + this.repairToolSlot : this.repairToolSlot, 40, false);
-            tool = mc.player.getOffHandStack();
-            this.repairToolInOffhand = !tool.isEmpty() && tool.isDamageable() && this.hasMending(tool);
+            tool = mc.player.getOffhandItem();
+            this.repairToolInOffhand = !tool.isEmpty() && tool.isDamageableItem() && this.hasMending(tool);
             if (!this.repairToolInOffhand) {
                this.endRepair(false, "Не удалось перенести инструмент во вторую руку.");
                return;
             }
          }
 
-         if (tool.getDamage() <= 0) {
+         if (tool.getDamageValue() <= 0) {
             this.endRepair(true, "Инструмент починен до 100%.");
          } else {
             if (this.repairBottleHotbarSlot >= 0
                && this.repairBottleHotbarSlot < 9
-               && mc.player.getInventory().getStack(this.repairBottleHotbarSlot).isOf(Items.EXPERIENCE_BOTTLE)) {
+               && mc.player.getInventory().getItem(this.repairBottleHotbarSlot).is(Items.EXPERIENCE_BOTTLE)) {
                InventoryUtils.syncSelectedHotbarSlot(this.repairBottleHotbarSlot);
             } else {
                int bottleSlot = InventoryTask.findHotbarSlot(Items.EXPERIENCE_BOTTLE);
@@ -799,7 +798,7 @@ public final class AutoMine extends Module {
 
                   while (true) {
                      if (slot < 9) {
-                        if (!mc.player.getInventory().getStack(slot).isEmpty()) {
+                        if (!mc.player.getInventory().getItem(slot).isEmpty()) {
                            slot++;
                            continue;
                         }
@@ -820,7 +819,7 @@ public final class AutoMine extends Module {
                }
 
                this.repairBottleHotbarSlot = bottleSlot;
-               if (bottleSlot < 0 || !mc.player.getInventory().getStack(bottleSlot).isOf(Items.EXPERIENCE_BOTTLE)) {
+               if (bottleSlot < 0 || !mc.player.getInventory().getItem(bottleSlot).is(Items.EXPERIENCE_BOTTLE)) {
                   this.repairBottleSourceSlot = -1;
                   this.repairBottleHotbarSlot = -1;
                   this.stage = AutoMine.Stage.FIND_EXPERIENCE_CHEST;
@@ -840,9 +839,9 @@ public final class AutoMine extends Module {
    }
 
    private void restoreRepairInventory(boolean restoreTool) {
-      if (mc.player != null && mc.interactionManager != null) {
-         if (restoreTool && mc.currentScreen != null) {
-            mc.player.closeHandledScreen();
+      if (mc.player != null && mc.gameMode != null) {
+         if (restoreTool && mc.screen != null) {
+            mc.player.closeContainer();
          }
 
          if (this.repairBottleSourceSlot >= 9 && this.repairBottleHotbarSlot >= 0) {
@@ -923,12 +922,12 @@ public final class AutoMine extends Module {
       for (int x = -4; x <= 4; x++) {
          for (int y = -2; y <= 2; y++) {
             for (int z = -4; z <= 4; z++) {
-               BlockPos pos = mc.player.getBlockPos().add(x, y, z);
-               if (!checked.contains(pos) && mc.world.getBlockState(pos).getBlock() instanceof ChestBlock && (label == null || this.isLabeledChest(pos, label))
+               BlockPos pos = mc.player.blockPosition().offset(x, y, z);
+               if (!checked.contains(pos) && mc.level.getBlockState(pos).getBlock() instanceof ChestBlock && (label == null || this.isLabeledChest(pos, label))
                   )
                 {
-                  Vec3d center = Vec3d.ofCenter(pos);
-                  double distance = mc.player.getEyePos().distanceTo(center);
+                  Vec3 center = Vec3.atCenterOf(pos);
+                  double distance = mc.player.getEyePosition().distanceTo(center);
                   if (!(distance > 4.5) && !(distance >= bestDistance) && this.findChestHit(pos) != null) {
                      best = pos;
                      bestDistance = distance;
@@ -945,22 +944,22 @@ public final class AutoMine extends Module {
       if (pos == null) {
          return null;
       } else {
-         Vec3d eye = mc.player.getEyePos();
+         Vec3 eye = mc.player.getEyePosition();
          double x = (double)pos.getX();
          double y = (double)pos.getY();
          double z = (double)pos.getZ();
-         Vec3d[] samples = new Vec3d[]{
-            new Vec3d(x + 0.5, y + 0.5, z + 0.5),
-            new Vec3d(x + 0.5, y + 0.86, z + 0.5),
-            new Vec3d(x + 0.15, y + 0.5, z + 0.5),
-            new Vec3d(x + 0.85, y + 0.5, z + 0.5),
-            new Vec3d(x + 0.5, y + 0.5, z + 0.15),
-            new Vec3d(x + 0.5, y + 0.5, z + 0.85)
+         Vec3[] samples = new Vec3[]{
+            new Vec3(x + 0.5, y + 0.5, z + 0.5),
+            new Vec3(x + 0.5, y + 0.86, z + 0.5),
+            new Vec3(x + 0.15, y + 0.5, z + 0.5),
+            new Vec3(x + 0.85, y + 0.5, z + 0.5),
+            new Vec3(x + 0.5, y + 0.5, z + 0.15),
+            new Vec3(x + 0.5, y + 0.5, z + 0.85)
          };
 
-         for (Vec3d sample : samples) {
+         for (Vec3 sample : samples) {
             if (!(eye.distanceTo(sample) > 4.5)) {
-               BlockHitResult hit = mc.world.raycast(new RaycastContext(eye, sample, ShapeType.OUTLINE, FluidHandling.NONE, mc.player));
+               BlockHitResult hit = mc.level.clip(new ClipContext(eye, sample, net.minecraft.world.level.ClipContext.Block.OUTLINE, Fluid.NONE, mc.player));
                if (hit.getType() == Type.BLOCK && hit.getBlockPos().equals(pos)) {
                   return hit;
                }
@@ -989,19 +988,19 @@ public final class AutoMine extends Module {
 
    private boolean isLabeledChest(BlockPos chest, String label) {
       String normalizedLabel = this.normalizeLabel(label);
-      if (mc.world.getBlockEntity(chest) instanceof ChestBlockEntity chestEntity
+      if (mc.level.getBlockEntity(chest) instanceof ChestBlockEntity chestEntity
          && this.labelMatches(this.normalizeLabel(chestEntity.getDisplayName().getString()), normalizedLabel)) {
          return true;
       }
 
-      for (BlockPos signPos : BlockPos.iterate(chest.add(-2, -2, -2), chest.add(2, 2, 2))) {
-         BlockEntity matchingLabel = mc.world.getBlockEntity(signPos);
+      for (BlockPos signPos : BlockPos.betweenClosed(chest.offset(-2, -2, -2), chest.offset(2, 2, 2))) {
+         BlockEntity matchingLabel = mc.level.getBlockEntity(signPos);
          if (matchingLabel instanceof SignBlockEntity) {
             SignBlockEntity sign = (SignBlockEntity)matchingLabel;
             boolean matchingLabelx = false;
 
             for (boolean front : new boolean[]{true, false}) {
-               for (Text line : sign.getText(front).getMessages(false)) {
+               for (Component line : sign.getText(front).getMessages(false)) {
                   matchingLabelx |= this.labelMatches(this.normalizeLabel(line.getString()), normalizedLabel);
                }
             }
@@ -1009,10 +1008,10 @@ public final class AutoMine extends Module {
             if (matchingLabelx) {
                boolean closest = true;
 
-               for (BlockPos other : BlockPos.iterate(signPos.add(-2, -2, -2), signPos.add(2, 2, 2))) {
+               for (BlockPos other : BlockPos.betweenClosed(signPos.offset(-2, -2, -2), signPos.offset(2, 2, 2))) {
                   if (!other.equals(chest)
-                     && mc.world.getBlockState(other).getBlock() instanceof ChestBlock
-                     && signPos.getSquaredDistance(other) < signPos.getSquaredDistance(chest)) {
+                     && mc.level.getBlockState(other).getBlock() instanceof ChestBlock
+                     && signPos.distSqr(other) < signPos.distSqr(chest)) {
                      closest = false;
                      break;
                   }
@@ -1042,9 +1041,9 @@ public final class AutoMine extends Module {
       int bestDurability = -1;
 
       for (int slot = 0; slot < 36; slot++) {
-         ItemStack stack = mc.player.getInventory().getStack(slot);
+         ItemStack stack = mc.player.getInventory().getItem(slot);
          if (!stack.isEmpty() && filter.test(stack)) {
-            double speed = state == null ? (slot < 9 ? 2.0 : 1.0) : (double)stack.getMiningSpeedMultiplier(state);
+            double speed = state == null ? (slot < 9 ? 2.0 : 1.0) : (double)stack.getDestroySpeed(state);
             int durability = this.remainingDurability(stack);
             if (speed > bestSpeed || speed == bestSpeed && durability > bestDurability) {
                bestSpeed = speed;
@@ -1062,7 +1061,7 @@ public final class AutoMine extends Module {
             useSlot = -1;
 
             for (int slotx = 0; slotx < 9; slotx++) {
-               if (mc.player.getInventory().getStack(slotx).isEmpty()) {
+               if (mc.player.getInventory().getItem(slotx).isEmpty()) {
                   useSlot = slotx;
                   break;
                }
@@ -1073,7 +1072,7 @@ public final class AutoMine extends Module {
             }
 
             InventoryTask.swap(source, useSlot, false);
-            if (!filter.test(mc.player.getInventory().getStack(useSlot))) {
+            if (!filter.test(mc.player.getInventory().getItem(useSlot))) {
                return false;
             }
          }

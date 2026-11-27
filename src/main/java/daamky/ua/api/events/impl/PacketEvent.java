@@ -1,7 +1,7 @@
 package daamky.ua.api.events.impl;
 
-import net.minecraft.network.packet.Packet;
 import daamky.ua.api.events.CancellableEvent;
+import net.minecraft.network.protocol.Packet;
 
 public final class PacketEvent extends CancellableEvent {
    private final PacketEvent.Type type;

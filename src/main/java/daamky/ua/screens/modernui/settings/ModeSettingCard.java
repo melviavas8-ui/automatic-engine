@@ -2,8 +2,8 @@ package daamky.ua.screens.modernui.settings;
 
 import java.awt.Color;
 import java.util.List;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.MouseButtonEvent;
 import daamky.ua.api.drag.impl.ClientLanguage;
 import daamky.ua.api.settings.impl.ModeSetting;
 import daamky.ua.utils.render.animation.modernfx.Direction;
@@ -34,7 +34,7 @@ final class ModeSettingCard extends SettingCardComponent<ModeSetting> {
    }
 
    @Override
-   void render(DrawContext graphics, SettingCardContext context, float cardX, float y, int mouseX, int mouseY) {
+   void render(GuiGraphics graphics, SettingCardContext context, float cardX, float y, int mouseX, int mouseY) {
       this.markRow(cardX, y, this.height(context));
       this.state.expandAnimation.setDirection(this.state.expanded ? Direction.FORWARDS : Direction.BACKWARDS);
       float boxX = cardX + 8.0F;
@@ -96,7 +96,7 @@ final class ModeSettingCard extends SettingCardComponent<ModeSetting> {
    }
 
    @Override
-   void renderOverlay(DrawContext graphics, SettingCardContext context) {
+   void renderOverlay(GuiGraphics graphics, SettingCardContext context) {
       float animation = context.clamp(this.state.expandAnimation.getOutput().floatValue(), 0.0F, 1.0F);
       if (this.state.visible && !(animation <= 0.01F)) {
          List<String> visibleModes = this.setting.getVisibleModes();
@@ -161,7 +161,7 @@ final class ModeSettingCard extends SettingCardComponent<ModeSetting> {
    }
 
    @Override
-   boolean mouseClickedOverlay(Click event, SettingCardContext context) {
+   boolean mouseClickedOverlay(MouseButtonEvent event, SettingCardContext context) {
       if (event.button() == 0 && this.state.visible && this.state.expanded) {
          if (!context.inside(
             event.x(), event.y(), this.state.optionX, this.state.optionY, this.state.optionWidth, this.state.optionHeight * (float)this.state.optionCount
@@ -184,7 +184,7 @@ final class ModeSettingCard extends SettingCardComponent<ModeSetting> {
    }
 
    @Override
-   boolean mouseClicked(Click event, boolean doubled, SettingCardContext context) {
+   boolean mouseClicked(MouseButtonEvent event, boolean doubled, SettingCardContext context) {
       if (context.inside(event.x(), event.y(), this.state.boxX, this.state.boxY, this.state.boxWidth, this.state.boxHeight)) {
          this.state.expanded = !this.state.expanded;
          context.activeColor = null;

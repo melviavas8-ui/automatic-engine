@@ -1,22 +1,22 @@
 package daamky.ua.api.drag.impl;
 
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
 import daamky.ua.utils.render.animation.Easings;
 import daamky.ua.utils.render.animation.SmoothAnimation;
 import daamky.ua.utils.render.color.ColorUtil;
 import daamky.ua.utils.render.item.RenderItem;
 import daamky.ua.utils.render.item.RenderItemOptions;
 import daamky.ua.utils.render.ui.Render2D;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 public final class Armor extends HudPanel {
    private static final EquipmentSlot[] SLOTS = new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
    private static final ItemStack[] PREVIEW = new ItemStack[]{
-      Items.NETHERITE_HELMET.getDefaultStack(),
-      Items.NETHERITE_CHESTPLATE.getDefaultStack(),
-      Items.NETHERITE_LEGGINGS.getDefaultStack(),
-      Items.NETHERITE_BOOTS.getDefaultStack()
+      Items.NETHERITE_HELMET.getDefaultInstance(),
+      Items.NETHERITE_CHESTPLATE.getDefaultInstance(),
+      Items.NETHERITE_LEGGINGS.getDefaultInstance(),
+      Items.NETHERITE_BOOTS.getDefaultInstance()
    };
    private static final float ANIM_S = 0.35F;
    private static final float PANEL_RADIUS = 6.0F;
@@ -42,7 +42,7 @@ public final class Armor extends HudPanel {
    private Armor.ArmorState logics() {
       for (int i = 0; i < 4; i++) {
          this.slotAnim[i].update();
-         boolean empty = this.mc.player == null || this.mc.player.getEquippedStack(SLOTS[i]).isEmpty();
+         boolean empty = this.mc.player == null || this.mc.player.getItemBySlot(SLOTS[i]).isEmpty();
          if (empty != this.wasEmpty[i]) {
             this.slotAnim[i].run(empty ? 0.0 : 1.0, 0.35F, Easings.EXPO_OUT);
             this.wasEmpty[i] = empty;
@@ -94,11 +94,11 @@ public final class Armor extends HudPanel {
 
             for (int i = 0; i < 4; i++) {
                float a = clamp(this.slotAnim[i].get() * state.alpha, 0.0F, 1.0F);
-               ItemStack stack = this.mc.player.getEquippedStack(SLOTS[i]);
+               ItemStack stack = this.mc.player.getItemBySlot(SLOTS[i]);
                if (!(a < 0.01F)) {
                   RenderItem.item(stack, itemX + 1.7F, state.y + 3.0F, 12.0F, RenderItemOptions.noDecorations(a));
-                  if (stack.isDamageable() && stack.getMaxDamage() > 0) {
-                     int percent = Math.round((1.0F - (float)stack.getDamage() / (float)stack.getMaxDamage()) * 100.0F);
+                  if (stack.isDamageableItem() && stack.getMaxDamage() > 0) {
+                     int percent = Math.round((1.0F - (float)stack.getDamageValue() / (float)stack.getMaxDamage()) * 100.0F);
                      String text = Integer.toString(Math.max(0, percent));
                      float tw = Render2D.textWidth(TEXT_FONT, text, 4.5F);
                      int color = ColorUtil.rgba(255, 255, 255, Math.round(255.0F * a));

@@ -3,7 +3,7 @@ package daamky.ua.api.command.impl;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
 import daamky.ua.api.command.Command;
 import daamky.ua.api.command.CommandManager;
 
@@ -22,12 +22,12 @@ public final class PrefixCommand extends Command {
          String newPrefix = args[1];
          if (newPrefix.length() <= 3 && !newPrefix.contains(" ")) {
             manager.setPrefix(newPrefix);
-            this.logDirect("Prefix changed to: " + newPrefix, Formatting.GREEN);
+            this.logDirect("Prefix changed to: " + newPrefix, ChatFormatting.GREEN);
          } else {
-            this.logDirect("Prefix must be 1-3 chars without spaces.", Formatting.RED);
+            this.logDirect("Prefix must be 1-3 chars without spaces.", ChatFormatting.RED);
          }
       } else {
-         this.logDirect("Usage: prefix set <symbol>", Formatting.RED);
+         this.logDirect("Usage: prefix set <symbol>", ChatFormatting.RED);
       }
    }
 

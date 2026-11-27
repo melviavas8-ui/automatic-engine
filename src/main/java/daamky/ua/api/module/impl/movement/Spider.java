@@ -1,30 +1,5 @@
 package daamky.ua.api.module.impl.movement;
 
-import net.minecraft.block.ButtonBlock;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.PendingUpdateManager;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.HandSwingC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
-import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket.Action;
-import net.minecraft.network.packet.s2c.play.PlayerPositionLookS2CPacket;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult.Type;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.RaycastContext;
-import net.minecraft.world.RaycastContext.FluidHandling;
-import net.minecraft.world.RaycastContext.ShapeType;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.PacketEvent;
 import daamky.ua.api.module.Module;
@@ -38,6 +13,31 @@ import daamky.ua.api.module.impl.combat.aura.util.StopWatch;
 import daamky.ua.api.module.impl.combat.aura.util.TaskPriority;
 import daamky.ua.api.settings.impl.ModeSetting;
 import daamky.ua.utils.inventory.lookup.InventoryUtils;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.prediction.BlockStatePredictionHandler;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket.Action;
+import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+import net.minecraft.network.protocol.game.ServerboundSwingPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.ClipContext.Block;
+import net.minecraft.world.level.ClipContext.Fluid;
+import net.minecraft.world.level.block.ButtonBlock;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult.Type;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 public final class Spider extends Module {
    private final ModeSetting mode = this.register(
@@ -61,17 +61,17 @@ public final class Spider extends Module {
 
    @Override
    protected void onDisable() {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (client.options != null) {
-         client.options.jumpKey.setPressed(false);
+         client.options.keyJump.setDown(false);
       }
 
       this.buttonClimbLayer = 0;
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
-      if (client.player != null && client.world != null) {
+   public void onTick(Minecraft client) {
+      if (client.player != null && client.level != null) {
          if (this.mode.is("FunTime")) {
             this.handleLeverClimb(client);
          } else if (this.mode.is("FunTimeButtons")) {
@@ -81,15 +81,15 @@ public final class Spider extends Module {
          } else if (this.mode.is("Collision")) {
             this.handleCollisionSpider(client);
          } else if (this.mode.is("Blocks")) {
-            boolean offHand = client.player.getOffHandStack().getItem() instanceof BlockItem;
+            boolean offHand = client.player.getOffhandItem().getItem() instanceof BlockItem;
             int slot = this.findHotbarBlockSlot(client);
             BlockPos blockPos = this.findPos(client);
-            if ((offHand || slot != -1) && !blockPos.equals(BlockPos.ORIGIN)) {
-               ItemStack stack = offHand ? client.player.getOffHandStack() : client.player.getInventory().getStack(slot);
+            if ((offHand || slot != -1) && !blockPos.equals(BlockPos.ZERO)) {
+               ItemStack stack = offHand ? client.player.getOffhandItem() : client.player.getInventory().getItem(slot);
                if (stack.getItem() instanceof BlockItem) {
-                  Vec3d vec = blockPos.toCenterPos();
+                  Vec3 vec = blockPos.getCenter();
                   Direction direction = nearestDirection(vec.x - client.player.getX(), vec.y - client.player.getY(), vec.z - client.player.getZ());
-                  Angle angle = MathAngle.calculateAngle(vec.subtract(Vec3d.of(direction.getVector()).multiply(0.1F)));
+                  Angle angle = MathAngle.calculateAngle(vec.subtract(Vec3.atLowerCornerOf(direction.getUnitVec3i()).scale(0.1F)));
                   AngleConnection.INSTANCE
                      .rotateTo(
                         new Angle.VecRotation(angle, angle.toVector()),
@@ -100,22 +100,22 @@ public final class Spider extends Module {
                         this
                      );
                   if (this.placeTimer.finished(75.0) && this.canPlace(client, (BlockItem)stack.getItem())) {
-                     Hand hand = offHand ? Hand.OFF_HAND : Hand.MAIN_HAND;
+                     InteractionHand hand = offHand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND;
                      int previous = client.player.getInventory().getSelectedSlot();
                      if (!offHand) {
                         client.player.getInventory().setSelectedSlot(slot);
-                        client.player.networkHandler.sendPacket(new UpdateSelectedSlotC2SPacket(slot));
+                        client.player.connection.send(new ServerboundSetCarriedItemPacket(slot));
                      }
 
                      Direction hitFace = direction.getOpposite();
                      BlockHitResult hit = new BlockHitResult(vec, hitFace, blockPos, false);
-                     this.sendPacketPlaceAndBreak(client, hand, hit, blockPos.offset(hitFace), hitFace);
-                     Vec3d velocity = client.player.getVelocity();
-                     client.player.setVelocity(velocity.x, 0.2, velocity.z);
+                     this.sendPacketPlaceAndBreak(client, hand, hit, blockPos.relative(hitFace), hitFace);
+                     Vec3 velocity = client.player.getDeltaMovement();
+                     client.player.setDeltaMovement(velocity.x, 0.2, velocity.z);
                      if (!offHand) {
                         InventoryUtils.selectSlot(previous);
-                        client.player.networkHandler.sendPacket(new UpdateSelectedSlotC2SPacket(previous));
-                        client.player.setVelocity(velocity.x, 0.2, velocity.z);
+                        client.player.connection.send(new ServerboundSetCarriedItemPacket(previous));
+                        client.player.setDeltaMovement(velocity.x, 0.2, velocity.z);
                      }
 
                      this.placeTimer.reset();
@@ -128,46 +128,46 @@ public final class Spider extends Module {
 
    @SubscribeEvent
    private void onPacket(PacketEvent event) {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (this.mode.is("Collision")
          && event.isReceive()
          && client.player != null
-         && event.getPacket() instanceof PlayerPositionLookS2CPacket
+         && event.getPacket() instanceof ClientboundPlayerPositionPacket
          && this.collisionTimer.finished(600.0)) {
          this.boostCollisionSpider(client);
          this.collisionTimer.reset();
       }
    }
 
-   private void handleCollisionSpider(MinecraftClient client) {
+   private void handleCollisionSpider(Minecraft client) {
       if (client.player.horizontalCollision && this.collisionTimer.finished(600.0)) {
          this.boostCollisionSpider(client);
          this.collisionTimer.reset();
       }
    }
 
-   private void boostCollisionSpider(MinecraftClient client) {
+   private void boostCollisionSpider(Minecraft client) {
       client.player.setOnGround(true);
-      Vec3d velocity = client.player.getVelocity();
-      client.player.setVelocity(velocity.x, 0.6, velocity.z);
+      Vec3 velocity = client.player.getDeltaMovement();
+      client.player.setDeltaMovement(velocity.x, 0.6, velocity.z);
       client.player.fallDistance = 0.0;
    }
 
-   private void sendPacketPlaceAndBreak(MinecraftClient client, Hand hand, BlockHitResult hit, BlockPos placedPos, Direction breakFace) {
-      if (client.player != null && client.world != null && client.getNetworkHandler() != null) {
-         PendingUpdateManager prediction = null;
+   private void sendPacketPlaceAndBreak(Minecraft client, InteractionHand hand, BlockHitResult hit, BlockPos placedPos, Direction breakFace) {
+      if (client.player != null && client.level != null && client.getConnection() != null) {
+         BlockStatePredictionHandler prediction = null;
          int sequence = 0;
 
          try {
-            prediction = client.world.getPendingUpdateManager().incrementSequence();
-            sequence = prediction.getSequence();
+            prediction = client.level.getBlockStatePredictionHandler().startPredicting();
+            sequence = prediction.currentSequence();
          } catch (Exception var56) {
          } finally {
             try {
-               client.getNetworkHandler().sendPacket(new PlayerInteractBlockC2SPacket(hand, hit, sequence));
-               client.player.networkHandler.sendPacket(new HandSwingC2SPacket(hand));
-               client.player.networkHandler.sendPacket(new PlayerActionC2SPacket(Action.START_DESTROY_BLOCK, placedPos, breakFace));
-               client.player.networkHandler.sendPacket(new PlayerActionC2SPacket(Action.STOP_DESTROY_BLOCK, placedPos, breakFace));
+               client.getConnection().send(new ServerboundUseItemOnPacket(hand, hit, sequence));
+               client.player.connection.send(new ServerboundSwingPacket(hand));
+               client.player.connection.send(new ServerboundPlayerActionPacket(Action.START_DESTROY_BLOCK, placedPos, breakFace));
+               client.player.connection.send(new ServerboundPlayerActionPacket(Action.STOP_DESTROY_BLOCK, placedPos, breakFace));
             } finally {
                if (prediction != null) {
                   try {
@@ -180,9 +180,9 @@ public final class Spider extends Module {
       }
    }
 
-   private int findHotbarBlockSlot(MinecraftClient client) {
+   private int findHotbarBlockSlot(Minecraft client) {
       for (int i = 0; i < 9; i++) {
-         ItemStack stack = client.player.getInventory().getStack(i);
+         ItemStack stack = client.player.getInventory().getItem(i);
          if (stack.getItem() instanceof BlockItem) {
             return i;
          }
@@ -191,14 +191,14 @@ public final class Spider extends Module {
       return -1;
    }
 
-   private void handleLeverClimb(MinecraftClient client) {
+   private void handleLeverClimb(Minecraft client) {
       if (client.player.horizontalCollision) {
          int leverSlot = InventoryUtils.findItemAnywhere(Items.TORCH);
          if (leverSlot == -1) {
             this.setEnabled(false);
          } else if (this.ftbutton.finished(150.0)) {
             client.player.setOnGround(true);
-            client.player.jump();
+            client.player.jumpFromGround();
             client.player.fallDistance = 0.0;
             this.placeLever(client, leverSlot);
             this.ftbutton.reset();
@@ -206,16 +206,16 @@ public final class Spider extends Module {
       }
    }
 
-   private void placeLever(MinecraftClient client, int slot) {
-      if (client.interactionManager != null) {
+   private void placeLever(Minecraft client, int slot) {
+      if (client.gameMode != null) {
          int previous = this.selectSlot(client, slot);
          float yaw = this.getWallYaw(client, this.getWallDirection(client));
          float pitch = 70.0F;
          this.applyLook(client, yaw, pitch);
          BlockHitResult hit = this.getTargetedBlock(client, yaw, pitch, 4.0);
          if (hit.getType() == Type.BLOCK) {
-            client.player.swingHand(Hand.MAIN_HAND);
-            client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, hit);
+            client.player.swing(InteractionHand.MAIN_HAND);
+            client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND, hit);
          }
 
          this.restoreSlot(client, slot, previous);
@@ -223,7 +223,7 @@ public final class Spider extends Module {
       }
    }
 
-   private void handleFunTimeMed(MinecraftClient client) {
+   private void handleFunTimeMed(Minecraft client) {
       if (client.player.horizontalCollision) {
          if (this.ftbutton.finished(1.0)) {
             int rodSlot = InventoryUtils.findItemAnywhere(Items.LIGHTNING_ROD);
@@ -231,7 +231,7 @@ public final class Spider extends Module {
                this.setEnabled(false);
             } else {
                client.player.setOnGround(true);
-               client.player.jump();
+               client.player.jumpFromGround();
                this.placeFenceStack(client, rodSlot);
                client.player.fallDistance = 0.0;
                this.ftbutton.reset();
@@ -240,14 +240,14 @@ public final class Spider extends Module {
       }
    }
 
-   private void placeFenceStack(MinecraftClient client, int slot) {
-      if (client.interactionManager != null) {
+   private void placeFenceStack(Minecraft client, int slot) {
+      if (client.gameMode != null) {
          int previous = this.selectSlot(client, slot);
-         BlockPos playerPos = client.player.getBlockPos();
+         BlockPos playerPos = client.player.blockPosition();
 
          for (int i = 1; i <= 2; i++) {
-            BlockPos fencePos = playerPos.up(i);
-            if (client.world.getBlockState(fencePos).isAir()) {
+            BlockPos fencePos = playerPos.above(i);
+            if (client.level.getBlockState(fencePos).isAir()) {
                this.placeFenceBlock(client, fencePos);
             }
          }
@@ -256,18 +256,18 @@ public final class Spider extends Module {
       }
    }
 
-   private void placeFenceBlock(MinecraftClient client, BlockPos pos) {
-      if (client.interactionManager != null && client.world.getBlockState(pos).isAir()) {
-         Vec3d center = pos.toCenterPos();
-         BlockHitResult hit = new BlockHitResult(center, Direction.UP, pos.down(), false);
-         client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, hit);
-         client.player.swingHand(Hand.MAIN_HAND);
+   private void placeFenceBlock(Minecraft client, BlockPos pos) {
+      if (client.gameMode != null && client.level.getBlockState(pos).isAir()) {
+         Vec3 center = pos.getCenter();
+         BlockHitResult hit = new BlockHitResult(center, Direction.UP, pos.below(), false);
+         client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND, hit);
+         client.player.swing(InteractionHand.MAIN_HAND);
       }
    }
 
-   private void funtimeButtons(MinecraftClient client) {
+   private void funtimeButtons(Minecraft client) {
       if (client.options != null) {
-         client.options.jumpKey.setPressed(client.options.forwardKey.isPressed());
+         client.options.keyJump.setDown(client.options.keyUp.isDown());
       }
 
       if (client.player.horizontalCollision) {
@@ -277,7 +277,7 @@ public final class Spider extends Module {
             this.setEnabled(false);
          } else if (this.ftbutton.finished(180.0)) {
             client.player.setOnGround(true);
-            client.player.jump();
+            client.player.jumpFromGround();
             client.player.fallDistance = 0.0;
             if (hasPlacedButton) {
                this.lookAtButtonClimbStep(client);
@@ -290,35 +290,35 @@ public final class Spider extends Module {
       }
    }
 
-   private boolean placeButtonClimbStep(MinecraftClient client, int slot) {
-      if (client.interactionManager == null) {
+   private boolean placeButtonClimbStep(Minecraft client, int slot) {
+      if (client.gameMode == null) {
          return false;
       } else {
          int previous = this.selectSlot(client, slot);
          Direction wallDirection = this.getWallDirection(client);
          Direction hitFace = wallDirection.getOpposite();
-         BlockPos playerPos = client.player.getBlockPos();
+         BlockPos playerPos = client.player.blockPosition();
          boolean placed = false;
 
          for (int offset = 0; offset <= 2; offset++) {
             int y = (this.buttonClimbLayer + offset) % 3;
-            BlockPos wallPos = playerPos.offset(wallDirection).up(y);
-            BlockPos buttonPos = wallPos.offset(hitFace);
-            if (!client.world.getBlockState(wallPos).isAir()) {
-               if (client.world.getBlockState(buttonPos).getBlock() instanceof ButtonBlock) {
+            BlockPos wallPos = playerPos.relative(wallDirection).above(y);
+            BlockPos buttonPos = wallPos.relative(hitFace);
+            if (!client.level.getBlockState(wallPos).isAir()) {
+               if (client.level.getBlockState(buttonPos).getBlock() instanceof ButtonBlock) {
                   this.lookAt(client, this.hitVector(wallPos, hitFace));
                   this.buttonClimbLayer = (y + 1) % 3;
                   placed = true;
                   break;
                }
 
-               if (client.world.getBlockState(buttonPos).isReplaceable()) {
-                  Vec3d hitVec = this.hitVector(wallPos, hitFace);
+               if (client.level.getBlockState(buttonPos).canBeReplaced()) {
+                  Vec3 hitVec = this.hitVector(wallPos, hitFace);
                   this.lookAt(client, hitVec);
                   BlockHitResult hit = new BlockHitResult(hitVec, hitFace, wallPos, false);
-                  client.player.swingHand(Hand.MAIN_HAND);
-                  ActionResult result = client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, hit);
-                  if (result.isAccepted()) {
+                  client.player.swing(InteractionHand.MAIN_HAND);
+                  InteractionResult result = client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND, hit);
+                  if (result.consumesAction()) {
                      this.buttonClimbLayer = (y + 1) % 3;
                      placed = true;
                      break;
@@ -333,16 +333,16 @@ public final class Spider extends Module {
       }
    }
 
-   private boolean lookAtButtonClimbStep(MinecraftClient client) {
+   private boolean lookAtButtonClimbStep(Minecraft client) {
       Direction wallDirection = this.getWallDirection(client);
       Direction hitFace = wallDirection.getOpposite();
-      BlockPos playerPos = client.player.getBlockPos();
+      BlockPos playerPos = client.player.blockPosition();
 
       for (int offset = 0; offset <= 2; offset++) {
          int y = (this.buttonClimbLayer + offset) % 3;
-         BlockPos wallPos = playerPos.offset(wallDirection).up(y);
-         BlockPos buttonPos = wallPos.offset(hitFace);
-         if (client.world.getBlockState(buttonPos).getBlock() instanceof ButtonBlock) {
+         BlockPos wallPos = playerPos.relative(wallDirection).above(y);
+         BlockPos buttonPos = wallPos.relative(hitFace);
+         if (client.level.getBlockState(buttonPos).getBlock() instanceof ButtonBlock) {
             this.lookAt(client, this.hitVector(wallPos, hitFace));
             this.buttonClimbLayer = (y + 1) % 3;
             return true;
@@ -352,15 +352,15 @@ public final class Spider extends Module {
       return false;
    }
 
-   private boolean hasButtonClimbStep(MinecraftClient client) {
+   private boolean hasButtonClimbStep(Minecraft client) {
       Direction wallDirection = this.getWallDirection(client);
       Direction hitFace = wallDirection.getOpposite();
-      BlockPos playerPos = client.player.getBlockPos();
+      BlockPos playerPos = client.player.blockPosition();
 
       for (int y = 1; y >= 0; y--) {
-         BlockPos wallPos = playerPos.offset(wallDirection).up(y);
-         BlockPos buttonPos = wallPos.offset(hitFace);
-         if (!client.world.getBlockState(wallPos).isAir() && client.world.getBlockState(buttonPos).getBlock() instanceof ButtonBlock) {
+         BlockPos wallPos = playerPos.relative(wallDirection).above(y);
+         BlockPos buttonPos = wallPos.relative(hitFace);
+         if (!client.level.getBlockState(wallPos).isAir() && client.level.getBlockState(buttonPos).getBlock() instanceof ButtonBlock) {
             return true;
          }
       }
@@ -368,9 +368,9 @@ public final class Spider extends Module {
       return false;
    }
 
-   private int findButtonSlot(MinecraftClient client) {
+   private int findButtonSlot(Minecraft client) {
       for (int i = 0; i < 36; i++) {
-         if (this.isButtonStack(client.player.getInventory().getStack(i))) {
+         if (this.isButtonStack(client.player.getInventory().getItem(i))) {
             return i;
          }
       }
@@ -382,10 +382,10 @@ public final class Spider extends Module {
       return !stack.isEmpty() && stack.getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof ButtonBlock;
    }
 
-   private int selectSlot(MinecraftClient client, int slot) {
+   private int selectSlot(Minecraft client, int slot) {
       int previous = client.player.getInventory().getSelectedSlot();
       if (slot > 8) {
-         InventoryUtils.click(InventoryUtils.wrapSlot(slot), previous, SlotActionType.SWAP);
+         InventoryUtils.click(InventoryUtils.wrapSlot(slot), previous, ClickType.SWAP);
       } else if (slot != previous) {
          InventoryUtils.syncSelectedHotbarSlot(slot);
       }
@@ -393,21 +393,21 @@ public final class Spider extends Module {
       return previous;
    }
 
-   private void restoreSlot(MinecraftClient client, int slot, int previous) {
+   private void restoreSlot(Minecraft client, int slot, int previous) {
       if (slot > 8) {
-         InventoryUtils.click(InventoryUtils.wrapSlot(slot), previous, SlotActionType.SWAP);
+         InventoryUtils.click(InventoryUtils.wrapSlot(slot), previous, ClickType.SWAP);
          InventoryUtils.closeScreen();
       } else if (slot != previous) {
          InventoryUtils.syncSelectedHotbarSlot(previous);
       }
    }
 
-   private Vec3d hitVector(BlockPos wallPos, Direction hitFace) {
-      return wallPos.toCenterPos().add(Vec3d.of(hitFace.getVector()).multiply(0.5));
+   private Vec3 hitVector(BlockPos wallPos, Direction hitFace) {
+      return wallPos.getCenter().add(Vec3.atLowerCornerOf(hitFace.getUnitVec3i()).scale(0.5));
    }
 
-   private void lookAt(MinecraftClient client, Vec3d target) {
-      Vec3d eye = client.player.getEyePos();
+   private void lookAt(Minecraft client, Vec3 target) {
+      Vec3 eye = client.player.getEyePosition();
       double dx = target.x - eye.x;
       double dy = target.y - eye.y;
       double dz = target.z - eye.z;
@@ -417,23 +417,23 @@ public final class Spider extends Module {
       this.applyLook(client, yaw, pitch);
    }
 
-   private void applyLook(MinecraftClient client, float yaw, float pitch) {
-      client.player.setYaw(yaw);
-      client.player.setPitch(pitch);
-      client.player.lastYaw = yaw;
-      client.player.lastPitch = pitch;
-      client.player.setHeadYaw(yaw);
-      client.player.setBodyYaw(yaw);
+   private void applyLook(Minecraft client, float yaw, float pitch) {
+      client.player.setYRot(yaw);
+      client.player.setXRot(pitch);
+      client.player.yRotO = yaw;
+      client.player.xRotO = pitch;
+      client.player.setYHeadRot(yaw);
+      client.player.setYBodyRot(yaw);
    }
 
-   private Direction getWallDirection(MinecraftClient client) {
-      Direction forward = client.player.getHorizontalFacing();
-      BlockPos playerPos = client.player.getBlockPos();
-      if (!client.world.getBlockState(playerPos.offset(forward)).isAir()) {
+   private Direction getWallDirection(Minecraft client) {
+      Direction forward = client.player.getDirection();
+      BlockPos playerPos = client.player.blockPosition();
+      if (!client.level.getBlockState(playerPos.relative(forward)).isAir()) {
          return forward;
       } else {
-         for (Direction direction : net.minecraft.util.math.Direction.Type.HORIZONTAL) {
-            if (!client.world.getBlockState(playerPos.offset(direction)).isAir()) {
+         for (Direction direction : net.minecraft.core.Direction.Plane.HORIZONTAL) {
+            if (!client.level.getBlockState(playerPos.relative(direction)).isAir()) {
                return direction;
             }
          }
@@ -442,54 +442,54 @@ public final class Spider extends Module {
       }
    }
 
-   private BlockHitResult getTargetedBlock(MinecraftClient client, float yaw, float pitch, double distance) {
-      Vec3d eye = client.player.getEyePos();
-      Vec3d dir = Vec3d.fromPolar(pitch, yaw).normalize();
-      Vec3d end = eye.add(dir.multiply(distance));
-      RaycastContext context = new RaycastContext(eye, end, ShapeType.OUTLINE, FluidHandling.NONE, client.player);
-      return client.world.raycast(context);
+   private BlockHitResult getTargetedBlock(Minecraft client, float yaw, float pitch, double distance) {
+      Vec3 eye = client.player.getEyePosition();
+      Vec3 dir = Vec3.directionFromRotation(pitch, yaw).normalize();
+      Vec3 end = eye.add(dir.scale(distance));
+      ClipContext context = new ClipContext(eye, end, Block.OUTLINE, Fluid.NONE, client.player);
+      return client.level.clip(context);
    }
 
-   private float getWallYaw(MinecraftClient client, Direction direction) {
+   private float getWallYaw(Minecraft client, Direction direction) {
       return switch (direction) {
          case NORTH -> 180.0F;
          case SOUTH -> 0.0F;
          case WEST -> 90.0F;
          case EAST -> -90.0F;
-         default -> client.player.getYaw();
+         default -> client.player.getYRot();
       };
    }
 
-   private BlockPos findPos(MinecraftClient client) {
+   private BlockPos findPos(Minecraft client) {
       BlockPos blockPos = this.getBlockPos(client);
-      if (client.world.getBlockState(blockPos).isFullCube(client.world, blockPos)) {
-         return BlockPos.ORIGIN;
+      if (client.level.getBlockState(blockPos).isCollisionShapeFullBlock(client.level, blockPos)) {
+         return BlockPos.ZERO;
       } else {
          for (BlockPos pos : new BlockPos[]{blockPos.west(), blockPos.east(), blockPos.south(), blockPos.north()}) {
-            if (client.world.getBlockState(pos).isFullCube(client.world, pos)) {
+            if (client.level.getBlockState(pos).isCollisionShapeFullBlock(client.level, pos)) {
                return pos;
             }
          }
 
-         return BlockPos.ORIGIN;
+         return BlockPos.ZERO;
       }
    }
 
-   private BlockPos getBlockPos(MinecraftClient client) {
-      Vec3d predicted = client.player.getEntityPos().add(client.player.getVelocity()).add(0.0, -0.001, 0.0);
-      return BlockPos.ofFloored(predicted);
+   private BlockPos getBlockPos(Minecraft client) {
+      Vec3 predicted = client.player.position().add(client.player.getDeltaMovement()).add(0.0, -0.001, 0.0);
+      return BlockPos.containing(predicted);
    }
 
-   private boolean canPlace(MinecraftClient client, BlockItem blockItem) {
+   private boolean canPlace(Minecraft client, BlockItem blockItem) {
       BlockPos blockPos = this.getBlockPos(client);
-      if (blockPos.getY() >= BlockPos.ofFloored(client.player.getX(), client.player.getY(), client.player.getZ()).getY()) {
+      if (blockPos.getY() >= BlockPos.containing(client.player.getX(), client.player.getY(), client.player.getZ()).getY()) {
          return false;
       } else {
-         VoxelShape shape = blockItem.getBlock().getDefaultState().getCollisionShape(client.world, blockPos);
+         VoxelShape shape = blockItem.getBlock().defaultBlockState().getCollisionShape(client.level, blockPos);
          if (shape.isEmpty()) {
             return false;
          } else {
-            Box box = shape.getBoundingBox().offset(blockPos);
+            AABB box = shape.bounds().move(blockPos);
             return !box.intersects(client.player.getBoundingBox());
          }
       }

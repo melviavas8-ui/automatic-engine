@@ -1,9 +1,5 @@
 package daamky.ua.api.module.impl.combat.aura.rotations;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.module.impl.combat.AuraModule;
 import daamky.ua.api.module.impl.combat.aura.Angle;
 import daamky.ua.api.module.impl.combat.aura.MathAngle;
@@ -12,9 +8,13 @@ import daamky.ua.api.module.impl.combat.aura.rotations.funtime.FTMathUtil;
 import daamky.ua.api.module.impl.combat.aura.target.RaycastAngle;
 import daamky.ua.api.module.impl.combat.aura.util.MathUtils;
 import daamky.ua.api.module.impl.combat.aura.utils.Animator;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 public final class SPAngle extends RotateConstructor {
-   private static final MinecraftClient mc = MinecraftClient.getInstance();
+   private static final Minecraft mc = Minecraft.getInstance();
    private float animProgress = 1.0F;
    private float startYaw;
    private float startPitch;
@@ -26,7 +26,7 @@ public final class SPAngle extends RotateConstructor {
    }
 
    @Override
-   public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3d aimPoint, Entity entity) {
+   public Angle limitAngleChange(Angle currentAngle, Angle targetAngle, Vec3 aimPoint, Entity entity) {
       if (currentAngle != null && targetAngle != null) {
          AuraModule aura = AuraModule.getInstance();
          if (aura == null) {
@@ -51,8 +51,8 @@ public final class SPAngle extends RotateConstructor {
 
          float maxYawStep = Math.abs(yawDelta / difference) * yawSpeed;
          float maxPitchStep = Math.abs(pitchDelta / difference) * pitchSpeed;
-         float targetYaw = currentAngle.getYaw() + MathHelper.clamp(yawDelta, -maxYawStep, maxYawStep) + yawJitter;
-         float targetPitch = MathHelper.clamp(currentAngle.getPitch() + MathHelper.clamp(pitchDelta, -maxPitchStep, maxPitchStep) + pitchJitter, -89.0F, 89.0F);
+         float targetYaw = currentAngle.getYaw() + Mth.clamp(yawDelta, -maxYawStep, maxYawStep) + yawJitter;
+         float targetPitch = Mth.clamp(currentAngle.getPitch() + Mth.clamp(pitchDelta, -maxPitchStep, maxPitchStep) + pitchJitter, -89.0F, 89.0F);
          return Animator.spooky(2.0F, SPAngle.class).apply(currentAngle, targetYaw, targetPitch);
       } else {
          return currentAngle;
@@ -60,7 +60,7 @@ public final class SPAngle extends RotateConstructor {
    }
 
    @Override
-   public Vec3d randomValue() {
-      return new Vec3d(0.2F, 0.0, 5.0);
+   public Vec3 randomValue() {
+      return new Vec3(0.2F, 0.0, 5.0);
    }
 }

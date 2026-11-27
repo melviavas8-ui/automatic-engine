@@ -1,13 +1,13 @@
 package daamky.ua.mixin;
 
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.biome.Biome;
-import net.minecraft.world.biome.Biome.Precipitation;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import daamky.ua.api.module.impl.visual.Ambience;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.Biome.Precipitation;
 
 @Mixin({Biome.class})
 public abstract class BiomeWeatherMixin {
@@ -29,7 +29,7 @@ public abstract class BiomeWeatherMixin {
    }
 
    @Inject(
-      method = {"getPrecipitation"},
+      method = {"getPrecipitationAt"},
       at = {@At("HEAD")},
       cancellable = true,
       require = 0
@@ -43,7 +43,7 @@ public abstract class BiomeWeatherMixin {
    }
 
    @Inject(
-      method = {"isCold"},
+      method = {"coldEnoughToSnow"},
       at = {@At("HEAD")},
       cancellable = true,
       require = 0
@@ -59,7 +59,7 @@ public abstract class BiomeWeatherMixin {
    }
 
    @Inject(
-      method = {"doesNotSnow"},
+      method = {"warmEnoughToRain"},
       at = {@At("HEAD")},
       cancellable = true,
       require = 0

@@ -5,47 +5,47 @@ import it.unimi.dsi.fastutil.objects.Object2DoubleMap;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.LadderBlock;
-import net.minecraft.block.PowderSnowBlock;
-import net.minecraft.block.TrapdoorBlock;
-import net.minecraft.client.input.Input;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.attribute.EntityAttribute;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.vehicle.AbstractBoatEntity;
-import net.minecraft.fluid.Fluid;
-import net.minecraft.fluid.FluidState;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.registry.tag.BlockTags;
-import net.minecraft.registry.tag.FluidTags;
-import net.minecraft.registry.tag.TagKey;
-import net.minecraft.util.PlayerInput;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.BlockPos.Mutable;
-import net.minecraft.util.shape.VoxelShape;
+import net.minecraft.client.player.ClientInput;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.BlockPos.MutableBlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Holder;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.tags.TagKey;
+import net.minecraft.util.Mth;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Input;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LadderBlock;
+import net.minecraft.world.level.block.PowderSnowBlock;
+import net.minecraft.world.level.block.TrapDoorBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import daamky.ua.IMinecraft;
 import daamky.ua.mixin.accessor.EntityAccessor;
 import daamky.ua.mixin.accessor.LivingEntityAccessor;
 import daamky.ua.utils.move.MoveUtil;
 
 public class PlayerSimulation implements Simulation, IMinecraft {
-   public final PlayerEntity player;
+   public final Player player;
    public final PlayerSimulation.SimulatedPlayerInput input;
-   public Vec3d pos;
-   public Vec3d velocity;
-   public Box boundingBox;
+   public Vec3 pos;
+   public Vec3 velocity;
+   public AABB boundingBox;
    public float yaw;
    public float pitch;
    public boolean sprinting;
@@ -66,11 +66,11 @@ public class PlayerSimulation implements Simulation, IMinecraft {
    private static final double STEP_HEIGHT = 0.5;
 
    public PlayerSimulation(
-      PlayerEntity player,
+      Player player,
       PlayerSimulation.SimulatedPlayerInput input,
-      Vec3d pos,
-      Vec3d velocity,
-      Box boundingBox,
+      Vec3 pos,
+      Vec3 velocity,
+      AABB boundingBox,
       float yaw,
       float pitch,
       boolean sprinting,
@@ -110,7 +110,7 @@ public class PlayerSimulation implements Simulation, IMinecraft {
    }
 
    public static PlayerSimulation simulateLocalPlayer(int ticks) {
-      PlayerSimulation simulatedPlayer = fromClientPlayer(PlayerSimulation.SimulatedPlayerInput.fromClientPlayer(mc.player.input.playerInput));
+      PlayerSimulation simulatedPlayer = fromClientPlayer(PlayerSimulation.SimulatedPlayerInput.fromClientPlayer(mc.player.input.keyPresses));
 
       for (int i = 0; i < ticks; i++) {
          simulatedPlayer.tick();
@@ -119,7 +119,7 @@ public class PlayerSimulation implements Simulation, IMinecraft {
       return simulatedPlayer;
    }
 
-   public static PlayerSimulation simulateOtherPlayer(PlayerEntity player, int ticks) {
+   public static PlayerSimulation simulateOtherPlayer(Player player, int ticks) {
       PlayerSimulation simulatedPlayer = fromOtherPlayer(player, PlayerSimulation.SimulatedPlayerInput.guessInput(player));
 
       for (int i = 0; i < ticks; i++) {
@@ -130,63 +130,63 @@ public class PlayerSimulation implements Simulation, IMinecraft {
    }
 
    public static PlayerSimulation fromClientPlayer(PlayerSimulation.SimulatedPlayerInput input) {
-      ClientPlayerEntity player = mc.player;
+      LocalPlayer player = mc.player;
       LivingEntityAccessor livingAccessor = (LivingEntityAccessor)player;
       EntityAccessor entityAccessor = (EntityAccessor)player;
       return new PlayerSimulation(
          player,
          input,
-         player.getEntityPos(),
-         player.getVelocity(),
+         player.position(),
+         player.getDeltaMovement(),
          player.getBoundingBox(),
-         player.getYaw(),
-         player.getPitch(),
+         player.getYRot(),
+         player.getXRot(),
          player.isSprinting(),
          (float)player.fallDistance,
          livingAccessor.daamky$getJumpingCooldown(),
          livingAccessor.daamky$isJumping(),
-         player.isGliding(),
-         player.isOnGround(),
+         player.isFallFlying(),
+         player.onGround(),
          entityAccessor.daamky$isHorizontalCollision(),
          entityAccessor.daamky$isVerticalCollision(),
-         player.isTouchingWater(),
+         player.isInWater(),
          player.isSwimming(),
-         player.isSubmergedInWater(),
+         player.isUnderWater(),
          new Object2DoubleArrayMap(entityAccessor.daamky$getFluidHeight()),
          new HashSet<>(entityAccessor.daamky$getSubmergedFluidTag())
       );
    }
 
-   public static PlayerSimulation fromOtherPlayer(PlayerEntity player, PlayerSimulation.SimulatedPlayerInput input) {
+   public static PlayerSimulation fromOtherPlayer(Player player, PlayerSimulation.SimulatedPlayerInput input) {
       LivingEntityAccessor livingAccessor = (LivingEntityAccessor)player;
       EntityAccessor entityAccessor = (EntityAccessor)player;
       return new PlayerSimulation(
          player,
          input,
-         player.getEntityPos(),
-         player.getEntityPos().subtract(new Vec3d(player.lastX, player.lastY, player.lastZ)),
+         player.position(),
+         player.position().subtract(new Vec3(player.xo, player.yo, player.zo)),
          player.getBoundingBox(),
-         player.getYaw(),
-         player.getPitch(),
+         player.getYRot(),
+         player.getXRot(),
          player.isSprinting(),
          (float)player.fallDistance,
          livingAccessor.daamky$getJumpingCooldown(),
          livingAccessor.daamky$isJumping(),
-         player.isGliding(),
-         player.isOnGround(),
+         player.isFallFlying(),
+         player.onGround(),
          entityAccessor.daamky$isHorizontalCollision(),
          entityAccessor.daamky$isVerticalCollision(),
-         player.isTouchingWater(),
+         player.isInWater(),
          player.isSwimming(),
-         player.isSubmergedInWater(),
+         player.isUnderWater(),
          new Object2DoubleArrayMap(entityAccessor.daamky$getFluidHeight()),
          new HashSet<>(entityAccessor.daamky$getSubmergedFluidTag())
       );
    }
 
    @Override
-   public Vec3d pos() {
-      return this.player.getEntityPos();
+   public Vec3 pos() {
+      return this.player.position();
    }
 
    @Override
@@ -222,7 +222,7 @@ public class PlayerSimulation implements Simulation, IMinecraft {
             this.isFallFlying = false;
          }
 
-         this.velocity = new Vec3d(newX, newY, newZ);
+         this.velocity = new Vec3(newX, newY, newZ);
          if (this.isJumping) {
             double fluidLevel = this.isInLava() ? this.getFluidHeight(FluidTags.LAVA) : this.getFluidHeight(FluidTags.WATER);
             boolean inWater = this.isTouchingWater() && fluidLevel > 0.0;
@@ -246,20 +246,20 @@ public class PlayerSimulation implements Simulation, IMinecraft {
          float sidewaysSpeed = this.input.movementSideways * 0.98F;
          float forwardSpeed = this.input.movementForward * 0.98F;
          float upwardsSpeed = 0.0F;
-         if (this.hasStatusEffect(StatusEffects.SLOW_FALLING) || this.hasStatusEffect(StatusEffects.LEVITATION)) {
+         if (this.hasStatusEffect(MobEffects.SLOW_FALLING) || this.hasStatusEffect(MobEffects.LEVITATION)) {
             this.onLanding();
          }
 
-         this.travel(new Vec3d((double)sidewaysSpeed, (double)upwardsSpeed, (double)forwardSpeed));
+         this.travel(new Vec3((double)sidewaysSpeed, (double)upwardsSpeed, (double)forwardSpeed));
       }
    }
 
-   private void travel(Vec3d movementInput) {
-      if (this.isSwimming && !this.player.hasVehicle()) {
+   private void travel(Vec3 movementInput) {
+      if (this.isSwimming && !this.player.isPassenger()) {
          double g = this.getRotationVector().y;
          double h = g < -0.2 ? 0.085 : 0.06;
-         BlockPos posAbove = new BlockPos(MathHelper.floor(this.pos.x), MathHelper.floor(this.pos.y + 1.0 - 0.1), MathHelper.floor(this.pos.z));
-         if (g <= 0.0 || this.input.keyPresses.jump() || !this.player.getEntityWorld().getBlockState(posAbove).getFluidState().isEmpty()) {
+         BlockPos posAbove = new BlockPos(Mth.floor(this.pos.x), Mth.floor(this.pos.y + 1.0 - 0.1), Mth.floor(this.pos.z));
+         if (g <= 0.0 || this.input.keyPresses.jump() || !this.player.level().getBlockState(posAbove).getFluidState().isEmpty()) {
             this.velocity = this.velocity.add(0.0, (g - this.velocity.y) * h, 0.0);
          }
       }
@@ -267,16 +267,16 @@ public class PlayerSimulation implements Simulation, IMinecraft {
       double beforeTravelVelocityY = this.velocity.y;
       double d = 0.08;
       boolean falling = this.velocity.y <= 0.0;
-      if (this.velocity.y <= 0.0 && this.hasStatusEffect(StatusEffects.SLOW_FALLING)) {
+      if (this.velocity.y <= 0.0 && this.hasStatusEffect(MobEffects.SLOW_FALLING)) {
          d = 0.01;
          this.onLanding();
       }
 
-      if (this.isTouchingWater() && this.player.shouldSwimInFluids()) {
+      if (this.isTouchingWater() && this.player.isAffectedByFluids()) {
          double e = this.pos.y;
          float f = this.isSprinting() ? 0.9F : 0.8F;
          float g = 0.02F;
-         float h = (float)this.getAttributeValue(EntityAttributes.WATER_MOVEMENT_EFFICIENCY);
+         float h = (float)this.getAttributeValue(Attributes.WATER_MOVEMENT_EFFICIENCY);
          if (!this.onGround) {
             h *= 0.5F;
          }
@@ -286,53 +286,53 @@ public class PlayerSimulation implements Simulation, IMinecraft {
             g += (this.getMovementSpeed() - g) * h / 3.0F;
          }
 
-         if (this.hasStatusEffect(StatusEffects.DOLPHINS_GRACE)) {
+         if (this.hasStatusEffect(MobEffects.DOLPHINS_GRACE)) {
             f = 0.96F;
          }
 
          this.updateVelocity(g, movementInput);
          this.move(this.velocity);
-         Vec3d tempVel = this.velocity;
+         Vec3 tempVel = this.velocity;
          if (this.horizontalCollision && this.isClimbing()) {
-            tempVel = new Vec3d(tempVel.x, 0.2, tempVel.z);
+            tempVel = new Vec3(tempVel.x, 0.2, tempVel.z);
          }
 
          this.velocity = tempVel.multiply((double)f, 0.8, (double)f);
-         Vec3d vec3d2 = this.player.applyFluidMovingSpeed(d, falling, this.velocity);
+         Vec3 vec3d2 = this.player.getFluidFallingAdjustedMovement(d, falling, this.velocity);
          this.velocity = vec3d2;
          if (this.horizontalCollision && this.doesNotCollide(vec3d2.x, vec3d2.y + 0.6 - this.pos.y + e, vec3d2.z)) {
-            this.velocity = new Vec3d(vec3d2.x, 0.3, vec3d2.z);
+            this.velocity = new Vec3(vec3d2.x, 0.3, vec3d2.z);
          }
-      } else if (this.isInLava() && this.player.shouldSwimInFluids()) {
+      } else if (this.isInLava() && this.player.isAffectedByFluids()) {
          double ex = this.pos.y;
          this.updateVelocity(0.02F, movementInput);
          this.move(this.velocity);
          if (this.getFluidHeight(FluidTags.LAVA) <= this.getSwimHeight()) {
             this.velocity = this.velocity.multiply(0.5, 0.8, 0.5);
-            this.velocity = this.player.applyFluidMovingSpeed(d, falling, this.velocity);
+            this.velocity = this.player.getFluidFallingAdjustedMovement(d, falling, this.velocity);
          } else {
-            this.velocity = this.velocity.multiply(0.5);
+            this.velocity = this.velocity.scale(0.5);
          }
 
-         if (!this.player.hasNoGravity()) {
+         if (!this.player.isNoGravity()) {
             this.velocity = this.velocity.add(0.0, -d / 4.0, 0.0);
          }
 
          if (this.horizontalCollision && this.doesNotCollide(this.velocity.x, this.velocity.y + 0.6 - this.pos.y + ex, this.velocity.z)) {
-            this.velocity = new Vec3d(this.velocity.x, 0.3, this.velocity.z);
+            this.velocity = new Vec3(this.velocity.x, 0.3, this.velocity.z);
          }
       } else if (this.isFallFlying) {
-         Vec3d exx = this.velocity;
+         Vec3 exx = this.velocity;
          if (exx.y > -0.5) {
             this.fallDistance = 1.0F;
          }
 
-         Vec3d vec3d3 = this.getRotationVector();
+         Vec3 vec3d3 = this.getRotationVector();
          float fx = this.pitch * (float) (Math.PI / 180.0);
          double gx = Math.sqrt(vec3d3.x * vec3d3.x + vec3d3.z * vec3d3.z);
-         double horizontalSpeed = this.velocity.horizontalLength();
+         double horizontalSpeed = this.velocity.horizontalDistance();
          double i = vec3d3.length();
-         float j = MathHelper.cos((double)fx);
+         float j = Mth.cos((double)fx);
          j = (float)((double)j * (double)j * Math.min(1.0, i / 0.4));
          exx = this.velocity.add(0.0, d * (-1.0 + (double)j * 0.75), 0.0);
          if (exx.y < 0.0 && gx > 0.0) {
@@ -341,7 +341,7 @@ public class PlayerSimulation implements Simulation, IMinecraft {
          }
 
          if (fx < 0.0F && gx > 0.0) {
-            double k = horizontalSpeed * (double)(-MathHelper.sin((double)fx)) * 0.04;
+            double k = horizontalSpeed * (double)(-Mth.sin((double)fx)) * 0.04;
             exx = exx.add(-vec3d3.x * k / gx, k * 3.2, -vec3d3.z * k / gx);
          }
 
@@ -353,65 +353,65 @@ public class PlayerSimulation implements Simulation, IMinecraft {
          this.move(this.velocity);
       } else {
          BlockPos blockPos = this.getVelocityAffectingPos();
-         float p = this.player.getEntityWorld().getBlockState(blockPos).getBlock().getSlipperiness();
+         float p = this.player.level().getBlockState(blockPos).getBlock().getFriction();
          float fxx = this.onGround ? p * 0.91F : 0.91F;
-         Vec3d vec3d6 = this.applyMovementInput(movementInput, p);
+         Vec3 vec3d6 = this.applyMovementInput(movementInput, p);
          double q = vec3d6.y;
-         if (this.hasStatusEffect(StatusEffects.LEVITATION)) {
-            StatusEffectInstance levitation = this.getStatusEffect(StatusEffects.LEVITATION);
+         if (this.hasStatusEffect(MobEffects.LEVITATION)) {
+            MobEffectInstance levitation = this.getStatusEffect(MobEffects.LEVITATION);
             if (levitation != null) {
                q += (0.05 * (double)(levitation.getAmplifier() + 1) - vec3d6.y) * 0.2;
             }
-         } else if (this.player.getEntityWorld().isClient() && !this.player.getEntityWorld().isChunkLoaded(blockPos)) {
-            q = this.pos.y > (double)this.player.getEntityWorld().getBottomY() ? -0.1 : 0.0;
-         } else if (!this.player.hasNoGravity()) {
+         } else if (this.player.level().isClientSide() && !this.player.level().hasChunkAt(blockPos)) {
+            q = this.pos.y > (double)this.player.level().getMinY() ? -0.1 : 0.0;
+         } else if (!this.player.isNoGravity()) {
             q -= d;
          }
 
-         if (this.player.hasNoDrag()) {
-            this.velocity = new Vec3d(vec3d6.x, q, vec3d6.z);
+         if (this.player.shouldDiscardFriction()) {
+            this.velocity = new Vec3(vec3d6.x, q, vec3d6.z);
          } else {
-            this.velocity = new Vec3d(vec3d6.x * (double)fxx, q * 0.98F, vec3d6.z * (double)fxx);
+            this.velocity = new Vec3(vec3d6.x * (double)fxx, q * 0.98F, vec3d6.z * (double)fxx);
          }
       }
 
-      if (this.player.getAbilities().flying && !this.player.hasVehicle()) {
-         this.velocity = new Vec3d(this.velocity.x, beforeTravelVelocityY * 0.6, this.velocity.z);
+      if (this.player.getAbilities().flying && !this.player.isPassenger()) {
+         this.velocity = new Vec3(this.velocity.x, beforeTravelVelocityY * 0.6, this.velocity.z);
          this.onLanding();
       }
    }
 
-   private Vec3d applyMovementInput(Vec3d movementInput, float slipperiness) {
+   private Vec3 applyMovementInput(Vec3 movementInput, float slipperiness) {
       this.updateVelocity(this.getMovementSpeed(slipperiness), movementInput);
       this.velocity = this.applyClimbingSpeed(this.velocity);
       this.move(this.velocity);
-      Vec3d result = this.velocity;
+      Vec3 result = this.velocity;
       BlockPos posBlock = this.posToBlockPos(this.pos);
       BlockState state = this.getState(posBlock);
       if ((this.horizontalCollision || this.isJumping)
-         && (this.isClimbing() || state != null && state.isOf(Blocks.POWDER_SNOW) && PowderSnowBlock.canWalkOnPowderSnow(this.player))) {
-         result = new Vec3d(result.x, 0.2, result.z);
+         && (this.isClimbing() || state != null && state.is(Blocks.POWDER_SNOW) && PowderSnowBlock.canEntityWalkOnPowderSnow(this.player))) {
+         result = new Vec3(result.x, 0.2, result.z);
       }
 
       return result;
    }
 
-   private void updateVelocity(float speed, Vec3d movementInput) {
-      Vec3d vec = movementInputToVelocity(movementInput, speed, this.yaw);
+   private void updateVelocity(float speed, Vec3 movementInput) {
+      Vec3 vec = movementInputToVelocity(movementInput, speed, this.yaw);
       this.velocity = this.velocity.add(vec);
    }
 
-   private static Vec3d movementInputToVelocity(Vec3d movementInput, float speed, float yaw) {
-      double lengthSquared = movementInput.lengthSquared();
+   private static Vec3 movementInputToVelocity(Vec3 movementInput, float speed, float yaw) {
+      double lengthSquared = movementInput.lengthSqr();
       if (lengthSquared < 1.0E-7) {
-         return Vec3d.ZERO;
+         return Vec3.ZERO;
       } else {
-         Vec3d normalized = lengthSquared > 1.0 ? movementInput.normalize() : movementInput;
-         Vec3d scaled = normalized.multiply((double)speed);
+         Vec3 normalized = lengthSquared > 1.0 ? movementInput.normalize() : movementInput;
+         Vec3 scaled = normalized.scale((double)speed);
          float yawRad = yaw * (float) (Math.PI / 180.0);
-         float sin = MathHelper.sin((double)yawRad);
-         float cos = MathHelper.cos((double)yawRad);
-         return new Vec3d(scaled.x * (double)cos - scaled.z * (double)sin, scaled.y, scaled.z * (double)cos + scaled.x * (double)sin);
+         float sin = Mth.sin((double)yawRad);
+         float cos = Mth.cos((double)yawRad);
+         return new Vec3(scaled.x * (double)cos - scaled.z * (double)sin, scaled.y, scaled.z * (double)cos + scaled.x * (double)sin);
       }
    }
 
@@ -428,16 +428,16 @@ public class PlayerSimulation implements Simulation, IMinecraft {
       return 0.1F;
    }
 
-   private void move(Vec3d movement) {
-      Vec3d modifiedMovement = this.adjustMovementForSneaking(movement);
-      Vec3d adjustedMovement = this.adjustMovementForCollisions(modifiedMovement);
-      if (adjustedMovement.lengthSquared() > 1.0E-7) {
+   private void move(Vec3 movement) {
+      Vec3 modifiedMovement = this.adjustMovementForSneaking(movement);
+      Vec3 adjustedMovement = this.adjustMovementForCollisions(modifiedMovement);
+      if (adjustedMovement.lengthSqr() > 1.0E-7) {
          this.pos = this.pos.add(adjustedMovement);
-         this.boundingBox = this.player.getDimensions(this.player.getPose()).getBoxAt(this.pos);
+         this.boundingBox = this.player.getDimensions(this.player.getPose()).makeBoundingBox(this.pos);
       }
 
-      boolean xCollision = !MathHelper.approximatelyEquals(movement.x, adjustedMovement.x);
-      boolean zCollision = !MathHelper.approximatelyEquals(movement.z, adjustedMovement.z);
+      boolean xCollision = !Mth.equal(movement.x, adjustedMovement.x);
+      boolean zCollision = !Mth.equal(movement.z, adjustedMovement.z);
       this.horizontalCollision = xCollision || zCollision;
       this.verticalCollision = movement.y != adjustedMovement.y;
       this.onGround = this.verticalCollision && movement.y < 0.0;
@@ -451,49 +451,49 @@ public class PlayerSimulation implements Simulation, IMinecraft {
          this.fallDistance = this.fallDistance - (float)movement.y;
       }
 
-      Vec3d currentVel = this.velocity;
+      Vec3 currentVel = this.velocity;
       if (this.horizontalCollision || this.verticalCollision) {
-         this.velocity = new Vec3d(xCollision ? 0.0 : currentVel.x, this.onGround ? 0.0 : currentVel.y, zCollision ? 0.0 : currentVel.z);
+         this.velocity = new Vec3(xCollision ? 0.0 : currentVel.x, this.onGround ? 0.0 : currentVel.y, zCollision ? 0.0 : currentVel.z);
       }
    }
 
-   private Vec3d adjustMovementForCollisions(Vec3d movement) {
-      Box box = new Box(-0.3, 0.0, -0.3, 0.3, 1.8, 0.3).offset(this.pos);
+   private Vec3 adjustMovementForCollisions(Vec3 movement) {
+      AABB box = new AABB(-0.3, 0.0, -0.3, 0.3, 1.8, 0.3).move(this.pos);
       List<VoxelShape> collisionShapes = Collections.emptyList();
-      Vec3d adjusted;
-      if (movement.lengthSquared() == 0.0) {
+      Vec3 adjusted;
+      if (movement.lengthSqr() == 0.0) {
          adjusted = movement;
       } else {
-         adjusted = Entity.adjustMovementForCollisions(this.player, movement, box, this.player.getEntityWorld(), collisionShapes);
+         adjusted = Entity.collideBoundingBox(this.player, movement, box, this.player.level(), collisionShapes);
       }
 
       boolean xCollide = movement.x != adjusted.x;
       boolean yCollide = movement.y != adjusted.y;
       boolean zCollide = movement.z != adjusted.z;
       boolean stepPossible = this.onGround || yCollide && movement.y < 0.0;
-      if (this.player.getStepHeight() > 0.0F && stepPossible && (xCollide || zCollide)) {
-         Vec3d stepAdjust = Entity.adjustMovementForCollisions(
-            this.player, new Vec3d(movement.x, (double)this.player.getStepHeight(), movement.z), box, this.player.getEntityWorld(), collisionShapes
+      if (this.player.maxUpStep() > 0.0F && stepPossible && (xCollide || zCollide)) {
+         Vec3 stepAdjust = Entity.collideBoundingBox(
+            this.player, new Vec3(movement.x, (double)this.player.maxUpStep(), movement.z), box, this.player.level(), collisionShapes
          );
-         Vec3d stepOffset = Entity.adjustMovementForCollisions(
+         Vec3 stepOffset = Entity.collideBoundingBox(
             this.player,
-            new Vec3d(0.0, (double)this.player.getStepHeight(), 0.0),
-            box.stretch(movement.x, 0.0, movement.z),
-            this.player.getEntityWorld(),
+            new Vec3(0.0, (double)this.player.maxUpStep(), 0.0),
+            box.expandTowards(movement.x, 0.0, movement.z),
+            this.player.level(),
             collisionShapes
          );
-         Vec3d combined = Entity.adjustMovementForCollisions(
-               this.player, new Vec3d(movement.x, 0.0, movement.z), box.offset(stepOffset), this.player.getEntityWorld(), collisionShapes
+         Vec3 combined = Entity.collideBoundingBox(
+               this.player, new Vec3(movement.x, 0.0, movement.z), box.move(stepOffset), this.player.level(), collisionShapes
             )
             .add(stepOffset);
-         if (stepOffset.y < (double)this.player.getStepHeight() && combined.horizontalLengthSquared() > stepAdjust.horizontalLengthSquared()) {
+         if (stepOffset.y < (double)this.player.maxUpStep() && combined.horizontalDistanceSqr() > stepAdjust.horizontalDistanceSqr()) {
             stepAdjust = combined;
          }
 
-         if (stepAdjust.horizontalLengthSquared() > adjusted.horizontalLengthSquared()) {
+         if (stepAdjust.horizontalDistanceSqr() > adjusted.horizontalDistanceSqr()) {
             return stepAdjust.add(
-               Entity.adjustMovementForCollisions(
-                  this.player, new Vec3d(0.0, -stepAdjust.y + movement.y, 0.0), box.offset(stepAdjust), this.player.getEntityWorld(), collisionShapes
+               Entity.collideBoundingBox(
+                  this.player, new Vec3(0.0, -stepAdjust.y + movement.y, 0.0), box.move(stepAdjust), this.player.level(), collisionShapes
                )
             );
          }
@@ -510,49 +510,49 @@ public class PlayerSimulation implements Simulation, IMinecraft {
       this.velocity = this.velocity.add(0.0, (double)this.getJumpVelocity() - this.velocity.y, 0.0);
       if (this.isSprinting()) {
          float rad = (float)Math.toRadians((double)this.yaw);
-         this.velocity = this.velocity.add((double)(-MathHelper.sin((double)rad)) * 0.2, 0.0, (double)MathHelper.cos((double)rad) * 0.2);
+         this.velocity = this.velocity.add((double)(-Mth.sin((double)rad)) * 0.2, 0.0, (double)Mth.cos((double)rad) * 0.2);
       }
    }
 
-   private Vec3d applyClimbingSpeed(Vec3d motion) {
+   private Vec3 applyClimbingSpeed(Vec3 motion) {
       if (!this.isClimbing()) {
          return motion;
       } else {
          this.onLanding();
-         double clampedX = MathHelper.clamp(motion.x, -0.15F, 0.15F);
-         double clampedZ = MathHelper.clamp(motion.z, -0.15F, 0.15F);
+         double clampedX = Mth.clamp(motion.x, -0.15F, 0.15F);
+         double clampedZ = Mth.clamp(motion.z, -0.15F, 0.15F);
          double clampedY = Math.max(motion.y, -0.15F);
-         if (clampedY < 0.0 && !this.getState(this.posToBlockPos(this.pos)).isOf(Blocks.SCAFFOLDING) && this.player.isHoldingOntoLadder()) {
+         if (clampedY < 0.0 && !this.getState(this.posToBlockPos(this.pos)).is(Blocks.SCAFFOLDING) && this.player.isSuppressingSlidingDownLadder()) {
             clampedY = 0.0;
          }
 
-         return new Vec3d(clampedX, clampedY, clampedZ);
+         return new Vec3(clampedX, clampedY, clampedZ);
       }
    }
 
    public boolean isClimbing() {
       BlockPos posBlock = this.posToBlockPos(this.pos);
       BlockState state = this.getState(posBlock);
-      return state.isIn(BlockTags.CLIMBABLE) ? true : state.getBlock() instanceof TrapdoorBlock && this.canEnterTrapdoor(posBlock, state);
+      return state.is(BlockTags.CLIMBABLE) ? true : state.getBlock() instanceof TrapDoorBlock && this.canEnterTrapdoor(posBlock, state);
    }
 
    private boolean canEnterTrapdoor(BlockPos pos, BlockState state) {
-      if (!(Boolean)state.get(TrapdoorBlock.OPEN)) {
+      if (!(Boolean)state.getValue(TrapDoorBlock.OPEN)) {
          return false;
       } else {
-         BlockState below = this.player.getEntityWorld().getBlockState(pos.down());
-         return below.isOf(Blocks.LADDER) && ((Direction)below.get(LadderBlock.FACING)).equals(state.get(TrapdoorBlock.FACING));
+         BlockState below = this.player.level().getBlockState(pos.below());
+         return below.is(Blocks.LADDER) && ((Direction)below.getValue(LadderBlock.FACING)).equals(state.getValue(TrapDoorBlock.FACING));
       }
    }
 
-   private Vec3d adjustMovementForSneaking(Vec3d movement) {
+   private Vec3 adjustMovementForSneaking(Vec3 movement) {
       if (movement.y <= 0.0 && this.wouldClipAtLedge()) {
          double dx = movement.x;
          double dz = movement.z;
 
          double step;
          for (step = 0.05;
-            dx != 0.0 && this.player.getEntityWorld().isSpaceEmpty(this.player, this.boundingBox.offset(dx, -0.5, 0.0));
+            dx != 0.0 && this.player.level().noCollision(this.player, this.boundingBox.move(dx, -0.5, 0.0));
             dx += dx > 0.0 ? -step : step
          ) {
             if (dx < step && dx >= -step) {
@@ -561,7 +561,7 @@ public class PlayerSimulation implements Simulation, IMinecraft {
             }
          }
 
-         while (dz != 0.0 && this.player.getEntityWorld().isSpaceEmpty(this.player, this.boundingBox.offset(0.0, -0.5, dz))) {
+         while (dz != 0.0 && this.player.level().noCollision(this.player, this.boundingBox.move(0.0, -0.5, dz))) {
             if (dz < step && dz >= -step) {
                dz = 0.0;
                break;
@@ -570,7 +570,7 @@ public class PlayerSimulation implements Simulation, IMinecraft {
             dz += dz > 0.0 ? -step : step;
          }
 
-         while (dx != 0.0 && dz != 0.0 && this.player.getEntityWorld().isSpaceEmpty(this.player, this.boundingBox.offset(dx, -0.5, dz))) {
+         while (dx != 0.0 && dz != 0.0 && this.player.level().noCollision(this.player, this.boundingBox.move(dx, -0.5, dz))) {
             dx = dx < step && dx >= -step ? 0.0 : (dx > 0.0 ? dx - step : dx + step);
             if (dz < step && dz >= -step) {
                dz = 0.0;
@@ -585,7 +585,7 @@ public class PlayerSimulation implements Simulation, IMinecraft {
          }
 
          if (this.shouldClipAtLedge()) {
-            movement = new Vec3d(dx, movement.y, dz);
+            movement = new Vec3(dx, movement.y, dz);
          }
       }
 
@@ -593,13 +593,13 @@ public class PlayerSimulation implements Simulation, IMinecraft {
    }
 
    protected boolean shouldClipAtLedge() {
-      return this.input.keyPresses.sneak() || this.input.forceSafeWalk;
+      return this.input.keyPresses.shift() || this.input.forceSafeWalk;
    }
 
    private boolean wouldClipAtLedge() {
       return this.onGround
          || (double)this.fallDistance < 0.5
-            && !this.player.getEntityWorld().isSpaceEmpty(this.player, this.boundingBox.offset(0.0, (double)this.fallDistance - 0.5, 0.0));
+            && !this.player.level().noCollision(this.player, this.boundingBox.move(0.0, (double)this.fallDistance - 0.5, 0.0));
    }
 
    private boolean isSprinting() {
@@ -611,8 +611,8 @@ public class PlayerSimulation implements Simulation, IMinecraft {
    }
 
    private float getJumpBoostVelocityModifier() {
-      if (this.hasStatusEffect(StatusEffects.JUMP_BOOST)) {
-         StatusEffectInstance boost = this.getStatusEffect(StatusEffects.JUMP_BOOST);
+      if (this.hasStatusEffect(MobEffects.JUMP_BOOST)) {
+         MobEffectInstance boost = this.getStatusEffect(MobEffects.JUMP_BOOST);
          return 0.1F * (float)(boost.getAmplifier() + 1);
       } else {
          return 0.0F;
@@ -623,24 +623,24 @@ public class PlayerSimulation implements Simulation, IMinecraft {
       float multiplier1 = 0.0F;
       Block block = this.getState(this.posToBlockPos(this.pos)).getBlock();
       if (block != null) {
-         multiplier1 = block.getJumpVelocityMultiplier();
+         multiplier1 = block.getJumpFactor();
       }
 
       float multiplier2 = 0.0F;
       Block block2 = this.getState(this.getVelocityAffectingPos()).getBlock();
       if (block2 != null) {
-         multiplier2 = block2.getJumpVelocityMultiplier();
+         multiplier2 = block2.getJumpFactor();
       }
 
       return multiplier1 == 1.0F ? multiplier2 : multiplier1;
    }
 
    private boolean doesNotCollide(double offsetX, double offsetY, double offsetZ) {
-      return this.doesNotCollide(this.boundingBox.offset(offsetX, offsetY, offsetZ));
+      return this.doesNotCollide(this.boundingBox.move(offsetX, offsetY, offsetZ));
    }
 
-   private boolean doesNotCollide(Box box) {
-      return this.player.getEntityWorld().isSpaceEmpty(this.player, box) && !this.player.getEntityWorld().containsFluid(box);
+   private boolean doesNotCollide(AABB box) {
+      return this.player.level().noCollision(this.player, box) && !this.player.level().containsAnyLiquid(box);
    }
 
    private void swimUpward(TagKey<Fluid> fluidTag) {
@@ -648,11 +648,11 @@ public class PlayerSimulation implements Simulation, IMinecraft {
    }
 
    private BlockPos getVelocityAffectingPos() {
-      return BlockPos.ofFloored(this.pos.x, this.boundingBox.minY - 0.5000001, this.pos.z);
+      return BlockPos.containing(this.pos.x, this.boundingBox.minY - 0.5000001, this.pos.z);
    }
 
    private double getSwimHeight() {
-      return (double)this.player.getStandingEyeHeight() < 0.4 ? 0.0 : 0.4;
+      return (double)this.player.getEyeHeight() < 0.4 ? 0.0 : 0.4;
    }
 
    private boolean isTouchingWater() {
@@ -664,7 +664,7 @@ public class PlayerSimulation implements Simulation, IMinecraft {
    }
 
    private void checkWaterState() {
-      if (this.player.getVehicle() instanceof AbstractBoatEntity boat && !boat.isSubmergedInWater()) {
+      if (this.player.getVehicle() instanceof AbstractBoat boat && !boat.isUnderWater()) {
          this.touchingWater = false;
          return;
       }
@@ -679,12 +679,12 @@ public class PlayerSimulation implements Simulation, IMinecraft {
 
    private void updateSwimming() {
       if (this.isSwimming) {
-         this.isSwimming = this.isSprinting() && this.isTouchingWater() && !this.player.hasVehicle();
+         this.isSwimming = this.isSprinting() && this.isTouchingWater() && !this.player.isPassenger();
       } else {
          this.isSwimming = this.isSprinting()
             && this.isSubmergedInWater()
-            && !this.player.hasVehicle()
-            && this.player.getEntityWorld().getFluidState(this.posToBlockPos(this.pos)).isIn(FluidTags.WATER);
+            && !this.player.isPassenger()
+            && this.player.level().getFluidState(this.posToBlockPos(this.pos)).is(FluidTags.WATER);
       }
    }
 
@@ -692,23 +692,23 @@ public class PlayerSimulation implements Simulation, IMinecraft {
       this.submergedInWater = this.submergedFluidTag.contains(FluidTags.WATER);
       this.submergedFluidTag.clear();
       double eyeLevel = this.getEyeY() - 0.11111111F;
-      if (this.player.getVehicle() instanceof AbstractBoatEntity boat
-         && !boat.isSubmergedInWater()
+      if (this.player.getVehicle() instanceof AbstractBoat boat
+         && !boat.isUnderWater()
          && boat.getBoundingBox().maxY >= eyeLevel
          && boat.getBoundingBox().minY <= eyeLevel) {
          return;
       }
 
-      BlockPos posEye = BlockPos.ofFloored(this.pos.x, eyeLevel, this.pos.z);
-      FluidState fluidState = this.player.getEntityWorld().getFluidState(posEye);
-      double height = (double)((float)posEye.getY() + fluidState.getHeight(this.player.getEntityWorld(), posEye));
+      BlockPos posEye = BlockPos.containing(this.pos.x, eyeLevel, this.pos.z);
+      FluidState fluidState = this.player.level().getFluidState(posEye);
+      double height = (double)((float)posEye.getY() + fluidState.getHeight(this.player.level(), posEye));
       if (height > eyeLevel) {
-         this.submergedFluidTag.addAll(fluidState.streamTags().toList());
+         this.submergedFluidTag.addAll(fluidState.getTags().toList());
       }
    }
 
    private double getEyeY() {
-      return this.pos.y + (double)this.player.getStandingEyeHeight();
+      return this.pos.y + (double)this.player.getEyeHeight();
    }
 
    public boolean isSubmergedInWater() {
@@ -723,34 +723,34 @@ public class PlayerSimulation implements Simulation, IMinecraft {
       if (this.isRegionUnloaded()) {
          return false;
       } else {
-         Box box = this.boundingBox.contract(0.001);
-         int i = MathHelper.floor(box.minX);
-         int j = MathHelper.ceil(box.maxX);
-         int k = MathHelper.floor(box.minY);
-         int l = MathHelper.ceil(box.maxY);
-         int m = MathHelper.floor(box.minZ);
-         int n = MathHelper.ceil(box.maxZ);
+         AABB box = this.boundingBox.deflate(0.001);
+         int i = Mth.floor(box.minX);
+         int j = Mth.ceil(box.maxX);
+         int k = Mth.floor(box.minY);
+         int l = Mth.ceil(box.maxY);
+         int m = Mth.floor(box.minZ);
+         int n = Mth.ceil(box.maxZ);
          double d = 0.0;
          boolean pushedByFluids = true;
          boolean foundFluid = false;
-         Vec3d fluidVelocity = Vec3d.ZERO;
+         Vec3 fluidVelocity = Vec3.ZERO;
          int count = 0;
-         Mutable mutable = new Mutable();
+         MutableBlockPos mutable = new MutableBlockPos();
 
          for (int p = i; p < j; p++) {
             for (int q = k; q < l; q++) {
                for (int r = m; r < n; r++) {
                   mutable.set(p, q, r);
-                  FluidState fluidState = this.player.getEntityWorld().getFluidState(mutable);
-                  if (fluidState.isIn(tag)) {
-                     double e = (double)((float)q + fluidState.getHeight(this.player.getEntityWorld(), mutable));
+                  FluidState fluidState = this.player.level().getFluidState(mutable);
+                  if (fluidState.is(tag)) {
+                     double e = (double)((float)q + fluidState.getHeight(this.player.level(), mutable));
                      if (e >= box.minY) {
                         foundFluid = true;
                         d = Math.max(e - box.minY, d);
                         if (pushedByFluids) {
-                           Vec3d vel = fluidState.getVelocity(this.player.getEntityWorld(), mutable);
+                           Vec3 vel = fluidState.getFlow(this.player.level(), mutable);
                            if (d < 0.4) {
-                              vel = vel.multiply(d);
+                              vel = vel.scale(d);
                            }
 
                            fluidVelocity = fluidVelocity.add(vel);
@@ -764,12 +764,12 @@ public class PlayerSimulation implements Simulation, IMinecraft {
 
          if (fluidVelocity.length() > 0.0) {
             if (count > 0) {
-               fluidVelocity = fluidVelocity.multiply(1.0 / (double)count);
+               fluidVelocity = fluidVelocity.scale(1.0 / (double)count);
             }
 
-            fluidVelocity = fluidVelocity.multiply(speed);
+            fluidVelocity = fluidVelocity.scale(speed);
             if (Math.abs(this.velocity.x) < 0.003 && Math.abs(this.velocity.z) < 0.003 && fluidVelocity.length() < 0.0045) {
-               fluidVelocity = fluidVelocity.normalize().multiply(0.0045);
+               fluidVelocity = fluidVelocity.normalize().scale(0.0045);
             }
 
             this.velocity = this.velocity.add(fluidVelocity);
@@ -781,39 +781,39 @@ public class PlayerSimulation implements Simulation, IMinecraft {
    }
 
    private boolean isRegionUnloaded() {
-      Box box = this.boundingBox.expand(1.0);
-      int i = MathHelper.floor(box.minX);
-      int j = MathHelper.ceil(box.maxX);
-      int k = MathHelper.floor(box.minZ);
-      int l = MathHelper.ceil(box.maxZ);
-      return !this.player.getEntityWorld().isRegionLoaded(i, k, j, l);
+      AABB box = this.boundingBox.inflate(1.0);
+      int i = Mth.floor(box.minX);
+      int j = Mth.ceil(box.maxX);
+      int k = Mth.floor(box.minZ);
+      int l = Mth.ceil(box.maxZ);
+      return !this.player.level().hasChunksAt(i, k, j, l);
    }
 
-   private Vec3d getRotationVector() {
+   private Vec3 getRotationVector() {
       return this.getRotationVector(this.pitch, this.yaw);
    }
 
-   private Vec3d getRotationVector(float pitch, float yaw) {
+   private Vec3 getRotationVector(float pitch, float yaw) {
       float f = (float)((double)pitch * Math.PI / 180.0);
       float g = (float)((double)(-yaw) * Math.PI / 180.0);
-      float h = MathHelper.cos((double)g);
-      float i = MathHelper.sin((double)g);
-      float j = MathHelper.cos((double)f);
-      float k = MathHelper.sin((double)f);
-      return new Vec3d((double)(i * j), (double)(-k), (double)(h * j));
+      float h = Mth.cos((double)g);
+      float i = Mth.sin((double)g);
+      float j = Mth.cos((double)f);
+      float k = Mth.sin((double)f);
+      return new Vec3((double)(i * j), (double)(-k), (double)(h * j));
    }
 
-   public boolean hasStatusEffect(RegistryEntry<StatusEffect> effect) {
-      StatusEffectInstance instance = this.player.getStatusEffect(effect);
+   public boolean hasStatusEffect(Holder<MobEffect> effect) {
+      MobEffectInstance instance = this.player.getEffect(effect);
       return instance != null && instance.getDuration() >= this.simulatedTicks;
    }
 
-   private StatusEffectInstance getStatusEffect(RegistryEntry<StatusEffect> effect) {
-      StatusEffectInstance instance = this.player.getStatusEffect(effect);
+   private MobEffectInstance getStatusEffect(Holder<MobEffect> effect) {
+      MobEffectInstance instance = this.player.getEffect(effect);
       return instance != null && instance.getDuration() >= this.simulatedTicks ? instance : null;
    }
 
-   public double getAttributeValue(RegistryEntry<EntityAttribute> attribute) {
+   public double getAttributeValue(Holder<Attribute> attribute) {
       return this.player.getAttributes().getValue(attribute);
    }
 
@@ -842,22 +842,22 @@ public class PlayerSimulation implements Simulation, IMinecraft {
       );
    }
 
-   public BlockPos posToBlockPos(Vec3d pos) {
-      return new BlockPos(MathHelper.floor(pos.x), MathHelper.floor(pos.y), MathHelper.floor(pos.z));
+   public BlockPos posToBlockPos(Vec3 pos) {
+      return new BlockPos(Mth.floor(pos.x), Mth.floor(pos.y), Mth.floor(pos.z));
    }
 
    public BlockState getState(BlockPos pos) {
-      return this.player.getEntityWorld().getBlockState(pos);
+      return this.player.level().getBlockState(pos);
    }
 
-   public static class SimulatedPlayerInput extends Input {
+   public static class SimulatedPlayerInput extends ClientInput {
       public boolean forceSafeWalk = false;
       public float movementForward;
       public float movementSideways;
-      public PlayerInput keyPresses;
+      public Input keyPresses;
       public static final double MAX_WALKING_SPEED = 0.121;
 
-      public SimulatedPlayerInput(PlayerInput input) {
+      public SimulatedPlayerInput(Input input) {
          this.keyPresses = input;
       }
 
@@ -874,7 +874,7 @@ public class PlayerSimulation implements Simulation, IMinecraft {
             this.movementSideways = this.keyPresses.left() ? 1.0F : -1.0F;
          }
 
-         if (this.keyPresses.sneak()) {
+         if (this.keyPresses.shift()) {
             this.movementSideways *= 0.3F;
             this.movementForward *= 0.3F;
          }
@@ -894,21 +894,21 @@ public class PlayerSimulation implements Simulation, IMinecraft {
             + "}, sprinting="
             + this.keyPresses.sprint()
             + ", slowDown="
-            + this.keyPresses.sneak()
+            + this.keyPresses.shift()
             + ")";
       }
 
-      public static PlayerSimulation.SimulatedPlayerInput fromClientPlayer(PlayerInput input) {
+      public static PlayerSimulation.SimulatedPlayerInput fromClientPlayer(Input input) {
          return new PlayerSimulation.SimulatedPlayerInput(input);
       }
 
-      public static PlayerSimulation.SimulatedPlayerInput guessInput(PlayerEntity entity) {
-         Vec3d velocity = entity.getEntityPos().subtract(new Vec3d(entity.lastX, entity.lastY, entity.lastZ));
-         double horizontalVelocity = velocity.horizontalLengthSquared();
-         PlayerInput input = new PlayerInput(false, false, false, false, !entity.isOnGround(), entity.isSneaking(), horizontalVelocity >= 0.014641);
+      public static PlayerSimulation.SimulatedPlayerInput guessInput(Player entity) {
+         Vec3 velocity = entity.position().subtract(new Vec3(entity.xo, entity.yo, entity.zo));
+         double horizontalVelocity = velocity.horizontalDistanceSqr();
+         Input input = new Input(false, false, false, false, !entity.onGround(), entity.isShiftKeyDown(), horizontalVelocity >= 0.014641);
          if (horizontalVelocity > 0.0025000000000000005) {
-            double velocityAngle = MoveUtil.getDegreesRelativeToView(velocity, entity.getYaw());
-            double wrappedAngle = MathHelper.wrapDegrees(velocityAngle);
+            double velocityAngle = MoveUtil.getDegreesRelativeToView(velocity, entity.getYRot());
+            double wrappedAngle = Mth.wrapDegrees(velocityAngle);
             input = MoveUtil.getDirectionalInputForDegrees(input, wrappedAngle);
          }
 

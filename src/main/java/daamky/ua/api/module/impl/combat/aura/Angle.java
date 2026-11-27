@@ -1,8 +1,8 @@
 package daamky.ua.api.module.impl.combat.aura;
 
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
 import daamky.ua.api.module.impl.combat.aura.util.MathUtils;
+import net.minecraft.util.Mth;
+import net.minecraft.world.phys.Vec3;
 
 public class Angle {
    public static final Angle DEFAULT = new Angle(0.0F, 0.0F);
@@ -11,7 +11,7 @@ public class Angle {
 
    public Angle(float yaw, float pitch) {
       this.yaw = yaw;
-      this.pitch = MathHelper.clamp(pitch, -90.0F, 90.0F);
+      this.pitch = Mth.clamp(pitch, -90.0F, 90.0F);
    }
 
    public float getYaw() {
@@ -27,14 +27,14 @@ public class Angle {
    }
 
    public void setPitch(float pitch) {
-      this.pitch = MathHelper.clamp(pitch, -90.0F, 90.0F);
+      this.pitch = Mth.clamp(pitch, -90.0F, 90.0F);
    }
 
    public Angle adjustSensitivity() {
       double gcd = MathUtils.computeGcd();
       Angle previous = AngleConnection.INSTANCE.getServerAngle();
       return new Angle(
-         this.adjustAxis(this.yaw, previous.getYaw(), gcd, true), MathHelper.clamp(this.adjustAxis(this.pitch, previous.getPitch(), gcd, false), -90.0F, 90.0F)
+         this.adjustAxis(this.yaw, previous.getYaw(), gcd, true), Mth.clamp(this.adjustAxis(this.pitch, previous.getPitch(), gcd, false), -90.0F, 90.0F)
       );
    }
 
@@ -47,7 +47,7 @@ public class Angle {
    }
 
    public Angle addPitch(float pitch) {
-      this.pitch = MathHelper.clamp(this.pitch + pitch, -90.0F, 90.0F);
+      this.pitch = Mth.clamp(this.pitch + pitch, -90.0F, 90.0F);
       return this;
    }
 
@@ -55,21 +55,21 @@ public class Angle {
       return new Angle(angle.getYaw(), angle.getPitch());
    }
 
-   public Vec3d toVector() {
+   public Vec3 toVector() {
       float pitchRadians = this.pitch * (float) (Math.PI / 180.0);
       float yawRadians = -this.yaw * (float) (Math.PI / 180.0);
-      float yawCos = MathHelper.cos((double)yawRadians);
-      float yawSin = MathHelper.sin((double)yawRadians);
-      float pitchCos = MathHelper.cos((double)pitchRadians);
-      float pitchSin = MathHelper.sin((double)pitchRadians);
-      return new Vec3d((double)(yawSin * pitchCos), (double)(-pitchSin), (double)(yawCos * pitchCos));
+      float yawCos = Mth.cos((double)yawRadians);
+      float yawSin = Mth.sin((double)yawRadians);
+      float pitchCos = Mth.cos((double)pitchRadians);
+      float pitchSin = Mth.sin((double)pitchRadians);
+      return new Vec3((double)(yawSin * pitchCos), (double)(-pitchSin), (double)(yawCos * pitchCos));
    }
 
    private float adjustAxis(float axisValue, float previousValue, double gcd, boolean wrap) {
       if (gcd <= 0.0) {
-         return wrap ? MathHelper.wrapDegrees(axisValue) : axisValue;
+         return wrap ? Mth.wrapDegrees(axisValue) : axisValue;
       } else {
-         float delta = wrap ? MathHelper.wrapDegrees(axisValue - previousValue) : axisValue - previousValue;
+         float delta = wrap ? Mth.wrapDegrees(axisValue - previousValue) : axisValue - previousValue;
          return previousValue + (float)Math.round((double)delta / gcd) * (float)gcd;
       }
    }
@@ -81,9 +81,9 @@ public class Angle {
 
    public static final class VecRotation {
       private final Angle angle;
-      private final Vec3d vec;
+      private final Vec3 vec;
 
-      public VecRotation(Angle angle, Vec3d vec) {
+      public VecRotation(Angle angle, Vec3 vec) {
          this.angle = angle;
          this.vec = vec;
       }
@@ -92,7 +92,7 @@ public class Angle {
          return this.angle;
       }
 
-      public Vec3d getVec() {
+      public Vec3 getVec() {
          return this.vec;
       }
    }

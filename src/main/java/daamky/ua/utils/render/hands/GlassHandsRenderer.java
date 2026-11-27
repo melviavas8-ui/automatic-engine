@@ -4,27 +4,27 @@ import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.platform.DepthTestFunction;
 import com.mojang.blaze3d.platform.DestFactor;
 import com.mojang.blaze3d.platform.SourceFactor;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.GpuDevice;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.GpuSampler;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.textures.TextureFormat;
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.nio.ByteBuffer;
 import java.util.OptionalInt;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.GpuSampler;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gl.SimpleFramebuffer;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
 import org.lwjgl.system.MemoryStack;
 import daamky.ua.utils.render.RenderSampler;
 import daamky.ua.utils.render.color.ColorUtil;
@@ -34,10 +34,10 @@ public final class GlassHandsRenderer {
    private static final int KAWASE_UNIFORM_SIZE = 16;
    private static final int GLASS_UNIFORM_SIZE = 48;
    private static final int MASK_UNIFORM_SIZE = 16;
-   private static final Identifier FULLSCREEN_SHADER = Identifier.of("daamky", "effects/glass_hands/fullscreen");
-   private static final Identifier KAWASE_SHADER = Identifier.of("daamky", "effects/glass_hands/kawase");
-   private static final Identifier MASK_SHADER = Identifier.of("daamky", "effects/glass_hands/mask_diff");
-   private static final Identifier COMPOSITE_SHADER = Identifier.of("daamky", "effects/glass_hands/composite");
+   private static final Identifier FULLSCREEN_SHADER = Identifier.fromNamespaceAndPath("daamky", "effects/glass_hands/fullscreen");
+   private static final Identifier KAWASE_SHADER = Identifier.fromNamespaceAndPath("daamky", "effects/glass_hands/kawase");
+   private static final Identifier MASK_SHADER = Identifier.fromNamespaceAndPath("daamky", "effects/glass_hands/mask_diff");
+   private static final Identifier COMPOSITE_SHADER = Identifier.fromNamespaceAndPath("daamky", "effects/glass_hands/composite");
    private static final BlendFunction REPLACE_BLEND = new BlendFunction(SourceFactor.ONE, DestFactor.ZERO, SourceFactor.ONE, DestFactor.ZERO);
    private static RenderPipeline kawasePipeline;
    private static RenderPipeline maskPipeline;
@@ -55,8 +55,8 @@ public final class GlassHandsRenderer {
    private static GpuTextureView depthBeforeTextureView;
    private static GpuTextureView depthAfterTextureView;
    private static GpuTextureView maskTextureView;
-   private static final SimpleFramebuffer[] downTargets = new SimpleFramebuffer[5];
-   private static final SimpleFramebuffer[] upTargets = new SimpleFramebuffer[5];
+   private static final TextureTarget[] downTargets = new TextureTarget[5];
+   private static final TextureTarget[] upTargets = new TextureTarget[5];
    private static int lastWidth = -1;
    private static int lastHeight = -1;
    private static int allocatedPasses;
@@ -96,14 +96,14 @@ public final class GlassHandsRenderer {
    public static void captureBeforeHandRender() {
       capturedBeforeHands = false;
       if (shouldRender()) {
-         Framebuffer target = MinecraftClient.getInstance().getFramebuffer();
+         RenderTarget target = Minecraft.getInstance().getMainRenderTarget();
          if (isUsable(target)) {
             init();
-            if (ensureTargets(target.textureWidth, target.textureHeight, blurIterations)) {
+            if (ensureTargets(target.width, target.height, blurIterations)) {
                try {
                   CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
-                  encoder.copyTextureToTexture(target.getColorAttachment(), sceneBeforeTexture, 0, 0, 0, 0, 0, target.textureWidth, target.textureHeight);
-                  encoder.copyTextureToTexture(target.getDepthAttachment(), depthBeforeTexture, 0, 0, 0, 0, 0, target.textureWidth, target.textureHeight);
+                  encoder.copyTextureToTexture(target.getColorTexture(), sceneBeforeTexture, 0, 0, 0, 0, 0, target.width, target.height);
+                  encoder.copyTextureToTexture(target.getDepthTexture(), depthBeforeTexture, 0, 0, 0, 0, 0, target.width, target.height);
                   capturedBeforeHands = true;
                } catch (Throwable var2) {
                   disableAfterError(var2);
@@ -121,15 +121,15 @@ public final class GlassHandsRenderer {
       if (capturedBeforeHands) {
          capturedBeforeHands = false;
          if (shouldRender()) {
-            Framebuffer target = MinecraftClient.getInstance().getFramebuffer();
-            if (isUsable(target) && ensureTargets(target.textureWidth, target.textureHeight, blurIterations)) {
+            RenderTarget target = Minecraft.getInstance().getMainRenderTarget();
+            if (isUsable(target) && ensureTargets(target.width, target.height, blurIterations)) {
                try {
                   CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
-                  encoder.copyTextureToTexture(target.getColorAttachment(), sceneAfterTexture, 0, 0, 0, 0, 0, target.textureWidth, target.textureHeight);
-                  encoder.copyTextureToTexture(target.getDepthAttachment(), depthAfterTexture, 0, 0, 0, 0, 0, target.textureWidth, target.textureHeight);
-                  createMask(target.textureWidth, target.textureHeight);
-                  GpuTextureView blurred = renderBlurChain(sceneBeforeTextureView, target.textureWidth, target.textureHeight, blurIterations, blurRadius);
-                  composite(target.getColorAttachmentView(), sceneBeforeTextureView, blurred, maskTextureView, target.textureWidth, target.textureHeight);
+                  encoder.copyTextureToTexture(target.getColorTexture(), sceneAfterTexture, 0, 0, 0, 0, 0, target.width, target.height);
+                  encoder.copyTextureToTexture(target.getDepthTexture(), depthAfterTexture, 0, 0, 0, 0, 0, target.width, target.height);
+                  createMask(target.width, target.height);
+                  GpuTextureView blurred = renderBlurChain(sceneBeforeTextureView, target.width, target.height, blurIterations, blurRadius);
+                  composite(target.getColorTextureView(), sceneBeforeTextureView, blurred, maskTextureView, target.width, target.height);
                } catch (Throwable var3) {
                   disableAfterError(var3);
                }
@@ -153,8 +153,8 @@ public final class GlassHandsRenderer {
    }
 
    private static boolean shouldRender() {
-      MinecraftClient minecraft = MinecraftClient.getInstance();
-      return enabled && !disabledAfterError && minecraft != null && minecraft.player != null && minecraft.world != null;
+      Minecraft minecraft = Minecraft.getInstance();
+      return enabled && !disabledAfterError && minecraft != null && minecraft.player != null && minecraft.level != null;
    }
 
    private static void init() {
@@ -163,10 +163,10 @@ public final class GlassHandsRenderer {
             if (kawasePipeline == null) {
                kawasePipeline = RenderPipelines.register(
                   RenderPipeline.builder(new Snippet[0])
-                     .withLocation(Identifier.of("daamky", "pipeline/effects/glass_hands/kawase"))
+                     .withLocation(Identifier.fromNamespaceAndPath("daamky", "pipeline/effects/glass_hands/kawase"))
                      .withVertexShader(KAWASE_SHADER)
                      .withFragmentShader(KAWASE_SHADER)
-                     .withVertexFormat(VertexFormats.EMPTY, DrawMode.TRIANGLES)
+                     .withVertexFormat(DefaultVertexFormat.EMPTY, Mode.TRIANGLES)
                      .withUniform("KawaseData", UniformType.UNIFORM_BUFFER)
                      .withSampler("Sampler0")
                      .withBlend(BlendFunction.TRANSLUCENT)
@@ -180,10 +180,10 @@ public final class GlassHandsRenderer {
             if (maskPipeline == null) {
                maskPipeline = RenderPipelines.register(
                   RenderPipeline.builder(new Snippet[0])
-                     .withLocation(Identifier.of("daamky", "pipeline/effects/glass_hands/mask_diff"))
+                     .withLocation(Identifier.fromNamespaceAndPath("daamky", "pipeline/effects/glass_hands/mask_diff"))
                      .withVertexShader(FULLSCREEN_SHADER)
                      .withFragmentShader(MASK_SHADER)
-                     .withVertexFormat(VertexFormats.EMPTY, DrawMode.TRIANGLES)
+                     .withVertexFormat(DefaultVertexFormat.EMPTY, Mode.TRIANGLES)
                      .withUniform("MaskData", UniformType.UNIFORM_BUFFER)
                      .withSampler("BeforeSampler")
                      .withSampler("AfterSampler")
@@ -200,10 +200,10 @@ public final class GlassHandsRenderer {
             if (compositePipeline == null) {
                compositePipeline = RenderPipelines.register(
                   RenderPipeline.builder(new Snippet[0])
-                     .withLocation(Identifier.of("daamky", "pipeline/effects/glass_hands/composite"))
+                     .withLocation(Identifier.fromNamespaceAndPath("daamky", "pipeline/effects/glass_hands/composite"))
                      .withVertexShader(COMPOSITE_SHADER)
                      .withFragmentShader(COMPOSITE_SHADER)
-                     .withVertexFormat(VertexFormats.EMPTY, DrawMode.TRIANGLES)
+                     .withVertexFormat(DefaultVertexFormat.EMPTY, Mode.TRIANGLES)
                      .withUniform("GlassData", UniformType.UNIFORM_BUFFER)
                      .withSampler("SceneSampler")
                      .withSampler("BlurSampler")
@@ -268,11 +268,11 @@ public final class GlassHandsRenderer {
       return device.createTexture(() -> name, 13, format, width, height, 1, 1);
    }
 
-   private static SimpleFramebuffer ensureTarget(SimpleFramebuffer target, String name, int width, int height) {
+   private static TextureTarget ensureTarget(TextureTarget target, String name, int width, int height) {
       if (target == null) {
-         return new SimpleFramebuffer(name, width, height, false);
+         return new TextureTarget(name, width, height, false);
       } else {
-         if (target.textureWidth != width || target.textureHeight != height) {
+         if (target.width != width || target.height != height) {
             target.resize(width, height);
          }
 
@@ -290,27 +290,27 @@ public final class GlassHandsRenderer {
          int currentHeight = sourceHeight;
 
          for (int i = 0; i < passes; i++) {
-            SimpleFramebuffer target = downTargets[i];
+            TextureTarget target = downTargets[i];
             renderKawasePass(currentSource, currentWidth, currentHeight, target, offset, sampler);
-            currentSource = target.getColorAttachmentView();
-            currentWidth = target.textureWidth;
-            currentHeight = target.textureHeight;
+            currentSource = target.getColorTextureView();
+            currentWidth = target.width;
+            currentHeight = target.height;
          }
 
          for (int i = passes - 2; i >= 0; i--) {
-            SimpleFramebuffer target = upTargets[i];
+            TextureTarget target = upTargets[i];
             renderKawasePass(currentSource, currentWidth, currentHeight, target, offset, sampler);
-            currentSource = target.getColorAttachmentView();
-            currentWidth = target.textureWidth;
-            currentHeight = target.textureHeight;
+            currentSource = target.getColorTextureView();
+            currentWidth = target.width;
+            currentHeight = target.height;
          }
 
          return currentSource;
       }
    }
 
-   private static void renderKawasePass(GpuTextureView source, int sourceWidth, int sourceHeight, SimpleFramebuffer target, float offset, GpuSampler sampler) {
-      if (source != null && target != null && target.getColorAttachmentView() != null) {
+   private static void renderKawasePass(GpuTextureView source, int sourceWidth, int sourceHeight, TextureTarget target, float offset, GpuSampler sampler) {
+      if (source != null && target != null && target.getColorTextureView() != null) {
          CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
          MemoryStack stack = MemoryStack.stackPush();
 
@@ -323,7 +323,7 @@ public final class GlassHandsRenderer {
             data.position(0);
             encoder.writeToBuffer(kawaseUniformBuffer.slice(0L, 16L), data);
             RenderPass renderPass = encoder.createRenderPass(
-               () -> "daamky:glass_hands_kawase", target.getColorAttachmentView(), OptionalInt.of(ColorUtil.TRANSPARENT)
+               () -> "daamky:glass_hands_kawase", target.getColorTextureView(), OptionalInt.of(ColorUtil.TRANSPARENT)
             );
 
             try {
@@ -477,13 +477,13 @@ public final class GlassHandsRenderer {
       }
    }
 
-   private static boolean isUsable(Framebuffer target) {
+   private static boolean isUsable(RenderTarget target) {
       return target != null
-         && target.getColorAttachment() != null
-         && target.getColorAttachmentView() != null
-         && target.getDepthAttachment() != null
-         && target.textureWidth > 0
-         && target.textureHeight > 0;
+         && target.getColorTexture() != null
+         && target.getColorTextureView() != null
+         && target.getDepthTexture() != null
+         && target.width > 0
+         && target.height > 0;
    }
 
    private static GpuBuffer ensureBuffer(GpuBuffer buffer, String name, int size) {
@@ -525,12 +525,12 @@ public final class GlassHandsRenderer {
 
       for (int i = 0; i < 5; i++) {
          if (downTargets[i] != null) {
-            downTargets[i].delete();
+            downTargets[i].destroyBuffers();
             downTargets[i] = null;
          }
 
          if (upTargets[i] != null) {
-            upTargets[i].delete();
+            upTargets[i].destroyBuffers();
             upTargets[i] = null;
          }
       }

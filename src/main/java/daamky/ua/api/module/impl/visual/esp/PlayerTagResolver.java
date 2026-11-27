@@ -5,13 +5,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.scoreboard.Scoreboard;
-import net.minecraft.scoreboard.Team;
-import net.minecraft.text.Style;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.scores.PlayerTeam;
+import net.minecraft.world.scores.Scoreboard;
 import daamky.ua.api.module.impl.player.NameProtect;
 import daamky.ua.utils.network.Network;
 import daamky.ua.utils.render.ui.font.FontType;
@@ -21,9 +21,9 @@ public final class PlayerTagResolver {
    public PlayerTagResolver() {
    }
 
-   PlayerTag resolve(PlayerEntity player, MinecraftClient mc) {
-      Team team = this.resolvePlayerTeam(player);
-      PlayerListEntry playerInfo = this.resolvePlayerInfo(player, mc);
+   PlayerTag resolve(Player player, Minecraft mc) {
+      PlayerTeam team = this.resolvePlayerTeam(player);
+      PlayerInfo playerInfo = this.resolvePlayerInfo(player, mc);
       if (Network.isReallyWorld()) {
          PlayerTag tag = this.resolveReallyWorldPlayerTag(player, team, playerInfo);
          return this.stripDuplicateVoiceStatus(tag);
@@ -33,12 +33,12 @@ public final class PlayerTagResolver {
       }
    }
 
-   private PlayerTag resolveReallyWorldPlayerTag(PlayerEntity player, Team team, PlayerListEntry playerInfo) {
-      String donation = this.decodeReallyWorldTag(team == null ? null : team.getPrefix().getString(), true);
-      String suffix = this.decodeReallyWorldTag(team == null ? null : team.getSuffix().getString(), true);
+   private PlayerTag resolveReallyWorldPlayerTag(Player player, PlayerTeam team, PlayerInfo playerInfo) {
+      String donation = this.decodeReallyWorldTag(team == null ? null : team.getPlayerPrefix().getString(), true);
+      String suffix = this.decodeReallyWorldTag(team == null ? null : team.getPlayerSuffix().getString(), true);
       String name = this.decodeReallyWorldTag(player.getName().getString(), false);
       if (name.isBlank()) {
-         name = this.decodeReallyWorldTag(player.getNameForScoreboard(), false);
+         name = this.decodeReallyWorldTag(player.getScoreboardName(), false);
       }
 
       if (name.isBlank()) {
@@ -55,30 +55,30 @@ public final class PlayerTagResolver {
       );
    }
 
-   private PlayerListEntry resolvePlayerInfo(PlayerEntity player, MinecraftClient mc) {
-      return player != null && mc.getNetworkHandler() != null ? mc.getNetworkHandler().getPlayerListEntry(player.getUuid()) : null;
+   private PlayerInfo resolvePlayerInfo(Player player, Minecraft mc) {
+      return player != null && mc.getConnection() != null ? mc.getConnection().getPlayerInfo(player.getUUID()) : null;
    }
 
-   private PlayerTag resolveStyledPlayerTag(PlayerEntity player, PlayerListEntry playerInfo, Team team) {
-      Text tabName = playerInfo == null ? null : playerInfo.getDisplayName();
+   private PlayerTag resolveStyledPlayerTag(Player player, PlayerInfo playerInfo, PlayerTeam team) {
+      Component tabName = playerInfo == null ? null : playerInfo.getTabListDisplayName();
       PlayerTag tabTag = this.resolvePlayerTagFromDisplay(player, playerInfo, tabName);
       if (tabTag != null) {
          return tabTag;
       } else {
-         Text displayName = player == null ? null : player.getDisplayName();
+         Component displayName = player == null ? null : player.getDisplayName();
          PlayerTag displayTag = this.resolvePlayerTagFromDisplay(player, playerInfo, displayName);
          if (displayTag != null) {
             return displayTag;
          } else {
-            Text teamName = team == null ? null : Team.decorateName(team, Text.literal(player.getNameForScoreboard()));
+            Component teamName = team == null ? null : PlayerTeam.formatNameForTeam(team, Component.literal(player.getScoreboardName()));
             PlayerTag teamTag = this.resolvePlayerTagFromDisplay(player, playerInfo, teamName);
             if (teamTag != null) {
                return teamTag;
             } else {
                PlayerTagResolver.VoiceDonationPrefix prefix = this.splitVoiceDonationPrefix(
-                  this.componentToTagParts(team == null ? null : team.getPrefix(), FontType.BOLD, EspColors.TAG_MUTED)
+                  this.componentToTagParts(team == null ? null : team.getPlayerPrefix(), FontType.BOLD, EspColors.TAG_MUTED)
                );
-               List<TagPart> suffix = this.componentToTagParts(team == null ? null : team.getSuffix(), FontType.SEMIBOLD, EspColors.TAG_MUTED);
+               List<TagPart> suffix = this.componentToTagParts(team == null ? null : team.getPlayerSuffix(), FontType.SEMIBOLD, EspColors.TAG_MUTED);
                return new PlayerTag(
                   this.resolveVoiceStatusParts(player, playerInfo),
                   TagParts.retagFont(TagParts.stripOuterDecorators(prefix.donation()), FontType.BOLD),
@@ -91,7 +91,7 @@ public final class PlayerTagResolver {
       }
    }
 
-   private PlayerTag resolvePlayerTagFromDisplay(PlayerEntity player, PlayerListEntry playerInfo, Text displayName) {
+   private PlayerTag resolvePlayerTagFromDisplay(Player player, PlayerInfo playerInfo, Component displayName) {
       List<TagPart> displayParts = TagParts.trim(this.componentToTagParts(displayName, FontType.SEMIBOLD, EspColors.TAG_TEXT));
       if (displayParts.isEmpty()) {
          return null;
@@ -119,7 +119,7 @@ public final class PlayerTagResolver {
       }
    }
 
-   private PlayerTag withFriendPrefix(PlayerEntity player, PlayerTag tag) {
+   private PlayerTag withFriendPrefix(Player player, PlayerTag tag) {
       if (tag == null) {
          tag = new PlayerTag(
             Collections.emptyList(),
@@ -173,10 +173,10 @@ public final class PlayerTagResolver {
       return Collections.emptyList();
    }
 
-   private String resolvePlainPlayerName(PlayerEntity player, PlayerListEntry playerInfo) {
+   private String resolvePlainPlayerName(Player player, PlayerInfo playerInfo) {
       String name = player == null ? "" : TagParts.clean(player.getName().getString());
       if (name.isBlank() && player != null) {
-         name = TagParts.clean(player.getNameForScoreboard());
+         name = TagParts.clean(player.getScoreboardName());
       }
 
       if (name.isBlank() && playerInfo != null && playerInfo.getProfile() != null) {
@@ -187,7 +187,7 @@ public final class PlayerTagResolver {
       return NameProtect.protectPlayerName(player, name);
    }
 
-   private List<TagPart> protectNameParts(PlayerEntity player, List<TagPart> name) {
+   private List<TagPart> protectNameParts(Player player, List<TagPart> name) {
       String protectedName = NameProtect.protectPlayerName(player, TagParts.plainText(name));
       if (protectedName != null && !protectedName.isBlank() && !protectedName.equals(TagParts.plainText(name))) {
          int color = name != null && !name.isEmpty() ? name.get(0).color() : EspColors.TAG_TEXT;
@@ -198,10 +198,10 @@ public final class PlayerTagResolver {
       }
    }
 
-   private List<String> playerNameCandidates(PlayerEntity player, PlayerListEntry playerInfo) {
+   private List<String> playerNameCandidates(Player player, PlayerInfo playerInfo) {
       List<String> candidates = new ArrayList<>(3);
       if (player != null) {
-         this.addNameCandidate(candidates, TagParts.clean(player.getNameForScoreboard()));
+         this.addNameCandidate(candidates, TagParts.clean(player.getScoreboardName()));
          this.addNameCandidate(candidates, TagParts.clean(player.getName().getString()));
       }
 
@@ -245,11 +245,11 @@ public final class PlayerTagResolver {
       }
    }
 
-   private List<TagPart> resolveVoiceStatusParts(PlayerEntity player, PlayerListEntry playerInfo) {
+   private List<TagPart> resolveVoiceStatusParts(Player player, PlayerInfo playerInfo) {
       if (playerInfo == null) {
          return Collections.emptyList();
       } else {
-         List<TagPart> displayParts = TagParts.trim(this.componentToTagParts(playerInfo.getDisplayName(), FontType.SEMIBOLD, EspColors.TAG_MUTED));
+         List<TagPart> displayParts = TagParts.trim(this.componentToTagParts(playerInfo.getTabListDisplayName(), FontType.SEMIBOLD, EspColors.TAG_MUTED));
          if (displayParts.isEmpty()) {
             return Collections.emptyList();
          } else {
@@ -435,7 +435,7 @@ public final class PlayerTagResolver {
       };
    }
 
-   private List<TagPart> componentToTagParts(Text component, FontType font, int fallbackColor) {
+   private List<TagPart> componentToTagParts(Component component, FontType font, int fallbackColor) {
       if (component == null) {
          return Collections.emptyList();
       } else {
@@ -543,15 +543,15 @@ public final class PlayerTagResolver {
    }
 
    private int colorFromStyle(Style style, int fallbackColor) {
-      return style != null && style.getColor() != null ? 0xFF000000 | style.getColor().getRgb() : fallbackColor;
+      return style != null && style.getColor() != null ? 0xFF000000 | style.getColor().getValue() : fallbackColor;
    }
 
-   private Team resolvePlayerTeam(PlayerEntity player) {
-      if (player != null && player.getEntityWorld() != null) {
-         Scoreboard scoreboard = player.getEntityWorld().getScoreboard();
-         Team team = scoreboard.getScoreHolderTeam(player.getNameForScoreboard());
+   private PlayerTeam resolvePlayerTeam(Player player) {
+      if (player != null && player.level() != null) {
+         Scoreboard scoreboard = player.level().getScoreboard();
+         PlayerTeam team = scoreboard.getPlayersTeam(player.getScoreboardName());
          if (team == null) {
-            team = scoreboard.getScoreHolderTeam(player.getName().getString());
+            team = scoreboard.getPlayersTeam(player.getName().getString());
          }
 
          return team;

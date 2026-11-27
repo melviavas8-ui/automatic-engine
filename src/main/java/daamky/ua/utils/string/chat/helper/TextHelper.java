@@ -1,14 +1,14 @@
 package daamky.ua.utils.string.chat.helper;
 
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
 import daamky.ua.utils.color.ColorAssist;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 
 public class TextHelper {
    public TextHelper() {
    }
 
-   public static Text applyGradient(String text, TextHelper.GradientStyle style, int color1, int color2, boolean bold) {
+   public static Component applyGradient(String text, TextHelper.GradientStyle style, int color1, int color2, boolean bold) {
       String value = text == null ? "" : text;
 
       return switch (style) {
@@ -19,59 +19,59 @@ public class TextHelper {
       };
    }
 
-   private static Text halfSplitGradient(String text, int color1, int color2, boolean bold) {
-      MutableText result = Text.empty();
+   private static Component halfSplitGradient(String text, int color1, int color2, boolean bold) {
+      MutableComponent result = Component.empty();
       int midPoint = text.length() / 2;
 
       for (int i = 0; i < text.length(); i++) {
          int color = i < midPoint ? color1 : color2;
-         result.append(Text.literal(String.valueOf(text.charAt(i))).styled(style -> style.withColor(color).withBold(bold)));
+         result.append(Component.literal(String.valueOf(text.charAt(i))).withStyle(style -> style.withColor(color).withBold(bold)));
       }
 
       return result;
    }
 
-   private static Text fullGradient(String text, int color1, int color2, boolean bold) {
-      MutableText result = Text.empty();
+   private static Component fullGradient(String text, int color1, int color2, boolean bold) {
+      MutableComponent result = Component.empty();
       int divisor = Math.max(1, text.length() - 1);
 
       for (int i = 0; i < text.length(); i++) {
          float ratio = (float)i / (float)divisor;
          int color = ColorAssist.interpolate(color1, color2, ratio);
-         result.append(Text.literal(String.valueOf(text.charAt(i))).styled(style -> style.withColor(color).withBold(bold)));
+         result.append(Component.literal(String.valueOf(text.charAt(i))).withStyle(style -> style.withColor(color).withBold(bold)));
       }
 
       return result;
    }
 
-   private static Text astolfoGradient(String text, boolean bold) {
-      MutableText result = Text.empty();
+   private static Component astolfoGradient(String text, boolean bold) {
+      MutableComponent result = Component.empty();
 
       for (int i = 0; i < text.length(); i++) {
          int color = ColorAssist.astolfo(10, i, 0.7F, 0.7F, 1.0F);
-         result.append(Text.literal(String.valueOf(text.charAt(i))).styled(style -> style.withColor(color).withBold(bold)));
+         result.append(Component.literal(String.valueOf(text.charAt(i))).withStyle(style -> style.withColor(color).withBold(bold)));
       }
 
       return result;
    }
 
-   private static Text twoColorFade(String text, int color1, int color2, boolean bold) {
-      MutableText result = Text.empty();
+   private static Component twoColorFade(String text, int color1, int color2, boolean bold) {
+      MutableComponent result = Component.empty();
       int divisor = Math.max(1, text.length() - 1);
 
       for (int i = 0; i < text.length(); i++) {
          float ratio = (float)i / (float)divisor;
          int color = ColorAssist.interpolateColor(color1, color2, ratio);
-         result.append(Text.literal(String.valueOf(text.charAt(i))).styled(style -> style.withColor(color).withBold(bold)));
+         result.append(Component.literal(String.valueOf(text.charAt(i))).withStyle(style -> style.withColor(color).withBold(bold)));
       }
 
       return result;
    }
 
-   public static Text applyPredefinedGradient(String text, String gradientName, boolean bold) {
+   public static Component applyPredefinedGradient(String text, String gradientName, boolean bold) {
       String gradient = gradientName == null ? "" : gradientName.toLowerCase();
 
-      return (Text)(switch (gradient) {
+      return (Component)(switch (gradient) {
          case "red_blue" -> applyGradient(text, TextHelper.GradientStyle.HALF_SPLIT, ColorAssist.red, ColorAssist.toColor("#0000FF"), bold);
          case "green_purple" -> applyGradient(text, TextHelper.GradientStyle.HALF_SPLIT, ColorAssist.green, ColorAssist.toColor("#800080"), bold);
          case "yellow_cyan" -> applyGradient(text, TextHelper.GradientStyle.FULL_GRADIENT, ColorAssist.yellow, ColorAssist.toColor("#00FFFF"), bold);
@@ -104,7 +104,7 @@ public class TextHelper {
          case "turquoise_blue" -> applyGradient(
          text, TextHelper.GradientStyle.FULL_GRADIENT, ColorAssist.toColor("#40E0D0"), ColorAssist.toColor("#0000FF"), bold
       );
-         default -> Text.literal(text == null ? "" : text).styled(style -> style.withColor(ColorAssist.colorForTextWhite$()).withBold(bold));
+         default -> Component.literal(text == null ? "" : text).withStyle(style -> style.withColor(ColorAssist.colorForTextWhite$()).withBold(bold));
       });
    }
 

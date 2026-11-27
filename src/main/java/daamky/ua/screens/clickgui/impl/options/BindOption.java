@@ -1,10 +1,10 @@
 package daamky.ua.screens.clickgui.impl.options;
 
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.input.KeyInput;
 import daamky.ua.api.settings.bind.KeyBind;
 import daamky.ua.api.settings.impl.BindSetting;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 
 public class BindOption extends ClickGuiOption {
    private final BindSetting setting;
@@ -22,7 +22,7 @@ public class BindOption extends ClickGuiOption {
    }
 
    @Override
-   protected void renderControl(DrawContext graphics, float x, float y, float width, float height, float scale, float alpha) {
+   protected void renderControl(GuiGraphics graphics, float x, float y, float width, float height, float scale, float alpha) {
       if (!this.listening) {
          this.key = this.setting.getValue().getDisplayName();
       }
@@ -61,7 +61,7 @@ public class BindOption extends ClickGuiOption {
    }
 
    @Override
-   public boolean mouseClicked(Click event, boolean doubled) {
+   public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
       if (this.listening) {
          KeyBind bind = KeyBind.mouse(event.button());
          this.key = bind.getDisplayName();
@@ -77,7 +77,7 @@ public class BindOption extends ClickGuiOption {
    }
 
    @Override
-   public boolean keyPressed(KeyInput event) {
+   public boolean keyPressed(KeyEvent event) {
       if (!this.listening) {
          return false;
       } else {

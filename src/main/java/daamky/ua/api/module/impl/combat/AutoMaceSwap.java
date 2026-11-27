@@ -1,10 +1,5 @@
 package daamky.ua.api.module.impl.combat;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.item.Items;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.math.Box;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.module.impl.combat.aura.target.TargetFinder;
@@ -14,6 +9,11 @@ import daamky.ua.api.settings.impl.MultiModeSetting;
 import daamky.ua.api.settings.impl.NumberSetting;
 import daamky.ua.utils.inventory.lookup.InventoryUtils;
 import daamky.ua.utils.player.PlayerSimulation;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.phys.AABB;
 
 public final class AutoMaceSwap extends Module {
    private static AutoMaceSwap instance;
@@ -60,13 +60,13 @@ public final class AutoMaceSwap extends Module {
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
-      if (client.player == null || client.world == null || client.interactionManager == null) {
+   public void onTick(Minecraft client) {
+      if (client.player == null || client.level == null || client.gameMode == null) {
          this.resetState();
-      } else if (client.currentScreen != null || client.player.isGliding() || client.player.getAbilities().flying || this.isInLiquidOrClimbable(client)) {
+      } else if (client.screen != null || client.player.isFallFlying() || client.player.getAbilities().flying || this.isInLiquidOrClimbable(client)) {
          this.resetState();
-      } else if (!client.player.isTouchingWater()) {
-         if (client.player.isOnGround()) {
+      } else if (!client.player.isInWater()) {
+         if (client.player.onGround()) {
             if (this.maceArmed) {
                this.restoreArm();
                if (this.pendingSwapSlot != -1) {
@@ -88,11 +88,11 @@ public final class AutoMaceSwap extends Module {
                if (this.target != null && this.target.isAlive()) {
                   if (this.maceArmed || this.armMace(client)) {
                      if (this.armedTimer.finished(500.0)) {
-                        if (client.player.age >= this.nextAttackTick) {
+                        if (client.player.tickCount >= this.nextAttackTick) {
                            double rangeSq = this.attackRange.getValue() * this.attackRange.getValue();
-                           if (!(client.player.squaredDistanceTo(this.target) > rangeSq)) {
+                           if (!(client.player.distanceToSqr(this.target) > rangeSq)) {
                               if (this.tryAttackWithMace(client)) {
-                                 this.nextAttackTick = client.player.age + 2;
+                                 this.nextAttackTick = client.player.tickCount + 2;
                               }
                            }
                         }
@@ -110,14 +110,14 @@ public final class AutoMaceSwap extends Module {
       this.resetState();
    }
 
-   private void updateTarget(MinecraftClient client) {
+   private void updateTarget(Minecraft client) {
       TargetFinder.EntityFilter filter = new TargetFinder.EntityFilter(this.targetType.getValue());
       LivingEntity sharedTarget = this.resolveSharedTarget(filter);
       if (sharedTarget != null && sharedTarget.isAlive()) {
          this.target = sharedTarget;
          this.targetFinder.releaseTarget();
       } else {
-         this.targetFinder.searchTargets(client.world.getEntities(), this.targetRange.getFloat(), 360.0F, this.throughWalls.getValue(), filter::isValid);
+         this.targetFinder.searchTargets(client.level.entitiesForRendering(), this.targetRange.getFloat(), 360.0F, this.throughWalls.getValue(), filter::isValid);
          this.targetFinder.validateTarget(filter::isValid);
          this.target = this.targetFinder.getCurrentTarget();
       }
@@ -145,7 +145,7 @@ public final class AutoMaceSwap extends Module {
       }
    }
 
-   private boolean armMace(MinecraftClient client) {
+   private boolean armMace(Minecraft client) {
       if (this.pendingSwapSlot != -1) {
          return this.finishPendingArmSwap(client);
       } else {
@@ -164,7 +164,7 @@ public final class AutoMaceSwap extends Module {
                } else {
                   this.maceArmed = true;
                   this.armedTimer.reset();
-                  this.nextAttackTick = client.player.age + 1;
+                  this.nextAttackTick = client.player.tickCount + 1;
                   return true;
                }
             } else {
@@ -177,26 +177,26 @@ public final class AutoMaceSwap extends Module {
       }
    }
 
-   private void scheduleArmSwap(MinecraftClient client, int slot, int button, boolean fromHotbar, int inventorySlot) {
+   private void scheduleArmSwap(Minecraft client, int slot, int button, boolean fromHotbar, int inventorySlot) {
       this.pendingSwapSlot = slot;
       this.pendingSwapButton = button;
       this.pendingStopTicks = 1;
       this.pendingArmedFromHotbar = fromHotbar;
       this.pendingArmedInventorySlot = inventorySlot;
-      this.restoreUp = client.options.forwardKey.isPressed();
-      this.restoreDown = client.options.backKey.isPressed();
-      this.restoreLeft = client.options.leftKey.isPressed();
-      this.restoreRight = client.options.rightKey.isPressed();
-      this.restoreSprint = client.options.sprintKey.isPressed();
+      this.restoreUp = client.options.keyUp.isDown();
+      this.restoreDown = client.options.keyDown.isDown();
+      this.restoreLeft = client.options.keyLeft.isDown();
+      this.restoreRight = client.options.keyRight.isDown();
+      this.restoreSprint = client.options.keySprint.isDown();
    }
 
-   private boolean finishPendingArmSwap(MinecraftClient client) {
+   private boolean finishPendingArmSwap(Minecraft client) {
       this.fullStop(client);
       if (this.pendingStopTicks > 0) {
          this.pendingStopTicks--;
          return false;
       } else {
-         InventoryUtils.click(this.pendingSwapSlot, this.pendingSwapButton, SlotActionType.SWAP);
+         InventoryUtils.click(this.pendingSwapSlot, this.pendingSwapButton, ClickType.SWAP);
          this.restoreMovement(client);
          if (this.pendingRestoreSwap) {
             this.maceArmed = false;
@@ -213,7 +213,7 @@ public final class AutoMaceSwap extends Module {
             this.armedInventorySlot = this.pendingArmedInventorySlot;
             this.maceArmed = true;
             this.armedTimer.reset();
-            this.nextAttackTick = client.player.age + 1;
+            this.nextAttackTick = client.player.tickCount + 1;
             this.pendingSwapSlot = -1;
             this.pendingSwapButton = -1;
             this.pendingRestoreSwap = false;
@@ -223,30 +223,30 @@ public final class AutoMaceSwap extends Module {
       }
    }
 
-   private void restoreMovement(MinecraftClient client) {
+   private void restoreMovement(Minecraft client) {
       if (client != null && client.options != null) {
-         client.options.forwardKey.setPressed(this.restoreUp);
-         client.options.backKey.setPressed(this.restoreDown);
-         client.options.leftKey.setPressed(this.restoreLeft);
-         client.options.rightKey.setPressed(this.restoreRight);
-         client.options.sprintKey.setPressed(this.restoreSprint);
+         client.options.keyUp.setDown(this.restoreUp);
+         client.options.keyDown.setDown(this.restoreDown);
+         client.options.keyLeft.setDown(this.restoreLeft);
+         client.options.keyRight.setDown(this.restoreRight);
+         client.options.keySprint.setDown(this.restoreSprint);
       }
    }
 
-   private void fullStop(MinecraftClient client) {
+   private void fullStop(Minecraft client) {
       if (client != null && client.player != null && client.options != null) {
-         client.options.forwardKey.setPressed(false);
-         client.options.backKey.setPressed(false);
-         client.options.leftKey.setPressed(false);
-         client.options.rightKey.setPressed(false);
-         client.options.sprintKey.setPressed(false);
-         client.options.jumpKey.setPressed(false);
+         client.options.keyUp.setDown(false);
+         client.options.keyDown.setDown(false);
+         client.options.keyLeft.setDown(false);
+         client.options.keyRight.setDown(false);
+         client.options.keySprint.setDown(false);
+         client.options.keyJump.setDown(false);
          client.player.setSprinting(false);
       }
    }
 
-   private boolean tryAttackWithMace(MinecraftClient client) {
-      return client.player != null && client.interactionManager != null && this.target != null && this.target.isAlive();
+   private boolean tryAttackWithMace(Minecraft client) {
+      return client.player != null && client.gameMode != null && this.target != null && this.target.isAlive();
    }
 
    private void restoreArm() {
@@ -267,20 +267,20 @@ public final class AutoMaceSwap extends Module {
       }
    }
 
-   private boolean isFalling(MinecraftClient client) {
+   private boolean isFalling(Minecraft client) {
       return client.player != null
-         && !client.player.isOnGround()
-         && !client.player.isTouchingWater()
+         && !client.player.onGround()
+         && !client.player.isInWater()
          && !client.player.isInLava()
-         && !client.player.isClimbing();
+         && !client.player.onClimbable();
    }
 
-   private boolean isAirborne(MinecraftClient client) {
+   private boolean isAirborne(Minecraft client) {
       return this.isFalling(client);
    }
 
-   private double estimateHeightAboveGroundBlocks(MinecraftClient client) {
-      if (client.player != null && client.world != null) {
+   private double estimateHeightAboveGroundBlocks(Minecraft client) {
+      if (client.player != null && client.level != null) {
          PlayerSimulation simulation = PlayerSimulation.fromClientPlayer(PlayerSimulation.SimulatedPlayerInput.guessInput(client.player));
          int ticksToSimulate = Math.max(1, (int)Math.ceil(10.0));
          double lowestHeight = this.sampleHeightAboveGround(client, simulation.boundingBox);
@@ -299,12 +299,12 @@ public final class AutoMaceSwap extends Module {
       }
    }
 
-   private double estimateRequiredHeightForCooldownBlocks(MinecraftClient client) {
+   private double estimateRequiredHeightForCooldownBlocks(Minecraft client) {
       if (client.player == null) {
          return 0.0;
       } else {
          PlayerSimulation simulation = PlayerSimulation.fromClientPlayer(
-            PlayerSimulation.SimulatedPlayerInput.fromClientPlayer(client.player.input.playerInput)
+            PlayerSimulation.SimulatedPlayerInput.fromClientPlayer(client.player.input.keyPresses)
          );
          double startY = simulation.pos.y;
          double cooldownMs = 500.0;
@@ -324,16 +324,16 @@ public final class AutoMaceSwap extends Module {
       }
    }
 
-   private boolean isInLiquidOrClimbable(MinecraftClient client) {
-      return client.player.isTouchingWater() || client.player.isInLava() || client.player.isClimbing();
+   private boolean isInLiquidOrClimbable(Minecraft client) {
+      return client.player.isInWater() || client.player.isInLava() || client.player.onClimbable();
    }
 
-   private double sampleHeightAboveGround(MinecraftClient client, Box box) {
+   private double sampleHeightAboveGround(Minecraft client, AABB box) {
       double maxDistance = 24.0;
       double step = 0.05;
 
       for (double distance = 0.0; distance <= maxDistance; distance += step) {
-         if (!client.world.isSpaceEmpty(client.player, box.offset(0.0, -distance, 0.0))) {
+         if (!client.level.noCollision(client.player, box.move(0.0, -distance, 0.0))) {
             return Math.max(0.0, distance - step);
          }
       }

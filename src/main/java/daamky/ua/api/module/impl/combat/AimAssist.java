@@ -1,31 +1,31 @@
 package daamky.ua.api.module.impl.combat;
 
 import java.util.concurrent.ThreadLocalRandom;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.decoration.ArmorStandEntity;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.passive.AnimalEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.AxeItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.item.MaceItem;
-import net.minecraft.item.TridentItem;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult.Type;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.RaycastContext;
-import net.minecraft.world.World;
-import net.minecraft.world.RaycastContext.FluidHandling;
-import net.minecraft.world.RaycastContext.ShapeType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.AxeItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.MaceItem;
+import net.minecraft.world.item.TridentItem;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.ClipContext.Block;
+import net.minecraft.world.level.ClipContext.Fluid;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult.Type;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.events.annotation.SubscribeEvent;
 import daamky.ua.api.events.impl.DrawEvent;
 import daamky.ua.api.module.Module;
@@ -91,7 +91,7 @@ public class AimAssist extends Module {
    private double nextPointZ;
    private long nextPointChangeAtMs;
    private double pointLerpSpeed;
-   private RegistryKey<World> worldKey;
+   private ResourceKey<Level> worldKey;
 
    public AimAssist() {
       super("Aim Assist", "Smoothly assists aiming at nearby targets.", ModuleCategory.COMBAT);
@@ -126,7 +126,7 @@ public class AimAssist extends Module {
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
+   public void onTick(Minecraft client) {
       this.enforceLockedSettings();
       long now = System.nanoTime();
       if (this.lastRenderAimNs == 0L || now - this.lastRenderAimNs > 75000000L) {
@@ -138,15 +138,15 @@ public class AimAssist extends Module {
    private void onDraw(DrawEvent event) {
       if (event.getLayer() == DrawEvent.Layer.GAME) {
          this.lastRenderAimNs = System.nanoTime();
-         this.updateAim(MinecraftClient.getInstance());
+         this.updateAim(Minecraft.getInstance());
       }
 
       this.drawFovRadius();
    }
 
-   private void updateAim(MinecraftClient client) {
-      if (client != null && client.player != null && client.world != null) {
-         RegistryKey<World> currentWorldKey = client.world.getRegistryKey();
+   private void updateAim(Minecraft client) {
+      if (client != null && client.player != null && client.level != null) {
+         ResourceKey<Level> currentWorldKey = client.level.dimension();
          if (this.worldKey == null) {
             this.worldKey = currentWorldKey;
          } else if (!this.worldKey.equals(currentWorldKey)) {
@@ -161,10 +161,10 @@ public class AimAssist extends Module {
          }
 
          if ((!this.onlyWithWeaponSetting.getValue() || this.isHoldingWeapon(client))
-            && (!this.noAimInInventorySetting.getValue() || !(client.currentScreen instanceof HandledScreen))) {
+            && (!this.noAimInInventorySetting.getValue() || !(client.screen instanceof AbstractContainerScreen))) {
             long frameNs = System.nanoTime();
             double frameScale = this.lastFrameNs > 0L ? (double)(frameNs - this.lastFrameNs) / 1.66666667E7 : 1.0;
-            frameScale = MathHelper.clamp(frameScale, 0.05, 3.0);
+            frameScale = Mth.clamp(frameScale, 0.05, 3.0);
             this.lastFrameNs = frameNs;
             LivingEntity selectedTarget = this.findTarget(client);
             if (selectedTarget == null) {
@@ -191,26 +191,26 @@ public class AimAssist extends Module {
       }
    }
 
-   private void rotateToTarget(MinecraftClient client, LivingEntity selectedTarget, double frameScale, long nowMs) {
-      Vec3d eyePos = client.player.getEyePos();
-      Vec3d targetPoint = this.getAimPoint(selectedTarget);
-      Vec3d delta = targetPoint.subtract(eyePos);
+   private void rotateToTarget(Minecraft client, LivingEntity selectedTarget, double frameScale, long nowMs) {
+      Vec3 eyePos = client.player.getEyePosition();
+      Vec3 targetPoint = this.getAimPoint(selectedTarget);
+      Vec3 delta = targetPoint.subtract(eyePos);
       double horizontal = Math.sqrt(delta.x * delta.x + delta.z * delta.z);
       if (!(horizontal < 1.0E-4)) {
-         float currentYaw = client.player.getYaw();
-         float currentPitch = client.player.getPitch();
+         float currentYaw = client.player.getYRot();
+         float currentPitch = client.player.getXRot();
          double targetYaw = Math.toDegrees(Math.atan2(-delta.x, delta.z));
-         double targetPitch = MathHelper.clamp(-Math.toDegrees(Math.atan2(delta.y, horizontal)), -90.0, 90.0);
-         double yawDiff = MathHelper.wrapDegrees(targetYaw - (double)currentYaw);
+         double targetPitch = Mth.clamp(-Math.toDegrees(Math.atan2(delta.y, horizontal)), -90.0, 90.0);
+         double yawDiff = Mth.wrapDegrees(targetYaw - (double)currentYaw);
          double pitchDiff = this.onlyYawSetting.getValue() ? 0.0 : targetPitch - (double)currentPitch;
-         double response = MathHelper.clamp(1.0 / this.smoothnessSetting.getValue(), 0.08, 1.0);
+         double response = Mth.clamp(1.0 / this.smoothnessSetting.getValue(), 0.08, 1.0);
          double maxYawStep = Math.max(0.35, this.speedSetting.getValue() * frameScale * this.speedMultiplier);
          double maxPitchStep = this.onlyYawSetting.getValue() ? 0.0 : Math.max(0.25, this.speedSetting.getValue() * frameScale * 0.8 * this.speedMultiplier);
-         double followStrength = MathHelper.clamp(0.18 * frameScale + response * 0.45, 0.08, 1.0);
+         double followStrength = Mth.clamp(0.18 * frameScale + response * 0.45, 0.08, 1.0);
          this.aimYawVelocity = this.smoothStep(this.aimYawVelocity, yawDiff * response, followStrength);
          this.aimPitchVelocity = this.smoothStep(this.aimPitchVelocity, pitchDiff * response, followStrength);
-         double yawStep = MathHelper.clamp(this.aimYawVelocity, -maxYawStep, maxYawStep);
-         double pitchStep = MathHelper.clamp(this.aimPitchVelocity, -maxPitchStep, maxPitchStep);
+         double yawStep = Mth.clamp(this.aimYawVelocity, -maxYawStep, maxYawStep);
+         double pitchStep = Mth.clamp(this.aimPitchVelocity, -maxPitchStep, maxPitchStep);
          if (this.microMovementsSetting.getValue()) {
             double secondsOnTarget = (double)(nowMs - this.targetAcquiredAtMs) / 1000.0;
             yawStep += Math.sin(this.yawWavePhase + secondsOnTarget * this.yawWaveSpeed * 6.0) * 0.08 * frameScale;
@@ -228,26 +228,26 @@ public class AimAssist extends Module {
          }
 
          float newYaw = currentYaw + (float)yawStep;
-         float newPitch = MathHelper.clamp(currentPitch + (float)pitchStep, -90.0F, 90.0F);
+         float newPitch = Mth.clamp(currentPitch + (float)pitchStep, -90.0F, 90.0F);
          if (!Float.isNaN(newYaw) && !Float.isNaN(newPitch)) {
-            client.player.setYaw(newYaw);
-            client.player.setPitch(newPitch);
+            client.player.setYRot(newYaw);
+            client.player.setXRot(newPitch);
             this.previousYawStep = yawStep;
             this.previousPitchStep = pitchStep;
          }
       }
    }
 
-   private LivingEntity findTarget(MinecraftClient client) {
+   private LivingEntity findTarget(Minecraft client) {
       double maxDistance = this.distanceSetting.getValue();
       double halfFov = this.fovSetting.getValue() / 2.0;
       boolean healthPriority = this.prioritySetting.isSelected("Health");
       LivingEntity bestTarget = null;
       double bestScore = Double.MAX_VALUE;
-      Vec3d eyePos = client.player.getEyePos();
-      Vec3d lookVec = client.player.getRotationVector();
+      Vec3 eyePos = client.player.getEyePosition();
+      Vec3 lookVec = client.player.getLookAngle();
 
-      for (Entity entity : client.world.getEntities()) {
+      for (Entity entity : client.level.entitiesForRendering()) {
          if (entity instanceof LivingEntity) {
             LivingEntity livingEntity = (LivingEntity)entity;
             if (this.isValidTarget(entity, livingEntity)) {
@@ -272,14 +272,14 @@ public class AimAssist extends Module {
    }
 
    private boolean isValidTarget(Entity entity, LivingEntity livingEntity) {
-      MinecraftClient client = MinecraftClient.getInstance();
+      Minecraft client = Minecraft.getInstance();
       if (client.player == null || entity == client.player || !entity.isAlive() || livingEntity.isInvulnerable() || livingEntity.getHealth() <= 0.0F) {
          return false;
-      } else if (this.onlyPlayersSetting.getValue() && !(entity instanceof PlayerEntity)) {
+      } else if (this.onlyPlayersSetting.getValue() && !(entity instanceof Player)) {
          return false;
       } else if (!this.hitInvisibleSetting.getValue() && livingEntity.isInvisible()) {
          return false;
-      } else if (entity instanceof PlayerEntity player) {
+      } else if (entity instanceof Player player) {
          if (AntiBot.shouldIgnore(player)) {
             return false;
          } else if (this.targetType.isSelected("Players") && !player.isCreative()) {
@@ -296,38 +296,38 @@ public class AimAssist extends Module {
          } else {
             return false;
          }
-      } else if (entity instanceof AnimalEntity) {
+      } else if (entity instanceof Animal) {
          return this.targetType.isSelected("Animals");
-      } else if (entity instanceof MobEntity) {
+      } else if (entity instanceof Mob) {
          return this.targetType.isSelected("Mobs");
       } else {
-         return entity instanceof ArmorStandEntity ? this.targetType.isSelected("Armor Stands") : false;
+         return entity instanceof ArmorStand ? this.targetType.isSelected("Armor Stands") : false;
       }
    }
 
-   private Vec3d getAimPoint(Entity entity) {
+   private Vec3 getAimPoint(Entity entity) {
       double heightFraction = this.aimHeightSetting.getValue() + (this.microMovementsSetting.getValue() ? this.heightNoise : 0.0);
       double offsetX = 0.0;
       double offsetZ = 0.0;
       if (this.multipointSetting.getValue()) {
-         double horizontalRadius = (double)entity.getWidth() * 0.5;
+         double horizontalRadius = (double)entity.getBbWidth() * 0.5;
          offsetX = this.currentPointX * horizontalRadius;
          offsetZ = this.currentPointZ * horizontalRadius;
          heightFraction += this.currentPointY;
       }
 
-      return entity.getEntityPos().add(offsetX, (double)entity.getHeight() * MathHelper.clamp(heightFraction, 0.05, 0.95), offsetZ);
+      return entity.position().add(offsetX, (double)entity.getBbHeight() * Mth.clamp(heightFraction, 0.05, 0.95), offsetZ);
    }
 
-   private double getAngleTo(Vec3d eyePos, Vec3d lookVec, Entity entity) {
-      Vec3d targetVec = this.getAimPoint(entity).subtract(eyePos);
+   private double getAngleTo(Vec3 eyePos, Vec3 lookVec, Entity entity) {
+      Vec3 targetVec = this.getAimPoint(entity).subtract(eyePos);
       double length = targetVec.length();
       if (length < 0.001) {
          return 0.0;
       } else {
-         targetVec = targetVec.multiply(1.0 / length);
+         targetVec = targetVec.scale(1.0 / length);
          double dot = lookVec.x * targetVec.x + lookVec.y * targetVec.y + lookVec.z * targetVec.z;
-         return Math.toDegrees(Math.acos(MathHelper.clamp(dot, -1.0, 1.0)));
+         return Math.toDegrees(Math.acos(Mth.clamp(dot, -1.0, 1.0)));
       }
    }
 
@@ -347,7 +347,7 @@ public class AimAssist extends Module {
             this.randomizePoint(nowMs);
          }
 
-         double lerpFactor = MathHelper.clamp(this.pointLerpSpeed * frameScale, 0.01, 1.0);
+         double lerpFactor = Mth.clamp(this.pointLerpSpeed * frameScale, 0.01, 1.0);
          this.currentPointX = lerp(this.currentPointX, this.nextPointX, lerpFactor);
          this.currentPointY = lerp(this.currentPointY, this.nextPointY, lerpFactor);
          this.currentPointZ = lerp(this.currentPointZ, this.nextPointZ, lerpFactor);
@@ -355,9 +355,9 @@ public class AimAssist extends Module {
    }
 
    private void drawFovRadius() {
-      if (this.drawFovRadiusSetting.getValue() && mc.player != null && mc.world != null && mc.currentScreen == null && mc.getWindow() != null) {
-         int width = mc.getWindow().getScaledWidth();
-         int height = mc.getWindow().getScaledHeight();
+      if (this.drawFovRadiusSetting.getValue() && mc.player != null && mc.level != null && mc.screen == null && mc.getWindow() != null) {
+         int width = mc.getWindow().getGuiScaledWidth();
+         int height = mc.getWindow().getGuiScaledHeight();
          float radius = this.calculateFovRadius(width, height);
          if (!(radius < 1.0F)) {
             float diameter = radius * 2.0F;
@@ -382,14 +382,14 @@ public class AimAssist extends Module {
          return 0.0F;
       } else {
          double aimFov = this.fovSetting.getValue();
-         double gameFov = MathHelper.clamp((double)((Integer)mc.options.getFov().getValue()).intValue(), 30.0, 170.0);
+         double gameFov = Mth.clamp((double)((Integer)mc.options.fov().get()).intValue(), 30.0, 170.0);
          if (aimFov >= gameFov) {
             return maxRadius;
          } else {
-            double aimHalf = MathHelper.clamp(aimFov * 0.5, 0.1, 89.9);
-            double gameHalf = MathHelper.clamp(gameFov * 0.5, 1.0, 89.9);
+            double aimHalf = Mth.clamp(aimFov * 0.5, 0.1, 89.9);
+            double gameHalf = Mth.clamp(gameFov * 0.5, 1.0, 89.9);
             double radius = Math.tan(Math.toRadians(aimHalf)) / Math.tan(Math.toRadians(gameHalf)) * (double)Math.min(width, height) * 0.5;
-            return (float)MathHelper.clamp(radius, 0.0, (double)maxRadius);
+            return (float)Mth.clamp(radius, 0.0, (double)maxRadius);
          }
       }
    }
@@ -441,11 +441,11 @@ public class AimAssist extends Module {
       this.pointLerpSpeed = random.nextDouble(0.008, 0.025);
    }
 
-   private boolean isHoldingWeapon(MinecraftClient client) {
+   private boolean isHoldingWeapon(Minecraft client) {
       if (client.player == null) {
          return false;
       } else {
-         Item item = client.player.getMainHandStack().getItem();
+         Item item = client.player.getMainHandItem().getItem();
          return item == Items.WOODEN_SWORD
             || item == Items.STONE_SWORD
             || item == Items.IRON_SWORD
@@ -460,7 +460,7 @@ public class AimAssist extends Module {
 
    private boolean hasArmor(LivingEntity entity) {
       for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
-         ItemStack stack = entity.getEquippedStack(slot);
+         ItemStack stack = entity.getItemBySlot(slot);
          if (!stack.isEmpty()) {
             return true;
          }
@@ -469,16 +469,16 @@ public class AimAssist extends Module {
       return false;
    }
 
-   private boolean isBlockedByWall(MinecraftClient client, Vec3d from, Vec3d to) {
-      if (client.world == null) {
+   private boolean isBlockedByWall(Minecraft client, Vec3 from, Vec3 to) {
+      if (client.level == null) {
          return false;
       } else {
-         BlockHitResult hitResult = client.world.raycast(new RaycastContext(from, to, ShapeType.COLLIDER, FluidHandling.NONE, client.player));
+         BlockHitResult hitResult = client.level.clip(new ClipContext(from, to, Block.COLLIDER, Fluid.NONE, client.player));
          if (hitResult.getType() == Type.MISS) {
             return false;
          } else {
-            BlockState state = client.world.getBlockState(hitResult.getBlockPos());
-            return state.isFullCube(client.world, hitResult.getBlockPos()) && state.isOpaqueFullCube();
+            BlockState state = client.level.getBlockState(hitResult.getBlockPos());
+            return state.isCollisionShapeFullBlock(client.level, hitResult.getBlockPos()) && state.isSolidRender();
          }
       }
    }
@@ -489,7 +489,7 @@ public class AimAssist extends Module {
    }
 
    private double smoothStep(double previousValue, double targetValue, double response) {
-      double clampedResponse = MathHelper.clamp(response, 0.05, 1.0);
+      double clampedResponse = Mth.clamp(response, 0.05, 1.0);
       return previousValue + (targetValue - previousValue) * clampedResponse;
    }
 
@@ -505,6 +505,6 @@ public class AimAssist extends Module {
    }
 
    private static double lerp(double from, double to, double progress) {
-      return from + (to - from) * MathHelper.clamp(progress, 0.0, 1.0);
+      return from + (to - from) * Mth.clamp(progress, 0.0, 1.0);
    }
 }

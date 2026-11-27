@@ -1,7 +1,7 @@
 package daamky.ua.utils.render.item;
 
-import net.minecraft.client.render.item.ItemRenderState.Glint;
-import net.minecraft.item.ItemStack;
+import net.minecraft.client.renderer.item.ItemStackRenderState.FoilType;
+import net.minecraft.world.item.ItemStack;
 
 public enum RenderItemGlintMode {
    AUTO,
@@ -11,13 +11,13 @@ public enum RenderItemGlintMode {
    private RenderItemGlintMode() {
    }
 
-   boolean enabled(ItemStack stack, Glint foilType) {
-      return this.enabled(stack, foilType != Glint.NONE);
+   boolean enabled(ItemStack stack, FoilType foilType) {
+      return this.enabled(stack, foilType != FoilType.NONE);
    }
 
    boolean enabled(ItemStack stack, boolean foil) {
       return switch (this) {
-         case AUTO -> stack != null && (stack.hasGlint() || foil);
+         case AUTO -> stack != null && (stack.hasFoil() || foil);
          case OFF -> false;
          case ON -> true;
       };

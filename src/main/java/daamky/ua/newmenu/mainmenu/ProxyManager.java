@@ -17,7 +17,7 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 public final class ProxyManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -191,8 +191,8 @@ public final class ProxyManager {
     }
 
     private void initFile() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        File baseDir = (mc != null && mc.runDirectory != null) ? mc.runDirectory : new File(".");
+        Minecraft mc = Minecraft.getInstance();
+        File baseDir = (mc != null && mc.gameDirectory != null) ? mc.gameDirectory : new File(".");
         File configDir = new File(baseDir, "config");
         if (!configDir.exists()) {
             configDir.mkdirs();

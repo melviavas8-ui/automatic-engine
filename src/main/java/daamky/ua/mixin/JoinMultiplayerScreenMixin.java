@@ -1,11 +1,5 @@
 package daamky.ua.mixin;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
-import net.minecraft.client.gui.screen.multiplayer.MultiplayerServerListWidget;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -14,13 +8,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import daamky.ua.common.proxy.Config;
 import daamky.ua.common.proxy.GuiProxy;
 import daamky.ua.common.proxy.ProxyServer;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
+import net.minecraft.client.gui.screens.multiplayer.ServerSelectionList;
+import net.minecraft.network.chat.Component;
 
-@Mixin({MultiplayerScreen.class})
+@Mixin({JoinMultiplayerScreen.class})
 public abstract class JoinMultiplayerScreenMixin extends Screen {
    @Shadow
-   protected MultiplayerServerListWidget serverListWidget;
+   protected ServerSelectionList serverSelectionList;
 
-   protected JoinMultiplayerScreenMixin(Text title) {
+   protected JoinMultiplayerScreenMixin(Component title) {
       super(title);
    }
 
@@ -29,26 +29,26 @@ public abstract class JoinMultiplayerScreenMixin extends Screen {
       at = {@At("TAIL")}
    )
    private void daamky$addProxyButton(CallbackInfo ci) {
-      MinecraftClient client = MinecraftClient.getInstance();
-      Config.selectProxyForPlayer(client.getSession().getUsername());
-      MultiplayerScreen screen = (MultiplayerScreen)(Object)this;
-      ProxyServer.proxyMenuButton = ButtonWidget.builder(
-            Text.literal(ProxyServer.getButtonText()), button -> MinecraftClient.getInstance().setScreen(new GuiProxy(screen))
+      Minecraft client = Minecraft.getInstance();
+      Config.selectProxyForPlayer(client.getUser().getName());
+      JoinMultiplayerScreen screen = (JoinMultiplayerScreen)(Object)this;
+      ProxyServer.proxyMenuButton = Button.builder(
+            Component.literal(ProxyServer.getButtonText()), button -> Minecraft.getInstance().setScreen(new GuiProxy(screen))
          )
-         .dimensions(5, 5, 110, 20)
+         .bounds(5, 5, 110, 20)
          .build();
-      this.addDrawableChild(ProxyServer.proxyMenuButton);
+      this.addRenderableWidget(ProxyServer.proxyMenuButton);
    }
 
    @Inject(
-      method = {"refreshWidgetPositions"},
+      method = {"repositionElements"},
       at = {@At("TAIL")}
    )
    private void daamky$keepServerListAboveButtons(CallbackInfo ci) {
-      if (this.serverListWidget != null) {
-         int top = this.serverListWidget.getY();
+      if (this.serverSelectionList != null) {
+         int top = this.serverSelectionList.getY();
          int bottom = Math.max(top + 40, this.height - 80);
-         this.serverListWidget.position(this.serverListWidget.getWidth(), bottom - top, this.serverListWidget.getX(), top);
+         this.serverSelectionList.updateSizeAndPosition(this.serverSelectionList.getWidth(), bottom - top, this.serverSelectionList.getX(), top);
       }
    }
 }

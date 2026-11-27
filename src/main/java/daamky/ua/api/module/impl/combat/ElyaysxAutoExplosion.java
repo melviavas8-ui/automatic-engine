@@ -8,22 +8,22 @@ import daamky.ua.api.events.types.EventPhase;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.settings.impl.BooleanSetting;
-import net.minecraft.block.Block;
-import net.minecraft.block.Blocks;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.decoration.EndCrystalEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
-import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Port of Elyaysx AutoExplosion module.
@@ -43,11 +43,11 @@ public final class ElyaysxAutoExplosion extends Module {
     private boolean isRespawnAnchorBoost;
     private int previousSelectedSlot = -1;
     private boolean restoreSelectedSlotNextTick;
-    private Box crystalSearchBounds;
+    private AABB crystalSearchBounds;
     private BlockPos pendingCrystalBasePosition;
     private boolean deferExplosionUpdate;
 
-    private Vec3d aimPoint;
+    private Vec3 aimPoint;
     private float targetYaw;
     private float targetPitch;
 
@@ -61,23 +61,23 @@ public final class ElyaysxAutoExplosion extends Module {
             return;
         }
 
-        if (!(event.getPacket() instanceof PlayerInteractBlockC2SPacket packet)) {
+        if (!(event.getPacket() instanceof ServerboundUseItemOnPacket packet)) {
             return;
         }
 
-        BlockHitResult hit = packet.getBlockHitResult();
+        BlockHitResult hit = packet.getHitResult();
         BlockPos clickedPos = hit.getBlockPos();
-        Item mainItem = mc.player.getMainHandStack().getItem();
+        Item mainItem = mc.player.getMainHandItem().getItem();
 
         // Detect placement of Obsidian / Bedrock base or Respawn Anchor
         if (mainItem == Items.OBSIDIAN || mainItem == Items.RESPAWN_ANCHOR) {
-            BlockPos placedPos = clickedPos.offset(hit.getSide());
+            BlockPos placedPos = clickedPos.relative(hit.getDirection());
             if (mainItem == Items.OBSIDIAN) {
                 int crystalSlot = findItemSlot(Items.END_CRYSTAL, true);
                 if (crystalSlot == -1) {
                     return;
                 }
-                this.pendingExplosionPosition = placedPos.toImmutable();
+                this.pendingExplosionPosition = placedPos.immutable();
                 this.activeExplosionItemSlot = crystalSlot;
                 this.isRespawnAnchorBoost = false;
             } else {
@@ -85,7 +85,7 @@ public final class ElyaysxAutoExplosion extends Module {
                 if (glowstoneSlot == -1) {
                     return;
                 }
-                this.pendingExplosionPosition = placedPos.toImmutable();
+                this.pendingExplosionPosition = placedPos.immutable();
                 this.activeExplosionItemSlot = glowstoneSlot;
                 this.isRespawnAnchorBoost = true;
             }
@@ -95,12 +95,12 @@ public final class ElyaysxAutoExplosion extends Module {
         }
 
         // Track right-click on existing Obsidian/Bedrock for crystal placement detection
-        if (mc.world != null) {
-            Block block = mc.world.getBlockState(clickedPos).getBlock();
+        if (mc.level != null) {
+            Block block = mc.level.getBlockState(clickedPos).getBlock();
             if ((block == Blocks.OBSIDIAN || block == Blocks.BEDROCK)
-                && !mc.player.getItemCooldownManager().isCoolingDown(Items.END_CRYSTAL.getDefaultStack())) {
-                this.pendingCrystalBasePosition = clickedPos.toImmutable();
-                this.crystalSearchBounds = new Box(clickedPos.up()).expand(0.1);
+                && !mc.player.getCooldowns().isOnCooldown(Items.END_CRYSTAL.getDefaultInstance())) {
+                this.pendingCrystalBasePosition = clickedPos.immutable();
+                this.crystalSearchBounds = new AABB(clickedPos.above()).inflate(0.1);
             }
         }
     }
@@ -115,8 +115,8 @@ public final class ElyaysxAutoExplosion extends Module {
         }
 
         // Instant aim for precise placement / attack (can be made smooth later if needed)
-        mc.player.setYaw(this.targetYaw);
-        mc.player.setPitch(MathHelper.clamp(this.targetPitch, -90.0f, 90.0f));
+        mc.player.setYRot(this.targetYaw);
+        mc.player.setXRot(Mth.clamp(this.targetPitch, -90.0f, 90.0f));
     }
 
     @SubscribeEvent
@@ -124,7 +124,7 @@ public final class ElyaysxAutoExplosion extends Module {
         if (!this.isEnabled()) {
             return;
         }
-        if (mc.player == null || mc.world == null || mc.interactionManager == null) {
+        if (mc.player == null || mc.level == null || mc.gameMode == null) {
             this.clearAll();
             return;
         }
@@ -133,7 +133,7 @@ public final class ElyaysxAutoExplosion extends Module {
         if (this.restoreSelectedSlotNextTick) {
             this.restoreSelectedSlotNextTick = false;
             if (this.previousSelectedSlot != -1) {
-                mc.player.networkHandler.sendPacket(new UpdateSelectedSlotC2SPacket(this.previousSelectedSlot));
+                mc.player.connection.send(new ServerboundSetCarriedItemPacket(this.previousSelectedSlot));
                 mc.player.getInventory().setSelectedSlot(this.previousSelectedSlot);
             }
             this.previousSelectedSlot = -1;
@@ -142,7 +142,7 @@ public final class ElyaysxAutoExplosion extends Module {
 
         // Place crystal / charge anchor
         if (this.pendingExplosionPosition != null) {
-            if (mc.world.getBlockState(this.pendingExplosionPosition).isAir()) {
+            if (mc.level.getBlockState(this.pendingExplosionPosition).isAir()) {
                 this.clearExplosionTarget();
             } else if (this.deferExplosionUpdate) {
                 this.deferExplosionUpdate = false;
@@ -162,25 +162,25 @@ public final class ElyaysxAutoExplosion extends Module {
             return;
         }
 
-        Vec3d eye = mc.player.getEyePos();
-        Vec3d closest = closestPointOnBox(eye, new Box(this.pendingExplosionPosition));
+        Vec3 eye = mc.player.getEyePosition();
+        Vec3 closest = closestPointOnBox(eye, new AABB(this.pendingExplosionPosition));
         this.setAimTarget(closest);
 
         this.previousSelectedSlot = mc.player.getInventory().getSelectedSlot();
         if (this.previousSelectedSlot != this.activeExplosionItemSlot) {
-            mc.player.networkHandler.sendPacket(new UpdateSelectedSlotC2SPacket(this.activeExplosionItemSlot));
+            mc.player.connection.send(new ServerboundSetCarriedItemPacket(this.activeExplosionItemSlot));
             mc.player.getInventory().setSelectedSlot(this.activeExplosionItemSlot);
         }
 
-        Vec3d lookDir = closest.subtract(eye).negate();
-        Direction facing = Direction.getFacing(lookDir.x, lookDir.y, lookDir.z);
+        Vec3 lookDir = closest.subtract(eye).reverse();
+        Direction facing = Direction.getApproximateNearest(lookDir.x, lookDir.y, lookDir.z);
 
-        mc.interactionManager.interactBlock(
+        mc.gameMode.useItemOn(
             mc.player,
-            Hand.MAIN_HAND,
+            InteractionHand.MAIN_HAND,
             new BlockHitResult(closest, facing, this.pendingExplosionPosition, false)
         );
-        mc.player.swingHand(Hand.MAIN_HAND);
+        mc.player.swing(InteractionHand.MAIN_HAND);
 
         this.restoreSelectedSlotNextTick = true;
 
@@ -193,8 +193,8 @@ public final class ElyaysxAutoExplosion extends Module {
             this.clearExplosionTarget();
         } else {
             // Crystal was placed — now look for it to explode
-            this.pendingCrystalBasePosition = this.pendingExplosionPosition.toImmutable();
-            this.crystalSearchBounds = new Box(this.pendingExplosionPosition.up()).expand(0.15);
+            this.pendingCrystalBasePosition = this.pendingExplosionPosition.immutable();
+            this.crystalSearchBounds = new AABB(this.pendingExplosionPosition.above()).inflate(0.15);
             this.clearExplosionTarget();
         }
     }
@@ -205,20 +205,20 @@ public final class ElyaysxAutoExplosion extends Module {
         }
 
         if (this.pendingCrystalBasePosition != null
-            && mc.world.getBlockState(this.pendingCrystalBasePosition).isAir()) {
+            && mc.level.getBlockState(this.pendingCrystalBasePosition).isAir()) {
             this.clearCrystalTracking();
             return;
         }
 
-        for (Entity entity : mc.world.getEntities()) {
-            if (!(entity instanceof EndCrystalEntity crystal)) {
+        for (Entity entity : mc.level.entitiesForRendering()) {
+            if (!(entity instanceof EndCrystal crystal)) {
                 continue;
             }
             if (!this.crystalSearchBounds.contains(crystal.getX(), crystal.getY(), crystal.getZ())) {
                 continue;
             }
 
-            BlockPos crystalBase = BlockPos.ofFloored(crystal.getX(), crystal.getY() - 1.0, crystal.getZ());
+            BlockPos crystalBase = BlockPos.containing(crystal.getX(), crystal.getY() - 1.0, crystal.getZ());
 
             if (this.avoidSelfDamage.getValue()
                 && Math.abs(mc.player.getY() - crystal.getY()) < 1.0) {
@@ -231,29 +231,29 @@ public final class ElyaysxAutoExplosion extends Module {
                 return;
             }
 
-            Vec3d eye = mc.player.getEyePos();
+            Vec3 eye = mc.player.getEyePosition();
             if (!crystal.getBoundingBox().contains(eye)) {
-                Vec3d aim = closestPointOnBox(eye, crystal.getBoundingBox());
+                Vec3 aim = closestPointOnBox(eye, crystal.getBoundingBox());
                 this.setAimTarget(aim);
             }
 
-            mc.interactionManager.attackEntity(mc.player, crystal);
-            mc.player.swingHand(Hand.MAIN_HAND);
+            mc.gameMode.attack(mc.player, crystal);
+            mc.player.swing(InteractionHand.MAIN_HAND);
             this.clearCrystalTracking();
             return;
         }
     }
 
-    private boolean containsValuableDrops(EndCrystalEntity crystal) {
-        if (!this.preserveValuableDrops.getValue() || mc.world == null) {
+    private boolean containsValuableDrops(EndCrystal crystal) {
+        if (!this.preserveValuableDrops.getValue() || mc.level == null) {
             return false;
         }
 
-        Vec3d pos = new Vec3d(crystal.getX(), crystal.getY(), crystal.getZ());
-        Box search = new Box(pos, pos).expand(6.0);
+        Vec3 pos = new Vec3(crystal.getX(), crystal.getY(), crystal.getZ());
+        AABB search = new AABB(pos, pos).inflate(6.0);
 
-        for (ItemEntity itemEntity : mc.world.getEntitiesByClass(ItemEntity.class, search, Entity::isAlive)) {
-            if (isValuableItem(itemEntity.getStack().getItem())) {
+        for (ItemEntity itemEntity : mc.level.getEntitiesOfClass(ItemEntity.class, search, Entity::isAlive)) {
+            if (isValuableItem(itemEntity.getItem().getItem())) {
                 return true;
             }
         }
@@ -268,7 +268,7 @@ public final class ElyaysxAutoExplosion extends Module {
             || item == Items.END_CRYSTAL) {
             return true;
         }
-        String key = item.getTranslationKey();
+        String key = item.getDescriptionId();
         return key != null && key.contains("netherite");
     }
 
@@ -276,28 +276,28 @@ public final class ElyaysxAutoExplosion extends Module {
         int limit = hotbarOnly ? 9 : 36;
         int found = -1;
         for (int i = 0; i < limit; i++) {
-            if (mc.player.getInventory().getStack(i).getItem() == target) {
+            if (mc.player.getInventory().getItem(i).getItem() == target) {
                 found = i;
             }
         }
         return found;
     }
 
-    private void setAimTarget(Vec3d point) {
+    private void setAimTarget(Vec3 point) {
         if (mc.player == null) {
             return;
         }
         this.aimPoint = point;
-        Vec3d diff = point.subtract(mc.player.getEyePos());
+        Vec3 diff = point.subtract(mc.player.getEyePosition());
         this.targetYaw = (float) (Math.toDegrees(Math.atan2(diff.z, diff.x)) - 90.0);
         this.targetPitch = (float) (-Math.toDegrees(Math.atan2(diff.y, Math.hypot(diff.x, diff.z))));
     }
 
-    private static Vec3d closestPointOnBox(Vec3d from, Box box) {
-        return new Vec3d(
-            MathHelper.clamp(from.x, box.minX, box.maxX),
-            MathHelper.clamp(from.y, box.minY, box.maxY),
-            MathHelper.clamp(from.z, box.minZ, box.maxZ)
+    private static Vec3 closestPointOnBox(Vec3 from, AABB box) {
+        return new Vec3(
+            Mth.clamp(from.x, box.minX, box.maxX),
+            Mth.clamp(from.y, box.minY, box.maxY),
+            Mth.clamp(from.z, box.minZ, box.maxZ)
         );
     }
 

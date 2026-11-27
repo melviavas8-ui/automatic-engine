@@ -2,12 +2,12 @@ package daamky.ua.utils.world;
 
 import it.unimi.dsi.fastutil.objects.Reference2ByteOpenHashMap;
 import java.util.function.Predicate;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.BrushableBlock;
-import net.minecraft.block.ShulkerBoxBlock;
-import net.minecraft.registry.Registries;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.BrushableBlock;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
+import net.minecraft.world.level.block.state.BlockState;
 
 /** Which blocks BlockESP looks for, their names (settings) and colors (RGB). */
 public final class BlockEspTypes {
@@ -43,7 +43,7 @@ public final class BlockEspTypes {
          map.put(Blocks.DROPPER, (byte)7);
          map.put(Blocks.FURNACE, (byte)8);
          map.put(Blocks.DECORATED_POT, (byte)10);
-         for (Block block : Registries.BLOCK) {
+         for (Block block : BuiltInRegistries.BLOCK) {
             if (block instanceof ShulkerBoxBlock) {
                map.put(block, (byte)9);
             } else if (block instanceof BrushableBlock) {

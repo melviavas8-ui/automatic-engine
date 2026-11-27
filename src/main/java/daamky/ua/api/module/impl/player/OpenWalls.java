@@ -2,16 +2,16 @@ package daamky.ua.api.module.impl.player;
 
 import java.util.HashSet;
 import java.util.Set;
-import net.minecraft.block.Block;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.ShulkerBoxBlock;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import daamky.ua.api.module.Module;
 import daamky.ua.api.module.ModuleCategory;
 import daamky.ua.api.module.impl.combat.aura.MathAngle;
@@ -31,12 +31,12 @@ public final class OpenWalls extends Module {
    }
 
    @Override
-   public void onTick(MinecraftClient client) {
-      if (client.player != null && client.world != null && client.interactionManager != null) {
-         if (client.currentScreen != null) {
+   public void onTick(Minecraft client) {
+      if (client.player != null && client.level != null && client.gameMode != null) {
+         if (client.screen != null) {
             this.usePressedLastTick = false;
          } else {
-            boolean usePressed = client.options.useKey.isPressed();
+            boolean usePressed = client.options.keyUse.isDown();
             if (!usePressed) {
                this.usePressedLastTick = false;
             } else if (!this.usePressedLastTick) {
@@ -44,10 +44,10 @@ public final class OpenWalls extends Module {
                BlockPos target = this.findOpenableBlockByLook(client, this.range.getFloat());
                if (target != null) {
                   Direction side = this.resolveClickSide(client, target);
-                  Vec3d hitVec = Vec3d.ofCenter(target).add((double)side.getOffsetX() * 0.5, (double)side.getOffsetY() * 0.5, (double)side.getOffsetZ() * 0.5);
-                  ActionResult result = client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, new BlockHitResult(hitVec, side, target, false));
-                  if (result.isAccepted()) {
-                     client.player.swingHand(Hand.MAIN_HAND);
+                  Vec3 hitVec = Vec3.atCenterOf(target).add((double)side.getStepX() * 0.5, (double)side.getStepY() * 0.5, (double)side.getStepZ() * 0.5);
+                  InteractionResult result = client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND, new BlockHitResult(hitVec, side, target, false));
+                  if (result.consumesAction()) {
+                     client.player.swing(InteractionHand.MAIN_HAND);
                   }
                }
             }
@@ -55,14 +55,14 @@ public final class OpenWalls extends Module {
       }
    }
 
-   private BlockPos findOpenableBlockByLook(MinecraftClient client, float distance) {
-      Vec3d start = client.player.getEyePos();
-      Vec3d direction = MathAngle.cameraAngle().toVector();
+   private BlockPos findOpenableBlockByLook(Minecraft client, float distance) {
+      Vec3 start = client.player.getEyePosition();
+      Vec3 direction = MathAngle.cameraAngle().toVector();
       Set<BlockPos> visited = new HashSet<>();
 
       for (double current = 0.0; current <= (double)distance; current += 0.2) {
-         BlockPos pos = BlockPos.ofFloored(start.add(direction.multiply(current)));
-         if (visited.add(pos) && this.isOpenable(client.world.getBlockState(pos).getBlock())) {
+         BlockPos pos = BlockPos.containing(start.add(direction.scale(current)));
+         if (visited.add(pos) && this.isOpenable(client.level.getBlockState(pos).getBlock())) {
             return pos;
          }
       }
@@ -70,8 +70,8 @@ public final class OpenWalls extends Module {
       return null;
    }
 
-   private Direction resolveClickSide(MinecraftClient client, BlockPos target) {
-      Vec3d toBlock = Vec3d.ofCenter(target).subtract(client.player.getEyePos());
+   private Direction resolveClickSide(Minecraft client, BlockPos target) {
+      Vec3 toBlock = Vec3.atCenterOf(target).subtract(client.player.getEyePosition());
       return nearestDirection(toBlock.x, toBlock.y, toBlock.z).getOpposite();
    }
 
