@@ -54,6 +54,7 @@ jobs:
         if: always()
         shell: bash
         run: |
+          shopt -s nullglob
           mkdir -p out
           for f in build/libs/*.jar; do
             case "$f" in *-sources.jar|*-dev.jar) ;; *) cp "$f" out/Daamky-1.21.11.jar ;; esac
@@ -61,7 +62,7 @@ jobs:
           for f in mc26/build/libs/*.jar; do
             case "$f" in *-sources.jar|*-dev.jar) ;; *) cp "$f" out/Daamky-26.3.jar ;; esac
           done
-          cp build-26.3-log.txt out/ 2>/dev/null || true
+          if [ -f build-26.3-log.txt ]; then cp build-26.3-log.txt out/; fi
           ls -la out
 
       - name: Upload build
