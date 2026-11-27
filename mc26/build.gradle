@@ -1,0 +1,70 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+// Сборка под Minecraft 26.3. Исходники берутся из общего кода (../src/main)
+// плюс файлы из mc26/overlay (они заменяют общие). Собирает всё prepare.sh.
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    // как и в основной сборке: эти jar лежат в ресурсах (jar-in-jar), для компиляции нужны на classpath
+    compileOnly fileTree(dir: '../src/main/resources/META-INF/jars', include: ['*.jar'])
+    runtimeOnly fileTree(dir: '../src/main/resources/META-INF/jars', include: ['*.jar'])
+
+    // в коде используется только аннотация lombok.Generated
+    compileOnly 'org.projectlombok:lombok:1.18.42'
+}
+
+loom {
+    accessWidenerPath = file('assembled/resources/daamky-tech.classtweaker')
+}
+
+sourceSets {
+    main {
+        java.setSrcDirs([file('assembled/java')])
+        resources.setSrcDirs([file('assembled/resources')])
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
+    options.encoding = 'UTF-8'
+    // показать все ошибки сразу, а не первые 100
+    options.compilerArgs += ['-Xmaxerrs', '5000', '-Xmaxwarns', '5000']
+}
+
+// --- запекание MSDF-шрифтов (то же, что в основной сборке) ---
+def fontsDir = file('../fonts')
+def bakedRoot = layout.buildDirectory.dir('generated/daamky-baked').get().asFile
+def bakedOut = new File(bakedRoot, 'assets/daamky/fonts')
+def javaExe = new File(System.getProperty('java.home'), 'bin/java')
+
+tasks.register('bakeDaamkyFonts', Exec) {
+    inputs.dir(fontsDir)
+    inputs.file(file('../tools/MsdfBaker.java'))
+    outputs.dir(bakedOut)
+    commandLine javaExe.absolutePath, '-Djava.awt.headless=true',
+            file('../tools/MsdfBaker.java').absolutePath,
+            fontsDir.absolutePath,
+            bakedOut.absolutePath
+}
+
+sourceSets.main.resources.srcDir(bakedRoot)
+
+tasks.named('processResources') {
+    dependsOn tasks.named('bakeDaamkyFonts')
+}

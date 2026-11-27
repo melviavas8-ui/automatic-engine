@@ -3,8 +3,9 @@ name: Daamky Build
 on:
   push:
     branches: ["**"]
+    paths-ignore:
+      - ".github/workflows/migrate-mojmap.yml"
   pull_request:
-    branches: ["**"]
   workflow_dispatch:
 
 permissions:
@@ -12,7 +13,7 @@ permissions:
 
 jobs:
   build:
-    name: Build Daamky
+    name: Build 1.21.11 + 26.3
     runs-on: ubuntu-latest
 
     steps:
@@ -25,19 +26,48 @@ jobs:
           distribution: temurin
           java-version: "21"
 
+      - name: Setup Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
       - name: Grant execute permission
-        run: chmod +x gradlew
+        run: chmod +x gradlew mc26/prepare.sh
 
-      - name: Build with Gradle
-        run: ./gradlew --no-daemon build
+      - name: Build 1.21.11
+        shell: bash
+        run: |
+          JAVA_HOME="$JAVA_HOME_21_X64" ./gradlew --no-daemon build
 
-      - name: Upload Daamky JAR
+      - name: Build 26.3
+        continue-on-error: true
+        shell: bash
+        run: |
+          ./mc26/prepare.sh
+          JAVA_HOME="$JAVA_HOME_25_X64" ./gradlew --no-daemon -p mc26 build 2>&1 | tee build-26.3-log.txt
+
+      - name: Collect jars
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p out
+          for f in build/libs/*.jar; do
+            case "$f" in *-sources.jar|*-dev.jar) ;; *) cp "$f" out/Daamky-1.21.11.jar ;; esac
+          done
+          for f in mc26/build/libs/*.jar; do
+            case "$f" in *-sources.jar|*-dev.jar) ;; *) cp "$f" out/Daamky-26.3.jar ;; esac
+          done
+          cp build-26.3-log.txt out/ 2>/dev/null || true
+          ls -la out
+
+      - name: Upload build
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: Daamky-Build
-          path: build/libs/*.jar
-          if-no-files-found: error
-          retention-days: 14
+          path: out
+          if-no-files-found: warn
