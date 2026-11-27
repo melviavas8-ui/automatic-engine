@@ -1,9 +1,14 @@
 name: Migrate to Mojang mappings (1.21.11)
 
-# Одноразовый запуск вручную: Actions -> Migrate to Mojang mappings -> Run workflow.
+# Запускается сам, когда этот файл попадает в репозиторий (любая ветка),
+# и вручную через Actions -> Run workflow (если файл в основной ветке).
 # Ничего не коммитит. Результат лежит в артефакте "mojmap-migration".
+# После получения результата файл можно удалить.
 
 on:
+  push:
+    paths:
+      - ".github/workflows/migrate-mojmap.yml"
   workflow_dispatch:
 
 permissions:
